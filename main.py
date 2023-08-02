@@ -54,9 +54,15 @@ def process_card_data(card_fetcher, spreadsheet_client, use_openai):
 
             # This will call the scryfall api again, but this time with the english card name.
             if use_openai:
-                data, game_strategy, tier = card_fetcher.get_card_info(data.get("name"))
+                    if data is not None:
+                        data, game_strategy, tier = card_fetcher.get_card_info(data.get("name"))
+                    else:
+                        logging.info("The card does not exists in scryfall api or is wrong typed.")
             else:
-                data = card_fetcher.search_card(data.get("name"))
+                if data is not None:
+                    data = card_fetcher.search_card(data.get("name"))
+                else:
+                    logging.info("The card does not exists in scryfall api or is wrong typed.")
                 game_strategy, tier = None, None
 
             if data:
