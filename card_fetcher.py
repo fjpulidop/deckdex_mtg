@@ -4,11 +4,6 @@ from typing import Any
 import openai
 
 
-# Function to return the first non-None argument
-def coalesce(*args):
-    return next((arg for arg in args if arg is not None), None)
-
-
 class CardFetcher:
     def __init__(self):
         self.api_key = os.getenv("OPENAI_API_KEY")
@@ -77,11 +72,9 @@ class CardFetcher:
     def get_card_info(self, card_name: str):
         data = self.search_card(card_name)
         if data is not None:
-            game_strategy = self.get_game_strategy(
-                coalesce(data.get("printed_text"), data.get("oracle_text"))
-            )
+            game_strategy = self.get_game_strategy(data.get("oracle_text"))
             tier = self.get_tier(
-                coalesce(data.get("printed_text"), data.get("oracle_text")),
+                data.get("oracle_text"),
                 data.get("cmc"),
                 data.get("power"),
                 data.get("toughness"),

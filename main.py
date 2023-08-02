@@ -2,7 +2,7 @@ import os
 import time
 import logging
 from dotenv import load_dotenv
-from card_fetcher import CardFetcher, coalesce
+from card_fetcher import CardFetcher
 from spreadsheet_client import SpreadsheetClient
 import gspread
 import argparse
@@ -48,20 +48,23 @@ def process_card_data(card_fetcher, spreadsheet_client, use_openai):
     for i, card in enumerate(cards, start=1):
         if i != 0 and i >= row_index_to_start:
             logging.info(f"Processing card: {card[0]}")
+
+            # First scryfall api call. Search the english card name. The english language contains more info about the cards like the price.
+            data = card_fetcher.search_card(card[0])
+
+            # This will call the scryfall api again, but this time with the english card name.
             if use_openai:
-                data, game_strategy, tier = card_fetcher.get_card_info(
-                    card[0]
-                )
+                data, game_strategy, tier = card_fetcher.get_card_info(data.get("name"))
             else:
-                data = card_fetcher.search_card(card[0])
+                data = card_fetcher.search_card(data.get("name"))
                 game_strategy, tier = None, None
 
             if data:
                 cell_values = [
                     card[0],
                     data.get("name"),
-                    coalesce(data.get("printed_type_line"), data.get("type_line")),
-                    coalesce(data.get("printed_text"), data.get("oracle_text")),
+                    data.get("type_line"),
+                    data.get("oracle_text"),
                     str(data.get("keywords")),
                     data.get("mana_cost"),
                     data.get("cmc"),
@@ -87,7 +90,9 @@ def process_card_data(card_fetcher, spreadsheet_client, use_openai):
             # If card_data has 20 items, update Google Sheets and clear card_data
             if len(card_data) == 20:
                 range_end = min(i + 1, len(cards) + 2)  # +2 because of the headers
-                range_start = gspread.utils.rowcol_to_a1(range_end - len(card_data), 1)
+                range_start = gspread.utils.rowcol_to_a1(
+                    range_end - len(card_data), 1
+                )
                 range_end = gspread.utils.rowcol_to_a1(range_end, len(cell_values))
                 spreadsheet_client.update_cells(range_start, range_end, card_data)
                 logging.info(f"Updated Google Sheets with card data for {card[0]}")
@@ -96,18 +101,22 @@ def process_card_data(card_fetcher, spreadsheet_client, use_openai):
             # Wait for 50ms to avoid overloading the Scryfall API
             time.sleep(0.05)
 
-    range_end = gspread.utils.rowcol_to_a1(range_end, len(cell_values))
-
-    # Update Google Sheets with any remaining card data
-    if card_data:
-        range_end = len(cards) + 2  # +2 because of the headers
-        range_start = gspread.utils.rowcol_to_a1(range_end - len(card_data), 1)
+    if len(cell_values) > 0:
         range_end = gspread.utils.rowcol_to_a1(range_end, len(cell_values))
-        spreadsheet_client.update_cells(range_start, range_end, card_data)
 
-    logging.info(
-        "Card search has completed and results have been saved to the Google Sheets"
-    )
+        # Update Google Sheets with any remaining card data
+        if card_data:
+            range_end = len(cards) + 1  # +2 because of the headers
+            range_start = gspread.utils.rowcol_to_a1(range_end - len(card_data), 1)
+            range_end = gspread.utils.rowcol_to_a1(range_end, len(cell_values))
+            spreadsheet_client.update_cells(range_start, range_end, card_data)
+
+
+        logging.info(
+            "Card search has completed and results have been saved to the Google Sheets"
+        )
+    else:
+        logging.info("Card search has completed and there are no data to update.")
 
 
 def main():

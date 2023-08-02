@@ -9,7 +9,9 @@ class TestMain(unittest.TestCase):
 
     @patch("main.CardFetcher")
     @patch("main.SpreadsheetClient")
-    def test_process_card_data_with_openai(self, mock_card_fetcher, mock_spreadsheet_client):
+    def test_process_card_data_with_openai(
+        self, mock_card_fetcher, mock_spreadsheet_client
+    ):
         # Configure the mock objects
         mock_spreadsheet_client.return_value.get_cards.return_value = [
             ["card1"],
@@ -33,7 +35,9 @@ class TestMain(unittest.TestCase):
 
     @patch("main.CardFetcher")
     @patch("main.SpreadsheetClient")
-    def test_process_card_data_without_openai(self, mock_card_fetcher, mock_spreadsheet_client):
+    def test_process_card_data_without_openai(
+        self, mock_card_fetcher, mock_spreadsheet_client
+    ):
         # Configure the mock objects
         mock_spreadsheet_client.return_value.get_cards.return_value = [
             ["card1"],
@@ -69,7 +73,7 @@ class TestMain(unittest.TestCase):
         process_card_data function with them.
         """
         mock_args = argparse.Namespace(use_openai=True)
-        with patch('argparse.ArgumentParser.parse_args', return_value=mock_args):
+        with patch("argparse.ArgumentParser.parse_args", return_value=mock_args):
             main()
 
         # Verify that the methods were called correctly
