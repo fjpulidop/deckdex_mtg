@@ -2,6 +2,8 @@ import os
 import requests
 from typing import Any
 import openai
+from tenacity import retry, stop_after_attempt, wait_fixed
+from loguru import logger
 
 
 class CardFetcher:
@@ -10,6 +12,7 @@ class CardFetcher:
         self.base_url = "https://api.scryfall.com"
         openai.api_key = self.api_key
 
+    @retry(stop=stop_after_attempt(3), wait=wait_fixed(1))
     def search_card(self, card_name: str) -> Any:
         try:
             response = requests.get(
@@ -17,9 +20,10 @@ class CardFetcher:
             )
             return response.json() if response.status_code == 200 else None
         except requests.exceptions.RequestException as e:
-            print(f"Error occurred while fetching card: {e}")
+            logger.info(f"Error occurred while fetching card: {e}")
             return None
 
+    @retry(stop=stop_after_attempt(3), wait=wait_fixed(1))
     def get_game_strategy(self, text: str) -> str:
         if text is None:
             text = ""
@@ -38,9 +42,10 @@ class CardFetcher:
             )
             return response.choices[0]["message"]["content"]
         except openai.api.OpenAIAPIError as e:
-            print(f"Error occurred while getting game strategy: {e}")
+            logger.info(f"Error occurred while getting game strategy: {e}")
             return None
 
+    @retry(stop=stop_after_attempt(3), wait=wait_fixed(1))
     def get_tier(self, text: str, cmc: str, power: str, toughness: str) -> str:
         if text is None:
             text = ""
@@ -66,9 +71,10 @@ class CardFetcher:
             )
             return response.choices[0]["message"]["content"]
         except openai.api.OpenAIAPIError as e:
-            print(f"Error occurred while getting card tier: {e}")
+            logger.info(f"Error occurred while getting card tier: {e}")
             return None
 
+    @retry(stop=stop_after_attempt(3), wait=wait_fixed(1))
     def get_card_info(self, card_name: str):
         data = self.search_card(card_name)
         if data is not None:
