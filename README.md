@@ -1,29 +1,28 @@
 ![Logo](images/Deckdex.png)
-# DeckDex MTG 
 
-The goal of this project is to automate the collection of information about Magic: The Gathering cards using the Scryfall API and store the information in a Google Sheet. The project also uses the OpenAI API to provide game strategies and tiers for the cards (is optional because is a paid service).
+# DeckDex MTG
 
-With the data in the Google Sheets, you will be able to create decks more easily, as well as obtain additional information about your cards, such as prices in Euros or inferences made by OpenAI about the cards themselves.
-
-In addition, this Google Sheet could be used with ChatGPT, Bard, or other artificial intelligences as a database for asking questions in the future.
+- DeckDex MTG is a project designed to automate the collection of Magic: The Gathering card information using the Scryfall API and store that information in a Google Sheet. Additionally, it optionally utilizes the OpenAI API to provide game strategies and tiers for the cards. 
+- By storing data in Google Sheets, you'll be able to build decks more easily and gain additional insights about your cards such as their prices in Euros. Plus, this Google Sheet can serve as a database for querying with artificial intelligences like ChatGPT, Bard, and others in the future.
+- It also includes a feature for updating card prices, allowing users to keep track of the market value of their card collection.
 
 ## Features
 
-1. Fetches card information via the [Scryfall API](https://scryfall.com/docs/api).
+1. Fetches card information using the [Scryfall API](https://scryfall.com/docs/api).
 2. Stores card information in a Google Sheet.
-3. Uses the OpenAI API to provide game strategies and tiers for the cards:
-   4. Game strategies: chatgpt will classify the game strategy of the card for you (aggro, control, etc).
-   5. Tiers: chatgpt will classify the card in a Tier list way for you (Top, High, Mid, Bottom).
+3. Optionally uses the OpenAI API to provide:
+   - Game strategies: ChatGPT will classify the game strategy of the card for you (aggro, control, etc).
+   - Tiers: ChatGPT will classify the card in a tier list for you (Top, High, Mid, Bottom).
 
 ## Requirements
 
-To run this project, you will need to have Python 3.6 or higher. You will also need to install the project's dependencies, which are listed in the `requirements.txt` file.
+To run this project, you'll need Python 3.6 or higher installed on your machine. You will also need to install the project's dependencies listed in the `requirements.txt` file.
 
-In addition, you will need:
+Additionally, you will need:
 
-- A JSON credentials file for authenticating with the [Google Sheets API](https://developers.google.com/sheets/api/quickstart/python) with Python.
-- An OpenAI API key.
-- A Google Sheet in your account with the next columns in the row 1:
+- A JSON credentials file for authentication with the [Google Sheets API](https://developers.google.com/sheets/api/quickstart/python) using Python.
+- An OpenAI API key (if you opt to use this feature).
+- A Google Sheet in your account with the following columns in the first row:
 ```commandline
 Name,English name,Type,Description,Keywords,Mana Cost,Cmc,Color,Identity,Colors,Strength,Resistance,Rarity,Price,Release,Date,Set ID,Set Name,Number in Set,Edhrec,Rank,Game Strategy,Tier
 ```
@@ -67,6 +66,11 @@ Or with openai api:
 
 ```commandline
 python main.py --use_openai
+```
+
+To update the prices of the cards:
+```commandline
+python main.py --update_prices
 ```
 
 ## Contributions

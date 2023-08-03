@@ -1,5 +1,5 @@
 import argparse
-from magic_card_processor import MagicCardProcessor
+from deckdex.magic_card_processor import MagicCardProcessor
 
 
 def get_args():

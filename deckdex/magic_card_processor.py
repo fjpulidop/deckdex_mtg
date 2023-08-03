@@ -1,8 +1,8 @@
 import os
 import time
 from dotenv import load_dotenv
-from card_fetcher import CardFetcher
-from spreadsheet_client import SpreadsheetClient
+from .card_fetcher import CardFetcher
+from .spreadsheet_client import SpreadsheetClient
 import gspread
 from datetime import datetime
 from tqdm import tqdm
@@ -105,7 +105,9 @@ class MagicCardProcessor:
                         data.get("power"),
                         data.get("toughness"),
                         data.get("rarity"),
-                        "N/A" if data.get("prices", {}).get("eur") is None else str.replace(data.get("prices", {}).get("eur"), ".", ","),
+                        "N/A"
+                        if data.get("prices", {}).get("eur") is None
+                        else str.replace(data.get("prices", {}).get("eur"), ".", ","),
                         data.get("released_at"),
                         data.get("set"),
                         data.get("set_name"),

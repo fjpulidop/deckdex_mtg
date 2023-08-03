@@ -42,8 +42,8 @@ class TestMain(unittest.TestCase):
         mock_processor.assert_called_once_with(True, False)
         mock_processor.return_value.process_card_data.assert_called_once()
 
-    @patch("magic_card_processor.CardFetcher")
-    @patch("magic_card_processor.SpreadsheetClient")
+    @patch("deckdex.magic_card_processor.CardFetcher")
+    @patch("deckdex.magic_card_processor.SpreadsheetClient")
     def test_update_prices_data(self, mock_spreadsheet_client, mock_card_fetcher):
         # Configure the mock objects
         mock_spreadsheet_client.return_value.get_all_cards_prices.return_value = [

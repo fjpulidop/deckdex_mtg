@@ -1,7 +1,7 @@
 import unittest
 from unittest.mock import patch, MagicMock
 import openai
-from card_fetcher import CardFetcher
+from deckdex.card_fetcher import CardFetcher
 
 
 class TestCardFetcher(unittest.TestCase):

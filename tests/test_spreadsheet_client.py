@@ -1,6 +1,6 @@
 import unittest
 from unittest.mock import patch, MagicMock
-from spreadsheet_client import SpreadsheetClient
+from deckdex.spreadsheet_client import SpreadsheetClient
 from oauth2client.service_account import ServiceAccountCredentials
 
 
