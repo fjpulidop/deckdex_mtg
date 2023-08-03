@@ -18,7 +18,7 @@ To work with this project, you need to have the following installed:
 Clone this repository to your local machine using the following command:
 
 ```commandline
-git clone https://github.com/deckdex_mtg/deckdex.git
+git clone https://github.com/fjpulidop/deckdex_mtg.git
 ```
 
 ### Step 2: Navigate to the project directory
