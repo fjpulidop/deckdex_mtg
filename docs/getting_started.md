@@ -18,13 +18,13 @@ To work with this project, you need to have the following installed:
 Clone this repository to your local machine using the following command:
 
 ```commandline
-git clone https://github.com/username/deckdex.git
+git clone https://github.com/deckdex_mtg/deckdex.git
 ```
 
 ### Step 2: Navigate to the project directory
 Change your current directory to the project's directory:
 ```commandline
-cd deckdex
+cd deckdex_mtg
 ```
 
 ### Step 3: Create a virtual environment
