@@ -79,7 +79,7 @@ def process_card_data(card_fetcher, spreadsheet_client, use_openai):
                     data.get("power"),
                     data.get("toughness"),
                     data.get("rarity"),
-                    data.get("prices", {}).get("eur"),
+                    str.replace(data.get("prices", {}).get("eur"), ".", ","),
                     data.get("released_at"),
                     data.get("set"),
                     data.get("set_name"),
