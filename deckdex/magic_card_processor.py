@@ -127,7 +127,7 @@ class MagicCardProcessor:
                     range_start = gspread.utils.rowcol_to_a1(
                         range_end - len(card_data), 1
                     )
-                    range_end = gspread.utils.rowcol_to_a1(range_end, len(cell_values))
+                    range_end = gspread.utils.rowcol_to_a1(int(str.replace(range_end, "T", "")), len(cell_values))
                     self.spreadsheet_client.update_cells(
                         range_start, range_end, card_data
                     )
@@ -138,8 +138,6 @@ class MagicCardProcessor:
                 time.sleep(0.05)
 
         if len(cell_values) > 0:
-            range_end = gspread.utils.rowcol_to_a1(range_end, len(cell_values))
-
             # Update Google Sheets with any remaining card data
             if card_data:
                 range_end = len(cards) + 1  # +2 because of the headers
