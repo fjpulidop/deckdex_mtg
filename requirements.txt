@@ -7,3 +7,4 @@ tqdm==4.65.0
 loguru==0.7.0
 tenacity==8.2.2
 rapidfuzz
+pyyaml==6.0.1

@@ -1,0 +1,78 @@
+# DeckDex MTG Configuration
+# Use --profile to select environment (default, development, production)
+
+# ============================================================
+# DEFAULT PROFILE (current production values)
+# ============================================================
+default:
+  processing:
+    batch_size: 20                    # Cards per batch
+    max_workers: 4                    # Parallel workers (1-10)
+    api_delay: 0.1                    # Seconds between API calls
+    write_buffer_batches: 3           # Batches before writing to sheets
+  
+  api:
+    scryfall:
+      max_retries: 3                  # Retry attempts for failed requests
+      retry_delay: 0.5                # Base delay between retries (seconds)
+      timeout: 10.0                   # Request timeout (seconds)
+    
+    google_sheets:
+      batch_size: 500                 # Internal batch size for sheet updates
+      max_retries: 5                  # Retry attempts for quota errors
+      retry_delay: 2.0                # Base delay for exponential backoff
+      sheet_name: "magic"             # Default spreadsheet name
+      worksheet_name: "cards"         # Default worksheet name
+    
+    openai:
+      enabled: false                  # Enable OpenAI enrichment
+      model: "gpt-3.5-turbo"          # OpenAI model to use
+      max_tokens: 150                 # Max tokens per completion
+      temperature: 0.7                # Creativity (0.0-1.0)
+      max_retries: 3                  # Retry attempts for rate limits
+
+# ============================================================
+# DEVELOPMENT PROFILE (conservative settings for debugging)
+# ============================================================
+development:
+  processing:
+    batch_size: 10                    # Smaller batches for easier debugging
+    max_workers: 2                    # Less parallelism = clearer log output
+    api_delay: 0.2                    # More conservative rate limiting
+    write_buffer_batches: 2           # Write more frequently (less data loss on errors)
+  
+  api:
+    scryfall:
+      max_retries: 2                  # Fail faster in development
+      timeout: 5.0                    # Shorter timeout for faster feedback
+    
+    google_sheets:
+      batch_size: 100                 # Smaller batches for testing
+      max_retries: 2                  # Fail faster in development
+    
+    openai:
+      max_tokens: 100                 # Cheaper API calls for development
+
+# ============================================================
+# PRODUCTION PROFILE (optimized for throughput with 1000s cards)
+# ============================================================
+production:
+  processing:
+    batch_size: 50                    # Larger batches for efficiency
+    max_workers: 8                    # Maximum parallelism
+    api_delay: 0.05                   # Aggressive (close to Scryfall 10 req/s limit)
+    write_buffer_batches: 5           # Larger buffer = fewer Google Sheets API calls
+  
+  api:
+    scryfall:
+      max_retries: 5                  # More resilient to transient errors
+      retry_delay: 1.0                # More patient retry strategy
+      timeout: 15.0                   # Longer timeout for slow networks
+    
+    google_sheets:
+      batch_size: 500                 # Maximum batch size
+      max_retries: 10                 # Very resilient to quota issues
+      retry_delay: 3.0                # More aggressive backoff for production
+    
+    openai:
+      max_retries: 5                  # More resilient to rate limits

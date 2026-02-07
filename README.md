@@ -53,6 +53,141 @@ OPENAI_MODEL=gpt-3.5-turbo
 
 Note: `OPENAI_MODEL` is optional and defaults to `gpt-3.5-turbo`. You can change it to other models like `gpt-4` if needed.
 
+## Configuration
+
+DeckDex MTG uses a flexible configuration system that supports multiple environments and easy parameter tuning.
+
+### Configuration Files
+
+The configuration is managed through `config.yaml` with three built-in profiles:
+
+- **default**: Balanced settings for general use (current production values)
+- **development**: Conservative settings for local development and debugging
+- **production**: Aggressive settings optimized for processing thousands of cards
+
+### Configuration Priority
+
+Configuration values are applied in this order (low to high priority):
+
+1. **YAML configuration file** (`config.yaml`)
+2. **Environment variables** (DECKDEX_* prefix)
+3. **CLI flags** (highest priority)
+
+### Using Profiles
+
+Select a profile with the `--profile` flag:
+
+```commandline
+# Use default profile (balanced)
+python main.py
+
+# Use development profile (conservative, easier debugging)
+python main.py --profile development
+
+# Use production profile (optimized for thousands of cards)
+python main.py --profile production
+```
+
+**Profile Comparison:**
+
+| Setting | Default | Development | Production |
+|---------|---------|-------------|------------|
+| Batch Size | 20 | 10 | 50 |
+| Workers | 4 | 2 | 8 |
+| API Delay | 0.1s | 0.2s | 0.05s |
+| Write Buffer | 3 batches | 2 batches | 5 batches |
+
+### Environment Variable Overrides
+
+Override any configuration value using environment variables with the `DECKDEX_` prefix:
+
+```commandline
+# Override processing settings
+export DECKDEX_PROCESSING_BATCH_SIZE=30
+export DECKDEX_PROCESSING_MAX_WORKERS=6
+
+# Override API settings
+export DECKDEX_SCRYFALL_MAX_RETRIES=5
+export DECKDEX_OPENAI_ENABLED=true
+
+# Run with overrides
+python main.py
+```
+
+### CLI Flag Overrides
+
+CLI flags have the highest priority and override both YAML and environment variables:
+
+```commandline
+# Override specific settings
+python main.py --profile production --batch-size 100 --workers 10
+
+# Mix profile with custom overrides
+python main.py --profile development --api-delay 0.15
+```
+
+### Viewing Resolved Configuration
+
+Display the final resolved configuration (after applying all overrides):
+
+```commandline
+# Show default configuration
+python main.py --show-config
+
+# Show production profile configuration
+python main.py --profile production --show-config
+
+# Show configuration with all overrides applied
+python main.py --profile production --batch-size 100 --show-config
+```
+
+### Custom Configuration File
+
+Use a custom configuration file:
+
+```commandline
+python main.py --config /path/to/custom-config.yaml --profile production
+```
+
+### Configuration Template
+
+A fully documented configuration template is available at `config.example.yaml`. Copy it to create your own custom configuration:
+
+```commandline
+cp config.example.yaml my-config.yaml
+# Edit my-config.yaml with your settings
+python main.py --config my-config.yaml
+```
+
+### Available Configuration Options
+
+**Processing Settings:**
+- `batch_size`: Number of cards per batch (default: 20)
+- `max_workers`: Parallel workers (1-10, default: 4)
+- `api_delay`: Delay between API calls in seconds (default: 0.1)
+- `write_buffer_batches`: Batches before writing to sheets (default: 3)
+
+**Scryfall API:**
+- `max_retries`: Retry attempts (default: 3)
+- `retry_delay`: Base delay between retries (default: 0.5s)
+- `timeout`: Request timeout (default: 10.0s)
+
+**Google Sheets API:**
+- `batch_size`: Internal batch size (default: 500)
+- `max_retries`: Retry attempts (default: 5)
+- `retry_delay`: Base delay for backoff (default: 2.0s)
+- `sheet_name`: Spreadsheet name (default: "magic")
+- `worksheet_name`: Worksheet name (default: "cards")
+
+**OpenAI API:**
+- `enabled`: Enable/disable OpenAI enrichment (default: false)
+- `model`: Model to use (default: "gpt-3.5-turbo")
+- `max_tokens`: Max tokens per completion (default: 150)
+- `temperature`: Creativity level 0.0-1.0 (default: 0.7)
+- `max_retries`: Retry attempts (default: 3)
+
+**Security Note:** Secrets (API keys, credentials paths) should NEVER be stored in `config.yaml`. Always use environment variables or `.env` file for sensitive data.
+
 ## Running the Tests
 
 To run the project's tests, you can use the following command:
@@ -92,6 +227,17 @@ python main.py --update_prices
 ### Advanced CLI Options
 
 The CLI supports numerous configuration options for fine-tuning performance and behavior:
+
+#### Configuration Profiles
+```commandline
+# Use pre-configured profiles
+python main.py --profile development
+python main.py --profile production
+
+# Show resolved configuration
+python main.py --show-config
+python main.py --profile production --show-config
+```
 
 #### Performance Configuration
 ```commandline
@@ -139,6 +285,9 @@ python main.py --credentials-path "/path/to/creds.json"
 
 | Option | Type | Default | Description |
 |--------|------|---------|-------------|
+| `--profile PROFILE` | str | default | Configuration profile (default, development, production) |
+| `--config PATH` | str | config.yaml | Path to custom configuration file |
+| `--show-config` | flag | false | Display resolved configuration and exit |
 | `--use_openai` | flag | false | Enable OpenAI enrichment for strategy and tier |
 | `--update_prices` | flag | false | Update only prices (not full card data) |
 | `--dry-run` | flag | false | Simulate execution without writing to Sheets |
@@ -216,6 +365,54 @@ La aplicación ofrece dos modos para actualizar los precios de las cartas:
 Ambas opciones están disponibles en la interfaz de línea de comandos.
 
 ## Migration Notes
+
+### Configuration System Migration
+
+If you have custom scripts or automation that uses DeckDex MTG, the configuration system changes are **100% backwards compatible**. All existing commands continue to work without modification.
+
+**No changes required for:**
+- `python main.py`
+- `python main.py --use_openai`
+- `python main.py --update_prices`
+- `python main.py --batch-size 50 --workers 8`
+- All existing CLI flags continue working exactly as before
+
+**Optional improvements you can make:**
+
+1. **Use profiles instead of CLI flags:**
+   ```commandline
+   # Before (still works)
+   python main.py --batch-size 50 --workers 8 --api-delay 0.05
+   
+   # After (simpler, using production profile)
+   python main.py --profile production
+   ```
+
+2. **Create custom configuration files:**
+   ```commandline
+   # Copy and customize
+   cp config.example.yaml my-config.yaml
+   
+   # Use your custom config
+   python main.py --config my-config.yaml
+   ```
+
+3. **Use environment variables for overrides:**
+   ```commandline
+   # Set once in your environment
+   export DECKDEX_PROCESSING_BATCH_SIZE=30
+   export DECKDEX_PROCESSING_MAX_WORKERS=6
+   
+   # Run without CLI flags
+   python main.py
+   ```
+
+**For CI/CD pipelines:**
+- Existing scripts work without changes
+- Consider using `--profile production` for optimized performance
+- Use `DECKDEX_*` environment variables for environment-specific settings
+
+**Breaking changes:** None. All existing functionality is preserved.
 
 ### Removal of run_cli.py
 

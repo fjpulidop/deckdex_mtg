@@ -11,32 +11,41 @@ from dotenv import load_dotenv
 from openai import OpenAI, OpenAIError, RateLimitError, APIConnectionError, AuthenticationError, BadRequestError, APIError
 from tenacity import retry, stop_after_attempt, wait_exponential, retry_if_exception_type
 
+from .config import ScryfallConfig, OpenAIConfig
+
 
 class CardFetcher:
     """Fetches card data from Scryfall API."""
     
     BASE_URL = "https://api.scryfall.com"
     
-    def __init__(self, max_retries: int = 3, retry_delay: float = 0.5):
+    def __init__(self, scryfall_config: ScryfallConfig, openai_config: OpenAIConfig):
         """Initialize the CardFetcher.
         
         Args:
-            max_retries: Maximum number of retry attempts for failed requests
-            retry_delay: Base delay in seconds between retries
+            scryfall_config: Configuration for Scryfall API
+            openai_config: Configuration for OpenAI API
         """
         load_dotenv()
-        self.max_retries = max_retries
-        self.retry_delay = retry_delay
+        self.max_retries = scryfall_config.max_retries
+        self.retry_delay = scryfall_config.retry_delay
+        self.timeout = scryfall_config.timeout
         
-        # Initialize OpenAI client if API key is present
+        # Initialize OpenAI client if enabled and API key is present
         api_key = os.getenv("OPENAI_API_KEY")
-        if api_key:
+        if openai_config.enabled and api_key:
             self.openai_client = OpenAI(api_key=api_key)
-            self.openai_model = os.getenv("OPENAI_MODEL", "gpt-3.5-turbo")
+            self.openai_model = openai_config.model
+            self.openai_max_tokens = openai_config.max_tokens
+            self.openai_temperature = openai_config.temperature
+            self.openai_max_retries = openai_config.max_retries
         else:
             self.openai_client = None
             self.openai_model = None
-            logger.info("OpenAI API key not found, card analysis will be disabled")
+            if openai_config.enabled and not api_key:
+                logger.warning("OpenAI enabled but OPENAI_API_KEY not found, card analysis will be disabled")
+            else:
+                logger.info("OpenAI disabled in config, card analysis will be disabled")
         
     def _make_request(self, url: str) -> Dict[str, Any]:
         """
@@ -53,7 +62,7 @@ class CardFetcher:
         """
         for attempt in range(self.max_retries):
             try:
-                response = requests.get(url)
+                response = requests.get(url, timeout=self.timeout)
                 response.raise_for_status()
                 return response.json()
             except requests.exceptions.RequestException as e:
@@ -200,8 +209,8 @@ class CardFetcher:
             model=self.openai_model,
             messages=messages,
             response_format={"type": "json_object"},
-            max_tokens=150,
-            temperature=0.7
+            max_tokens=self.openai_max_tokens,
+            temperature=self.openai_temperature
         )
     
     def get_card_info(self, card_name: str) -> Tuple[Dict[str, Any], Optional[str], Optional[str]]:

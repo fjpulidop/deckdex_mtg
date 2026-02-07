@@ -29,12 +29,6 @@ class Colors:
 
 
 class MagicCardProcessor:
-    # Keep class constants for backwards compatibility (deprecated, use config instead)
-    BATCH_SIZE = 20
-    MAX_RETRIES = 5
-    INITIAL_RETRY_DELAY = 1
-    API_RATE_LIMIT_DELAY = 0.05
-
     def __init__(self, config: ProcessorConfig):
         """Initialize MagicCardProcessor with configuration.
         
@@ -42,16 +36,8 @@ class MagicCardProcessor:
             config: ProcessorConfig instance with all configuration parameters
         """
         self.config = config
-        self.use_openai = config.use_openai
         self.update_prices = config.update_prices
-        
-        # Instance attributes from config (replace class constants)
-        self.batch_size = config.batch_size
-        self.max_workers = config.max_workers
-        self.api_delay = config.api_delay
-        self.max_retries = config.max_retries
         self.dry_run = config.dry_run
-        self.write_buffer_batches = config.write_buffer_batches
         
         self._initialize_clients()
         self._card_cache = {}
@@ -62,8 +48,8 @@ class MagicCardProcessor:
     def _initialize_clients(self) -> None:
         """Initialize card fetcher and spreadsheet client."""
         self.card_fetcher = CardFetcher(
-            max_retries=self.max_retries,
-            retry_delay=self.config.api_delay
+            scryfall_config=self.config.scryfall,
+            openai_config=self.config.openai
         )
         self.spreadsheet_client = ClientFactory.create_spreadsheet_client(self.config)
 
@@ -117,7 +103,7 @@ class MagicCardProcessor:
                 row_index = i + 2
                 updated_data.append((row_index, card_name, new_price))
             
-            time.sleep(self.api_delay)
+            time.sleep(self.config.processing.api_delay)
         return updated_data
 
     def _print_error_counter(self, phase: str = "search") -> None:
@@ -196,11 +182,11 @@ class MagicCardProcessor:
         
         # Configure tqdm to show only the progress bar with time estimation
         with tqdm(total=total_cards, desc="Verifying prices", unit="cards") as pbar:
-            with ThreadPoolExecutor(max_workers=self.max_workers) as executor:
+            with ThreadPoolExecutor(max_workers=self.config.processing.max_workers) as executor:
                 futures = []
-                for i in range(0, len(cards), self.batch_size):
+                for i in range(0, len(cards), self.config.processing.batch_size):
                     futures.append(
-                        executor.submit(self._update_prices_batch, cards, i, self.batch_size)
+                        executor.submit(self._update_prices_batch, cards, i, self.config.processing.batch_size)
                     )
                 
                 for future in futures:
@@ -209,13 +195,13 @@ class MagicCardProcessor:
                     batches_processed += 1
                     
                     # Update the progress bar with the processed batch size
-                    pbar.update(min(self.batch_size, total_cards - pbar.n))
+                    pbar.update(min(self.config.processing.batch_size, total_cards - pbar.n))
                     
                     # Check if we should write the buffered changes
-                    if batches_processed >= self.write_buffer_batches:
+                    if batches_processed >= self.config.processing.write_buffer_batches:
                         if pending_changes:
                             write_counter += 1
-                            cards_in_buffer = batches_processed * self.batch_size
+                            cards_in_buffer = batches_processed * self.config.processing.batch_size
                             num_written = self._write_buffered_prices(pending_changes)
                             
                             # Print progress notification
@@ -250,7 +236,7 @@ class MagicCardProcessor:
         # Write remaining pending changes (partial buffer)
         if pending_changes:
             write_counter += 1
-            cards_in_buffer = batches_processed * self.batch_size
+            cards_in_buffer = batches_processed * self.config.processing.batch_size
             num_written = self._write_buffered_prices(pending_changes)
             
             if num_written > 0:
@@ -359,8 +345,8 @@ class MagicCardProcessor:
         Args:
             batch_updates: List of batch update operations
         """
-        max_retries = self.max_retries
-        base_delay = 2  # Base delay in seconds
+        max_retries = self.config.google_sheets.max_retries
+        base_delay = self.config.google_sheets.retry_delay
         
         for attempt in range(max_retries):
             try:
@@ -388,7 +374,7 @@ class MagicCardProcessor:
         for card in cards:
             data = self._fetch_card_data(card[0])
             
-            if self.use_openai and data:
+            if self.config.openai.enabled and data:
                 data, game_strategy, tier = self.card_fetcher.get_card_info(data.get("name"))
             else:
                 game_strategy, tier = None, None
@@ -420,7 +406,7 @@ class MagicCardProcessor:
                 cell_values = [card[0]] + ["N/A"] * 19
                 
             card_data.append(cell_values)
-            time.sleep(self.api_delay)
+            time.sleep(self.config.processing.api_delay)
             
         return card_data
 
@@ -449,8 +435,8 @@ class MagicCardProcessor:
         
         # Configure tqdm to show only the progress bar with time estimation
         with tqdm(total=len(cards), desc="Processing cards", unit="cards") as pbar:
-            for i in range(0, len(cards), self.batch_size):
-                batch = cards[i:i + self.batch_size]
+            for i in range(0, len(cards), self.config.processing.batch_size):
+                batch = cards[i:i + self.config.processing.batch_size]
                 card_data = self._process_card_batch(batch, i)
                 
                 if card_data:
