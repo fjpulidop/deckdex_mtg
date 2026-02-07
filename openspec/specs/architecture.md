@@ -14,8 +14,9 @@ This document describes the overall architecture of DeckDex MTG. It is focused o
 ## High-level Components
 
 1. CLI / Interactive CLI
-   - Entrypoints: `main.py`, `run_cli.py`
-   - Orchestrates tasks, parses flags, and exposes user flows (process cards, update prices, configure credentials).
+   - Entrypoint: `main.py`
+   - Orchestrates tasks with comprehensive argument parsing for performance tuning, Google Sheets configuration, and processing control.
+   - Provides 13+ configuration options including batch-size, workers, api-delay, sheet-name, credentials-path, limit, resume-from, dry-run, verbose.
 
 2. Scryfall Fetcher
    - Responsible for querying Scryfall API, normalizing responses, and caching results.
@@ -24,6 +25,7 @@ This document describes the overall architecture of DeckDex MTG. It is focused o
 3. Google Sheets Sync
    - Translates internal card models to sheet rows and performs batched updates to minimize API calls.
    - Manages authentication via Google Service Account credentials JSON.
+   - Supports incremental price writes for better progress visibility and resilience.
 
 4. Enrichment Service (Optional)
    - Calls OpenAI to generate game strategy and tier metadata.
@@ -31,7 +33,9 @@ This document describes the overall architecture of DeckDex MTG. It is focused o
 
 5. Price Updater
    - Compares current prices with new Scryfall prices and only writes changed values.
-   - Persists minimal price history for auditing and selective updates.
+   - Uses incremental buffered writes (every 60 cards by default) to Google Sheets.
+   - Writes prices as numeric values for spreadsheet calculations.
+   - Generates CSV error reports for failed card lookups.
 
 6. Worker / Executor
    - Uses ThreadPoolExecutor for parallel processing of cards.
@@ -43,14 +47,14 @@ This document describes the overall architecture of DeckDex MTG. It is focused o
 
 ## Data Flow
 
-1. User provides a list of card names in the Google Sheet (column `Name`).
+1. User provides a list of card names in the Google Sheet (column `English name` or `Name`).
 2. CLI reads sheet rows, queues card names for processing.
 3. For each card:
    - Check cache and local persistence.
    - Fetch card data from Scryfall.
    - Optionally call OpenAI to enrich metadata.
    - Compute price delta and prepare sheet update.
-4. Batch updates are sent back to Google Sheets.
+4. Batch updates are sent back to Google Sheets incrementally (every 60 cards for price updates).
 
 ## Integration Points
 
@@ -60,10 +64,10 @@ This document describes the overall architecture of DeckDex MTG. It is focused o
 
 ## Non-functional Requirements
 
-- Performance: Parallel processing with configurable worker count.
-- Cost-efficiency: Batch updates and selective price writes to minimize API usage.
-- Reliability: Retries with exponential backoff and robust error handling.
-- Observability: CLI output and optional verbose logging; structured logs for CI runs.
+- Performance: Runtime-configurable parallel processing (workers), batch sizing, API delays, and retry attempts via CLI arguments.
+- Cost-efficiency: Batch updates and selective price writes to minimize API usage; incremental writes reduce data loss window.
+- Reliability: Retries with exponential backoff and robust error handling; CSV error reports for failed lookups.
+- Observability: Two-tier logging system with normal mode (progress bars + errors) and verbose mode (detailed per-card/batch info); dry-run mode for testing without side effects.
 
 ## Security and Secrets
 

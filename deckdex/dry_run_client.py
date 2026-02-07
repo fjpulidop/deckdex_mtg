@@ -51,12 +51,13 @@ class DryRunClient:
     
     def get_all_cards_prices(self) -> List[List[str]]:
         """Mock getting all card names and prices.
+        Uses "English name" column for lookup, with fallback to "Name" if empty.
         
         Returns:
             Empty list (dry-run doesn't need real data)
         """
         self.stats["get_all_cards_prices_calls"] += 1
-        logger.debug("DRY RUN: Would call get_all_cards_prices()")
+        logger.debug("DRY RUN: Would call get_all_cards_prices() using 'English name' column (fallback to 'Name')")
         return []
     
     def get_empty_row_index_to_start(self, column_index: int = 1) -> int:

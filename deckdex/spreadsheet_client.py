@@ -114,6 +114,7 @@ class SpreadsheetClient:
     def get_all_cards_prices(self) -> List[List[str]]:
         """
         Get all card names and their current prices.
+        Uses "English name" column for lookup, with fallback to "Name" if empty.
         
         Returns:
             List of [card_name, current_price] entries.
@@ -126,18 +127,51 @@ class SpreadsheetClient:
             # Skip header row
             data_rows = all_values[1:]
             
-            # Find the price column index
+            # Find column indices
             headers = all_values[0]
+            
+            # Find Price column
             try:
                 price_col_idx = headers.index("Price")
             except ValueError:
                 logger.warning("Price column not found, using default index 12")
                 price_col_idx = 12  # Default index for Price column (0-based)
             
+            # Find English name column (preferred) and Name column (fallback)
+            try:
+                english_name_col_idx = headers.index("English name")
+            except ValueError:
+                logger.warning("English name column not found, will use Name column only")
+                english_name_col_idx = None
+            
+            try:
+                name_col_idx = headers.index("Name")
+            except ValueError:
+                logger.warning("Name column not found, using default index 0")
+                name_col_idx = 0  # Default to first column
+            
             # Return card names and their current prices
-            # Skip empty rows
-            return [[row[0], row[price_col_idx] if price_col_idx < len(row) else "N/A"] 
-                   for row in data_rows if row and row[0]]
+            # Use English name if available and not empty, otherwise fallback to Name
+            result = []
+            for row in data_rows:
+                if not row:
+                    continue
+                
+                # Determine which name to use
+                card_name = None
+                if english_name_col_idx is not None and english_name_col_idx < len(row):
+                    card_name = row[english_name_col_idx].strip()
+                
+                # Fallback to Name column if English name is empty
+                if not card_name and name_col_idx < len(row):
+                    card_name = row[name_col_idx].strip()
+                
+                if card_name:
+                    price = row[price_col_idx] if price_col_idx < len(row) else "N/A"
+                    result.append([card_name, price])
+            
+            return result
+            
         except APIError as e:
             logger.error(f"Failed to get card prices: {e}")
             raise

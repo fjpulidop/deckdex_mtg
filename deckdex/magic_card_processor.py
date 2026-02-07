@@ -1,6 +1,7 @@
 import os
 import time
 import random
+import csv
 from typing import List, Dict, Optional, Any, Tuple
 from concurrent.futures import ThreadPoolExecutor
 from functools import lru_cache
@@ -50,6 +51,7 @@ class MagicCardProcessor:
         self.api_delay = config.api_delay
         self.max_retries = config.max_retries
         self.dry_run = config.dry_run
+        self.write_buffer_batches = config.write_buffer_batches
         
         self._initialize_clients()
         self._card_cache = {}
@@ -120,29 +122,54 @@ class MagicCardProcessor:
 
     def _print_error_counter(self, phase: str = "search") -> None:
         """
-        Print the error counter with highlighted formatting.
+        Print the error counter with single-line refresh formatting.
         
         Args:
             phase: Phase of the process (search or update)
         """
-        if self.error_count > 0 and self.error_count != self.last_error_count:
-            # Save the last displayed value to avoid unnecessary updates
-            self.last_error_count = self.error_count
+        if self.error_count > 0:
+            # Use carriage return to update the same line
+            error_msg = f"\r{Colors.BOLD}{Colors.RED}Cards not found: {self.error_count}{Colors.END}"
+            print(error_msg, end='', flush=True)
+    
+    def _save_failed_cards_csv(self) -> Optional[str]:
+        """
+        Save failed cards to a CSV file in the output/ directory.
+        
+        Returns:
+            Path to the CSV file if any cards failed, None otherwise
+        """
+        if not self.not_found_cards:
+            return None
+        
+        # Create output directory if it doesn't exist
+        output_dir = "output"
+        os.makedirs(output_dir, exist_ok=True)
+        
+        # Generate filename with timestamp
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        csv_path = os.path.join(output_dir, f"failed_cards_{timestamp}.csv")
+        
+        # Write CSV with failed cards
+        try:
+            with open(csv_path, 'w', newline='', encoding='utf-8') as csvfile:
+                writer = csv.writer(csvfile)
+                # Write header
+                writer.writerow(['card_name', 'error_type', 'timestamp'])
+                
+                # Write each failed card
+                for card_name in self.not_found_cards:
+                    writer.writerow([
+                        card_name,
+                        'not_found',
+                        datetime.now().isoformat()
+                    ])
             
-            # Create a highlighted message with colors
-            error_msg = f"\n{Colors.BOLD}{Colors.RED}⚠️ Cards not found: {self.error_count} ⚠️{Colors.END}"
-            
-            # If we have cards not found, show the last 3
-            if self.not_found_cards:
-                last_cards = self.not_found_cards[-3:]
-                cards_str = ", ".join([f"'{card}'" for card in last_cards])
-                error_msg += f"\n{Colors.YELLOW}Last not found: {cards_str}{Colors.END}"
-            
-            # Print the message on a new line to make it more visible
-            print(error_msg)
-            
-            # Force output to ensure it displays immediately
-            sys.stdout.flush()
+            logger.info(f"Failed cards saved to {csv_path}")
+            return csv_path
+        except Exception as e:
+            logger.error(f"Failed to save error CSV: {e}")
+            return None
 
     def update_prices_data(self, cards: List[List[str]]) -> None:
         """
@@ -158,11 +185,14 @@ class MagicCardProcessor:
         self.error_count = 0
         self.last_error_count = 0
         self.not_found_cards = []
-        changed_prices = []
+        pending_changes = []  # Buffer for price changes
+        batches_processed = 0  # Counter for batches since last write
+        write_counter = 0  # Counter for write notifications
         total_cards = len(cards)
+        total_prices_updated = 0  # Track total updates for final summary
         
-        # Print an initial message for the error counter
-        print(f"{Colors.BOLD}Cards not found counter: {self.error_count}{Colors.END}")
+        # Print an initial message for the error counter (will be updated in place)
+        print(f"{Colors.BOLD}Cards not found: 0{Colors.END}", end='', flush=True)
         
         # Configure tqdm to show only the progress bar with time estimation
         with tqdm(total=total_cards, desc="Verifying prices", unit="cards") as pbar:
@@ -175,11 +205,31 @@ class MagicCardProcessor:
                 
                 for future in futures:
                     batch_results = future.result()
-                    changed_prices.extend(batch_results)
+                    pending_changes.extend(batch_results)
+                    batches_processed += 1
+                    
                     # Update the progress bar with the processed batch size
                     pbar.update(min(self.batch_size, total_cards - pbar.n))
                     
-                    # No need to update here as _fetch_card_data already shows errors
+                    # Check if we should write the buffered changes
+                    if batches_processed >= self.write_buffer_batches:
+                        if pending_changes:
+                            write_counter += 1
+                            cards_in_buffer = batches_processed * self.batch_size
+                            num_written = self._write_buffered_prices(pending_changes)
+                            
+                            # Print progress notification
+                            if num_written > 0:
+                                print(f"\n{Colors.GREEN}✓ Write #{write_counter} ({cards_in_buffer} cards): {num_written} updates{Colors.END}")
+                            
+                            total_prices_updated += num_written
+                            
+                            # Reset buffer and counter
+                            pending_changes = []
+                            batches_processed = 0
+                            
+                            # Rate limiting delay
+                            time.sleep(1.5)
 
         # Ensure the error message is displayed at the end
         if self.error_count > 0:
@@ -191,72 +241,29 @@ class MagicCardProcessor:
                 if len(self.not_found_cards) > 10:
                     cards_str += f" and {len(self.not_found_cards) - 10} more..."
                 print(f"{Colors.YELLOW}Cards not found: {cards_str}{Colors.END}")
+            
+            # Save failed cards to CSV
+            csv_path = self._save_failed_cards_csv()
+            if csv_path:
+                print(f"{Colors.CYAN}📄 Failed cards saved to: {csv_path}{Colors.END}")
 
-        # If there are no price changes, we're done
-        if not changed_prices:
+        # Write remaining pending changes (partial buffer)
+        if pending_changes:
+            write_counter += 1
+            cards_in_buffer = batches_processed * self.batch_size
+            num_written = self._write_buffered_prices(pending_changes)
+            
+            if num_written > 0:
+                print(f"\n{Colors.GREEN}✓ Write #{write_counter} ({cards_in_buffer} cards): {num_written} updates{Colors.END}")
+            
+            total_prices_updated += num_written
+        
+        # Final summary
+        if total_prices_updated == 0:
             logger.info("No price changes detected.")
-            return
-            
-        logger.info(f"Found {len(changed_prices)} cards with price changes")
-        
-        # Reset the error counter for the update phase
-        self.error_count = 0
-        self.last_error_count = 0
-        
-        # Print an initial message for the update error counter
-        print(f"{Colors.BOLD}Update error counter: {self.error_count}{Colors.END}")
-        
-        # Find the price column index only once
-        price_col = self._get_price_column_index()
-        
-        # Update prices in larger batches to reduce API calls
-        batch_size = 200  # Increased batch size
-        batch_updates = []
-        
-        # Configure a new progress bar for price updates
-        with tqdm(total=len(changed_prices), desc="Updating prices", unit="cards") as pbar:
-            for row_index, card_name, new_price in changed_prices:
-                cell = gspread.utils.rowcol_to_a1(row_index, price_col)
-                batch_updates.append({
-                    'range': cell,
-                    'values': [[new_price]]
-                })
-                
-                # Update in larger batches to reduce API calls
-                if len(batch_updates) >= batch_size:
-                    try:
-                        self._batch_update_prices(batch_updates)
-                    except Exception:
-                        # If there's an error in the batch, increment the counter
-                        self.error_count += len(batch_updates)
-                    
-                    pbar.update(len(batch_updates))
-                    batch_updates = []
-                    
-                    # Update the error message below the progress bar
-                    if self.error_count > 0 and self.error_count != self.last_error_count:
-                        self._print_error_counter("update")
-                    
-                    # Add a small delay between batches to avoid hitting API limits
-                    time.sleep(1.5)
-                    
-            # Update remaining items
-            if batch_updates:
-                try:
-                    self._batch_update_prices(batch_updates)
-                except Exception:
-                    # If there's an error in the final batch, increment the counter
-                    self.error_count += len(batch_updates)
-                
-                pbar.update(len(batch_updates))
-                
-                # Update the error message below the progress bar
-                if self.error_count > 0 and self.error_count != self.last_error_count:
-                    self._print_error_counter("update")
-            
-        # Ensure the error message is displayed at the end
-        if self.error_count > 0:
-            print(f"\n{Colors.BOLD}{Colors.RED}Total update errors: {self.error_count}{Colors.END}")
+        else:
+            print(f"\n{Colors.BOLD}{Colors.GREEN}✅ Completed: {total_cards} cards verified, {total_prices_updated} prices updated{Colors.END}")
+            print(f"{Colors.CYAN}💡 To resume from here: --resume-from {total_cards + 2}{Colors.END}")
             
         logger.info(f"Price update completed in {datetime.now() - start_time}")
         
@@ -285,6 +292,65 @@ class MagicCardProcessor:
             logger.error(f"Error getting price column index: {e}")
             # Fallback to default index
             return 13
+    
+    def _convert_price_to_numeric(self, price_str: str) -> Any:
+        """
+        Convert price string to numeric value for Google Sheets.
+        
+        Args:
+            price_str: Price string (e.g., "1,50", "2.30", "N/A")
+            
+        Returns:
+            Float value if valid number, "N/A" if invalid or missing
+        """
+        if not price_str or price_str == "N/A":
+            return "N/A"
+        
+        try:
+            # Replace comma with period for European decimal format
+            normalized = price_str.replace(",", ".")
+            return float(normalized)
+        except (ValueError, AttributeError):
+            logger.warning(f"Could not convert price '{price_str}' to numeric, using 'N/A'")
+            return "N/A"
+    
+    def _write_buffered_prices(self, changes: List[Tuple[int, str, str]]) -> int:
+        """Write buffered price changes to Google Sheets as numeric values.
+        
+        Args:
+            changes: List of (row_index, card_name, new_price) tuples
+            
+        Returns:
+            Number of prices actually written
+        """
+        if not changes:
+            return 0
+            
+        try:
+            # Get the price column index (cached)
+            price_col = self._get_price_column_index()
+            
+            # Construct batch update operations with numeric values
+            batch_updates = []
+            for row_index, card_name, new_price in changes:
+                cell = gspread.utils.rowcol_to_a1(row_index, price_col)
+                # Convert price to numeric value
+                numeric_price = self._convert_price_to_numeric(new_price)
+                batch_updates.append({
+                    'range': cell,
+                    'values': [[numeric_price]]
+                })
+            
+            # Write to Google Sheets using existing retry logic
+            self._batch_update_prices(batch_updates)
+            
+            return len(changes)
+            
+        except Exception as e:
+            # Log error and continue (maintain existing error strategy)
+            logger.error(f"Failed to write buffered prices: {e}")
+            self.error_count += len(changes)
+            return 0
             
     def _batch_update_prices(self, batch_updates: List[Dict[str, Any]]) -> None:
         """
