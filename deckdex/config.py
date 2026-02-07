@@ -17,6 +17,7 @@ class ProcessorConfig:
         max_workers: Number of parallel ThreadPoolExecutor workers
         api_delay: Delay in seconds between API requests (Scryfall rate limiting)
         max_retries: Maximum retry attempts for failed API requests
+        write_buffer_batches: Number of verification batches to buffer before writing to sheets
         credentials_path: Path to Google API credentials JSON file
         sheet_name: Name of the Google spreadsheet
         worksheet_name: Name of the worksheet within the spreadsheet
@@ -35,6 +36,7 @@ class ProcessorConfig:
     max_workers: int = 4
     api_delay: float = 0.1  # 100ms = safe for 10 req/s limit
     max_retries: int = 5
+    write_buffer_batches: int = 3  # Write every N verification batches
     
     # Google Sheets settings
     credentials_path: Optional[str] = None
@@ -55,6 +57,8 @@ class ProcessorConfig:
             raise ValueError("max_retries must be >= 1")
         if self.api_delay < 0:
             raise ValueError("api_delay must be >= 0")
+        if self.write_buffer_batches < 1:
+            raise ValueError("write_buffer_batches must be >= 1")
         if self.limit is not None and self.limit <= 0:
             raise ValueError("limit must be > 0")
         if self.resume_from is not None and self.resume_from < 1:

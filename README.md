@@ -82,6 +82,13 @@ To update the prices of the cards:
 python main.py --update_prices
 ```
 
+**Price Update Behavior:**
+- The price update feature now uses **incremental writes** to Google Sheets, improving progress visibility and resilience
+- Price changes are written every 60 cards (3 batches) by default, instead of waiting until all verifications complete
+- If the process is interrupted, you can resume from where it left off using `--resume-from`
+- Maximum data loss window: 60 cards (vs. all cards in previous versions)
+- Expected execution time: ~130 seconds for 1000 cards (~25 seconds longer than before, but with much better progress tracking)
+
 ### Advanced CLI Options
 
 The CLI supports numerous configuration options for fine-tuning performance and behavior:
@@ -103,9 +110,21 @@ python main.py --dry-run --verbose
 # Process only a few cards for testing
 python main.py --limit 10 --verbose
 
-# Resume from a specific row
+# Resume from a specific row (e.g., after interruption)
 python main.py --resume-from 100
+
+# Resume price updates after interruption
+python main.py --update_prices --resume-from 350
 ```
+
+**Resuming After Interruption:**
+
+If a price update is interrupted, you'll see a hint at the end showing the exact row to resume from:
+```
+💡 To resume from here: --resume-from 450
+```
+
+This allows you to continue from where the process stopped, minimizing rework. The incremental write feature ensures that price changes are saved every 60 cards, so at most 60 cards of progress will need to be re-verified.
 
 #### Custom Google Sheets Configuration
 ```commandline
@@ -153,16 +172,23 @@ The current version of the project includes several optimizations to improve per
 
 4. **Selective Price Updates**: Only updates prices that have changed, significantly reducing API calls and processing time.
 
-5. **Robust Error Handling**: Implementation of retries with exponential backoff to handle temporary failures.
+5. **Incremental Price Writes**: Price changes are now written to Google Sheets progressively (every 60 cards) during verification, providing:
+   - Real-time progress visibility in the spreadsheet
+   - Minimal data loss on interruption (max 60 cards vs. all cards previously)
+   - Ability to resume with `--resume-from` after any interruption
+   - Clear progress notifications showing write operations
 
-6. **Static Typing**: Use of type hints to improve code quality and facilitate maintenance.
+6. **Robust Error Handling**: Implementation of retries with exponential backoff to handle temporary failures.
 
-7. **Persistent HTTP Sessions**: Reuse of HTTP connections to reduce connection establishment overhead.
+7. **Static Typing**: Use of type hints to improve code quality and facilitate maintenance.
 
-8. **API Query Optimization**: Improvement in how queries are made to the Scryfall API.
+8. **Persistent HTTP Sessions**: Reuse of HTTP connections to reduce connection establishment overhead.
 
-9. **Better Code Structure**: Clear separation of responsibilities and proper encapsulation.
-10. **Enhanced CLI**: Comprehensive command-line interface with 13+ configuration options for performance tuning and testing.
+9. **API Query Optimization**: Improvement in how queries are made to the Scryfall API.
+
+10. **Better Code Structure**: Clear separation of responsibilities and proper encapsulation.
+
+11. **Enhanced CLI**: Comprehensive command-line interface with 13+ configuration options for performance tuning and testing.
 
 These improvements result in:
 - Faster processing speed
