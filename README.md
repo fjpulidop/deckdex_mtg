@@ -13,6 +13,10 @@
 3. Optionally uses the OpenAI API to provide:
    - Game strategies: ChatGPT will classify the game strategy of the card for you (aggro, control, etc).
    - Tiers: ChatGPT will classify the card in a tier list for you (Top, High, Mid, Bottom).
+4. Selective price updates: Only updates prices that have changed, saving API calls and processing time.
+5. Provides command-line interfaces:
+   - Command-line interface for automation and scripting
+   - Interactive command-line interface for ease of use
 
 ## Requirements
 
@@ -56,13 +60,15 @@ python -m unittest discover -s tests
 
 ## Running the Project
 
-To run the project without openai api, you can use the following command:
+### Command Line Interface
+
+To run the project without OpenAI API, you can use the following command:
 
 ```commandline
 python main.py
 ```
 
-Or with openai api:
+Or with OpenAI API:
 
 ```commandline
 python main.py --use_openai
@@ -73,6 +79,52 @@ To update the prices of the cards:
 python main.py --update_prices
 ```
 
+### Interactive Command Line Interface
+
+For a more user-friendly command-line experience, you can use the interactive CLI:
+
+```commandline
+python run_cli.py
+```
+
+The interactive CLI provides a menu-driven interface with the following features:
+- Configure Google API credentials and OpenAI API key
+- Process cards with or without OpenAI
+- Update card prices
+- Simple navigation through menus
+
+<!-- Graphical interface removed: the project is terminal-only. -->
+
+## Performance Improvements
+
+The current version of the project includes several optimizations to improve performance and robustness:
+
+1. **Parallel Processing**: Implementation of `ThreadPoolExecutor` to process multiple cards simultaneously.
+
+2. **Caching System**: Use of `@lru_cache` to store API query results and avoid repeated calls.
+
+3. **Batch Processing**: Updates to Google Sheets are done in batches to reduce the number of API calls.
+
+4. **Selective Price Updates**: Only updates prices that have changed, significantly reducing API calls and processing time.
+
+5. **Robust Error Handling**: Implementation of retries with exponential backoff to handle temporary failures.
+
+6. **Static Typing**: Use of type hints to improve code quality and facilitate maintenance.
+
+7. **Persistent HTTP Sessions**: Reuse of HTTP connections to reduce connection establishment overhead.
+
+8. **API Query Optimization**: Improvement in how queries are made to the Scryfall API.
+
+9. **Better Code Structure**: Clear separation of responsibilities and proper encapsulation.
+10. **Interactive CLI**: Addition of a menu-driven command-line interface for environments without GUI support.
+
+These improvements result in:
+- Faster processing speed
+- Lower resource usage
+- Greater robustness against errors
+- Better code maintainability
+- Improved user experience
+
 ## Contributions
 
 Contributions are welcome. Please open an issue to discuss what you would like to change.
@@ -80,3 +132,13 @@ Contributions are welcome. Please open an issue to discuss what you would like t
 ## License
 
 [MIT](https://choosealicense.com/licenses/mit/)
+
+### Actualización de Precios
+
+La aplicación ofrece dos modos para actualizar los precios de las cartas:
+
+1. **Actualización selectiva (recomendada)**: Solo actualiza los precios que han cambiado desde la última actualización, comparando los precios actuales con los nuevos de Scryfall. Esta opción es más eficiente y reduce el número de solicitudes a la API.
+
+2. **Actualización completa**: Actualiza todos los precios, independientemente de si han cambiado o no.
+
+Ambas opciones están disponibles en la interfaz de línea de comandos.
