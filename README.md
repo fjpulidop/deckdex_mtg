@@ -48,7 +48,10 @@ pip install -r requirements.txt
 ```commandline
 GOOGLE_API_CREDENTIALS=/path/to/credentials.json
 OPENAI_API_KEY=your_openai_api_key
+OPENAI_MODEL=gpt-3.5-turbo
 ```
+
+Note: `OPENAI_MODEL` is optional and defaults to `gpt-3.5-turbo`. You can change it to other models like `gpt-4` if needed.
 
 ## Running the Tests
 
