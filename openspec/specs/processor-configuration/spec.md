@@ -2,121 +2,185 @@
 
 ## Summary
 
-The processor configuration system provides centralized, validated configuration for all components via a dataclass. It SHALL replace hardcoded constants with configurable parameters while maintaining sensible defaults.
+The processor configuration system provides centralized, validated configuration for all components via a hierarchical dataclass system. It SHALL replace hardcoded constants with configurable parameters organized by subsystem (processing, scryfall, google_sheets, openai) while maintaining sensible defaults and backwards compatibility.
 
 ## ADDED Requirements
 
 ### Requirement: Configuration dataclass
 
-The system SHALL define a `ProcessorConfig` dataclass in `deckdex/config.py` containing all configuration parameters.
+The system SHALL define a `ProcessorConfig` dataclass in `deckdex/config.py` containing all configuration parameters, organized into nested configurations for each subsystem.
 
 #### Scenario: Create config with defaults
 - **WHEN** code instantiates `ProcessorConfig()` with no arguments
-- **THEN** config contains default values: batch_size=20, max_workers=4, api_delay=0.1, max_retries=5
+- **THEN** config contains nested configs with default values: processing (batch_size=20, max_workers=4, api_delay=0.1), scryfall (max_retries=3, retry_delay=0.5, timeout=10.0), google_sheets (batch_size=500, max_retries=5), openai (enabled=False)
 
-#### Scenario: Create config with custom values
-- **WHEN** code instantiates `ProcessorConfig(batch_size=50, max_workers=8)`
-- **THEN** config contains batch_size=50, max_workers=8, and defaults for other fields
+#### Scenario: Create config with custom nested configs
+- **WHEN** code instantiates `ProcessorConfig(processing=ProcessingConfig(batch_size=50, max_workers=8))`
+- **THEN** config contains custom processing config and defaults for other nested configs
 
 #### Scenario: Config with all parameters
-- **WHEN** code instantiates ProcessorConfig with all parameters specified
-- **THEN** config contains all specified values
+- **WHEN** code instantiates ProcessorConfig with all nested configs specified
+- **THEN** config contains all specified nested configuration objects
+
+### Requirement: Nested configuration dataclasses
+
+The system SHALL define separate dataclasses for each subsystem configuration.
+
+#### Scenario: ProcessingConfig dataclass
+- **WHEN** code defines ProcessingConfig
+- **THEN** dataclass contains batch_size, max_workers, api_delay, write_buffer_batches fields
+
+#### Scenario: ScryfallConfig dataclass
+- **WHEN** code defines ScryfallConfig
+- **THEN** dataclass contains max_retries, retry_delay, timeout fields
+
+#### Scenario: GoogleSheetsConfig dataclass
+- **WHEN** code defines GoogleSheetsConfig
+- **THEN** dataclass contains batch_size, max_retries, retry_delay, sheet_name, worksheet_name fields
+
+#### Scenario: OpenAIConfig dataclass
+- **WHEN** code defines OpenAIConfig
+- **THEN** dataclass contains enabled, model, max_tokens, temperature, max_retries fields
 
 ### Requirement: Configuration validation
 
-The system SHALL validate configuration parameters in `__post_init__` method.
+The system SHALL validate configuration parameters in each dataclass's `__post_init__` method.
 
 #### Scenario: Valid configuration
-- **WHEN** ProcessorConfig is created with valid values
+- **WHEN** ProcessorConfig or nested config is created with valid values
 - **THEN** validation passes and object is created successfully
 
-#### Scenario: Invalid batch size
-- **WHEN** ProcessorConfig is created with batch_size <= 0
+#### Scenario: Invalid batch size (ProcessingConfig)
+- **WHEN** ProcessingConfig is created with batch_size <= 0
 - **THEN** system raises ValueError with message "batch_size must be > 0"
 
-#### Scenario: Invalid worker count low
-- **WHEN** ProcessorConfig is created with max_workers < 1
+#### Scenario: Invalid worker count low (ProcessingConfig)
+- **WHEN** ProcessingConfig is created with max_workers < 1
 - **THEN** system raises ValueError with message "max_workers must be between 1 and 10"
 
-#### Scenario: Invalid worker count high
-- **WHEN** ProcessorConfig is created with max_workers > 10
+#### Scenario: Invalid worker count high (ProcessingConfig)
+- **WHEN** ProcessingConfig is created with max_workers > 10
 - **THEN** system raises ValueError with message "max_workers must be between 1 and 10"
 
-#### Scenario: Invalid API delay
-- **WHEN** ProcessorConfig is created with api_delay < 0
+#### Scenario: Invalid API delay (ProcessingConfig)
+- **WHEN** ProcessingConfig is created with api_delay < 0
 - **THEN** system raises ValueError with message "api_delay must be >= 0"
 
-#### Scenario: Invalid max retries
-- **WHEN** ProcessorConfig is created with max_retries < 1
+#### Scenario: ScryfallConfig validation
+- **WHEN** ScryfallConfig is created with max_retries < 1
 - **THEN** system raises ValueError with message "max_retries must be >= 1"
 
-#### Scenario: Invalid limit
+#### Scenario: GoogleSheetsConfig validation
+- **WHEN** GoogleSheetsConfig is created with batch_size <= 0
+- **THEN** system raises ValueError with message "batch_size must be > 0"
+
+#### Scenario: OpenAIConfig validation
+- **WHEN** OpenAIConfig is created with temperature < 0.0 or temperature > 1.0
+- **THEN** system raises ValueError with message "temperature must be between 0.0 and 1.0"
+
+#### Scenario: Invalid limit (ProcessorConfig)
 - **WHEN** ProcessorConfig is created with limit <= 0
 - **THEN** system raises ValueError with message "limit must be > 0"
 
-#### Scenario: Invalid resume_from
+#### Scenario: Invalid resume_from (ProcessorConfig)
 - **WHEN** ProcessorConfig is created with resume_from < 1
 - **THEN** system raises ValueError with message "resume_from must be >= 1"
 
 ### Requirement: Configuration fields
 
-The system SHALL include all necessary configuration fields in ProcessorConfig.
+The system SHALL include all necessary configuration fields in ProcessorConfig, now organized into nested structures.
 
 #### Scenario: Behavioral flags
 - **WHEN** ProcessorConfig is created
-- **THEN** config includes use_openai, update_prices, dry_run, verbose as boolean fields
+- **THEN** config includes update_prices, dry_run, verbose as boolean fields (use_openai moved to openai.enabled)
 
-#### Scenario: Performance settings
+#### Scenario: Nested configurations
 - **WHEN** ProcessorConfig is created
-- **THEN** config includes batch_size, max_workers, api_delay, max_retries, write_buffer_batches as numeric fields
+- **THEN** config includes processing, scryfall, google_sheets, openai as nested config objects
 
-#### Scenario: Google Sheets settings
+#### Scenario: Credentials and control
 - **WHEN** ProcessorConfig is created
-- **THEN** config includes credentials_path, sheet_name, worksheet_name as string fields
+- **THEN** config includes credentials_path, limit, resume_from fields
 
-#### Scenario: Processing control
-- **WHEN** ProcessorConfig is created
-- **THEN** config includes limit and resume_from as optional numeric fields
+### Requirement: Backwards compatibility properties
+
+The system SHALL provide deprecated properties on ProcessorConfig that delegate to nested configs for gradual migration.
+
+#### Scenario: Legacy batch_size property
+- **WHEN** code accesses config.batch_size
+- **THEN** property returns config.processing.batch_size value and emits DeprecationWarning
+
+#### Scenario: Legacy max_workers property
+- **WHEN** code accesses config.max_workers
+- **THEN** property returns config.processing.max_workers value and emits DeprecationWarning
+
+#### Scenario: Legacy api_delay property
+- **WHEN** code accesses config.api_delay
+- **THEN** property returns config.processing.api_delay value and emits DeprecationWarning
+
+#### Scenario: Legacy use_openai property
+- **WHEN** code accesses config.use_openai
+- **THEN** property returns config.openai.enabled value and emits DeprecationWarning
+
+#### Scenario: Legacy sheet_name property
+- **WHEN** code accesses config.sheet_name
+- **THEN** property returns config.google_sheets.sheet_name value and emits DeprecationWarning
+
+#### Scenario: Legacy worksheet_name property
+- **WHEN** code accesses config.worksheet_name
+- **THEN** property returns config.google_sheets.worksheet_name value and emits DeprecationWarning
 
 ### Requirement: MagicCardProcessor integration
 
-The system SHALL modify MagicCardProcessor to accept ProcessorConfig instead of individual parameters.
+The system SHALL modify MagicCardProcessor to use nested configuration objects.
 
-#### Scenario: Initialize with config
-- **WHEN** MagicCardProcessor is instantiated with a ProcessorConfig object
-- **THEN** processor uses config values for batch_size, max_workers, api_delay, max_retries
+#### Scenario: Initialize with nested config
+- **WHEN** MagicCardProcessor is instantiated with ProcessorConfig
+- **THEN** processor uses config.processing.batch_size, config.processing.max_workers, config.processing.api_delay
+
+#### Scenario: Pass nested configs to subsystems
+- **WHEN** MagicCardProcessor initializes CardFetcher
+- **THEN** processor passes config.scryfall and config.openai to CardFetcher constructor
+
+#### Scenario: Pass GoogleSheetsConfig
+- **WHEN** MagicCardProcessor initializes SpreadsheetClient via ClientFactory
+- **THEN** factory passes config.google_sheets to SpreadsheetClient constructor
 
 #### Scenario: Replace class constants
 - **WHEN** MagicCardProcessor is instantiated
-- **THEN** processor uses instance attributes (self.batch_size, self.max_workers) instead of class constants (BATCH_SIZE, MAX_WORKERS)
+- **THEN** processor uses config.processing attributes instead of deprecated class constants
 
 #### Scenario: Access configuration
 - **WHEN** processor methods need configuration values
-- **THEN** methods access self.batch_size, self.max_workers, etc. instead of class constants
+- **THEN** methods access config.processing.batch_size, config.scryfall.max_retries, etc. instead of flat config attributes
 
 ### Requirement: Optimized defaults
 
-The system SHALL provide defaults optimized for Scryfall API rate limits and Google Sheets quotas.
+The system SHALL provide defaults optimized for Scryfall API rate limits and Google Sheets quotas, now organized by subsystem.
+
+#### Scenario: Processing defaults
+- **WHEN** ProcessingConfig uses defaults
+- **THEN** batch_size=20, max_workers=4, api_delay=0.1, write_buffer_batches=3
+
+#### Scenario: Scryfall defaults
+- **WHEN** ScryfallConfig uses defaults
+- **THEN** max_retries=3, retry_delay=0.5, timeout=10.0
+
+#### Scenario: Google Sheets defaults
+- **WHEN** GoogleSheetsConfig uses defaults
+- **THEN** batch_size=500, max_retries=5, retry_delay=2.0, sheet_name="magic", worksheet_name="cards"
+
+#### Scenario: OpenAI defaults
+- **WHEN** OpenAIConfig uses defaults
+- **THEN** enabled=false, model="gpt-3.5-turbo", max_tokens=150, temperature=0.7, max_retries=3
 
 #### Scenario: Scryfall rate limit compliance
-- **WHEN** ProcessorConfig uses default api_delay
+- **WHEN** ProcessingConfig uses default api_delay
 - **THEN** api_delay is 0.1 seconds (100ms) to stay under 10 requests/second limit
 
-#### Scenario: Batch size default
-- **WHEN** ProcessorConfig uses default batch_size
-- **THEN** batch_size is 20 for balanced memory usage and API efficiency
-
-#### Scenario: Worker count default
-- **WHEN** ProcessorConfig uses default max_workers
-- **THEN** max_workers is 4 for parallel processing without overwhelming APIs
-
-#### Scenario: Retry default
-- **WHEN** ProcessorConfig uses default max_retries
-- **THEN** max_retries is 5 for resilience without excessive delays
-
 #### Scenario: Write buffer default
-- **WHEN** ProcessorConfig uses default write_buffer_batches
-- **THEN** write_buffer_batches is 3 for balanced progress visibility and API efficiency (writes every 60 cards)
+- **WHEN** ProcessingConfig uses default write_buffer_batches
+- **THEN** write_buffer_batches is 3 for balanced progress visibility and API efficiency (writes every 60 cards with batch_size=20)
 
 ### Requirement: Type hints
 
