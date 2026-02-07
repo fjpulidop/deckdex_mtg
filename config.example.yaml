@@ -1,0 +1,136 @@
+# DeckDex MTG Configuration Example
+# Copy this file to config.yaml and adjust values as needed
+# Use --profile flag to select environment: python main.py --profile production
+
+# ============================================================
+# DEFAULT PROFILE
+# ============================================================
+# This profile contains the baseline configuration values
+# that match the current hardcoded defaults. It provides a
+# balanced setup suitable for general use.
+
+default:
+  # Processing configuration controls how cards are batched
+  # and processed in parallel
+  processing:
+    batch_size: 20                    # Number of cards per batch (recommended: 10-50)
+    max_workers: 4                    # Parallel ThreadPoolExecutor workers (range: 1-10)
+    api_delay: 0.1                    # Delay between API requests in seconds (min: 0.05 for Scryfall 10 req/s limit)
+    write_buffer_batches: 3           # Number of batches to buffer before writing to Google Sheets
+  
+  # API configuration for external services
+  api:
+    # Scryfall API settings (https://scryfall.com/docs/api)
+    scryfall:
+      max_retries: 3                  # Maximum retry attempts for failed requests
+      retry_delay: 0.5                # Base delay in seconds between retries (uses exponential backoff)
+      timeout: 10.0                   # Request timeout in seconds
+    
+    # Google Sheets API settings
+    google_sheets:
+      batch_size: 500                 # Internal batch size for sheet update operations
+      max_retries: 5                  # Maximum retry attempts for quota/rate limit errors
+      retry_delay: 2.0                # Base delay in seconds for exponential backoff
+      sheet_name: "magic"             # Default Google Sheets spreadsheet name
+      worksheet_name: "cards"         # Default worksheet name within spreadsheet
+    
+    # OpenAI API settings (optional enrichment)
+    openai:
+      enabled: false                  # Enable/disable OpenAI card analysis (requires OPENAI_API_KEY env var)
+      model: "gpt-3.5-turbo"          # OpenAI model to use (gpt-3.5-turbo, gpt-4, etc.)
+      max_tokens: 150                 # Maximum tokens per completion
+      temperature: 0.7                # Creativity level (0.0 = deterministic, 1.0 = creative)
+      max_retries: 3                  # Maximum retry attempts for rate limit errors
+
+# ============================================================
+# DEVELOPMENT PROFILE
+# ============================================================
+# This profile uses conservative settings suitable for local
+# development and debugging. Smaller batches and fewer workers
+# make it easier to follow logs and identify issues.
+#
+# Usage: python main.py --profile development
+
+development:
+  processing:
+    batch_size: 10                    # Smaller batches for easier debugging
+    max_workers: 2                    # Fewer workers = clearer log output
+    api_delay: 0.2                    # More conservative rate limiting
+    write_buffer_batches: 2           # Write more frequently (less data loss on errors)
+  
+  api:
+    scryfall:
+      max_retries: 2                  # Fail faster in development
+      timeout: 5.0                    # Shorter timeout for faster feedback
+    
+    google_sheets:
+      batch_size: 100                 # Smaller batches for testing
+      max_retries: 2                  # Fail faster in development
+    
+    openai:
+      max_tokens: 100                 # Cheaper API calls for development
+
+# ============================================================
+# PRODUCTION PROFILE
+# ============================================================
+# This profile uses aggressive settings optimized for
+# processing thousands of cards with maximum throughput.
+# Higher parallelism and larger batches maximize efficiency.
+#
+# Usage: python main.py --profile production
+
+production:
+  processing:
+    batch_size: 50                    # Larger batches for efficiency
+    max_workers: 8                    # Maximum parallelism
+    api_delay: 0.05                   # Aggressive (close to Scryfall 10 req/s limit)
+    write_buffer_batches: 5           # Larger buffer = fewer Google Sheets API calls
+  
+  api:
+    scryfall:
+      max_retries: 5                  # More resilient to transient errors
+      retry_delay: 1.0                # More patient retry strategy
+      timeout: 15.0                   # Longer timeout for slow networks
+    
+    google_sheets:
+      batch_size: 500                 # Maximum batch size
+      max_retries: 10                 # Very resilient to quota issues
+      retry_delay: 3.0                # More aggressive backoff for production
+    
+    openai:
+      max_retries: 5                  # More resilient to rate limits
+
+# ============================================================
+# CONFIGURATION OVERRIDE HIERARCHY
+# ============================================================
+# Configuration values are applied in this priority order (low to high):
+#
+# 1. YAML config file (this file)
+#    - Base: default profile
+#    - Overrides: selected profile (--profile flag)
+#
+# 2. Environment variables (DECKDEX_* prefix)
+#    Examples:
+#      export DECKDEX_PROCESSING_BATCH_SIZE=30
+#      export DECKDEX_SCRYFALL_MAX_RETRIES=5
+#      export DECKDEX_OPENAI_ENABLED=true
+#
+# 3. CLI flags (highest priority)
+#    Examples:
+#      --batch-size 100
+#      --workers 10
+#      --api-delay 0.02
+#
+# To see the final resolved configuration:
+#   python main.py --profile production --show-config
+#
+# ============================================================
+# SECRETS (NOT IN THIS FILE)
+# ============================================================
+# Secrets should NEVER be stored in config.yaml. Use environment
+# variables or .env file:
+#
+#   GOOGLE_API_CREDENTIALS=/path/to/credentials.json
+#   OPENAI_API_KEY=sk-...
+#
+# These are loaded separately and not part of the config system.

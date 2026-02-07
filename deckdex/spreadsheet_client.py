@@ -4,6 +4,8 @@ from gspread.exceptions import APIError
 from loguru import logger
 from google.oauth2.service_account import Credentials
 
+from .config import GoogleSheetsConfig
+
 
 class SpreadsheetClient:
     """Client for interacting with Google Sheets."""
@@ -13,18 +15,18 @@ class SpreadsheetClient:
         'https://www.googleapis.com/auth/drive'
     ]
     
-    def __init__(self, credentials_path: str, spreadsheet_name: str, worksheet_name: str):
+    def __init__(self, credentials_path: str, config: GoogleSheetsConfig):
         """
         Initialize the SpreadsheetClient.
         
         Args:
             credentials_path: Path to the Google API credentials file.
-            spreadsheet_name: Name of the target spreadsheet.
-            worksheet_name: Name of the target worksheet.
+            config: GoogleSheetsConfig instance with batch size, retries, delays, etc.
         """
         self.credentials_path = credentials_path
-        self.spreadsheet_name = spreadsheet_name
-        self.worksheet_name = worksheet_name
+        self.config = config
+        self.spreadsheet_name = config.sheet_name
+        self.worksheet_name = config.worksheet_name
         self._client = None
         self._worksheet = None
         self._connect()
@@ -46,8 +48,8 @@ class SpreadsheetClient:
 
     def _ensure_connection(self) -> None:
         """Ensure connection is active, reconnect if necessary with exponential backoff."""
-        max_retries = 5
-        base_delay = 2  # Base delay in seconds
+        max_retries = self.config.max_retries
+        base_delay = self.config.retry_delay
         
         for attempt in range(max_retries):
             try:
@@ -194,9 +196,9 @@ class SpreadsheetClient:
                 raise ValueError(f"Column '{column_name}' not found in worksheet")
 
             # Update column in batches to avoid rate limits
-            BATCH_SIZE = 500  # Increased batch size
-            for i in range(0, len(values), BATCH_SIZE):
-                batch = values[i:i + BATCH_SIZE]
+            batch_size = self.config.batch_size
+            for i in range(0, len(values), batch_size):
+                batch = values[i:i + batch_size]
                 cells = []
                 for row_idx, value in enumerate(batch, start=2 + i):
                     cells.append({
@@ -208,11 +210,11 @@ class SpreadsheetClient:
                 self._batch_update_with_retry(cells)
                 
                 # Add a delay between batches to avoid hitting rate limits
-                if i + BATCH_SIZE < len(values):
+                if i + batch_size < len(values):
                     import time
-                    time.sleep(2)  # 2 second delay between batches
+                    time.sleep(self.config.retry_delay)
                 
-                logger.debug(f"Updated {len(batch)} values in column '{column_name}' (batch {i//BATCH_SIZE + 1}/{(len(values) + BATCH_SIZE - 1)//BATCH_SIZE})")
+                logger.debug(f"Updated {len(batch)} values in column '{column_name}' (batch {i//batch_size + 1}/{(len(values) + batch_size - 1)//batch_size})")
 
         except Exception as e:
             logger.error(f"Failed to update column '{column_name}': {e}")
@@ -228,8 +230,8 @@ class SpreadsheetClient:
         import time
         import random
         
-        max_retries = 5
-        base_delay = 2  # Base delay in seconds
+        max_retries = self.config.max_retries
+        base_delay = self.config.retry_delay
         
         for attempt in range(max_retries):
             try:
@@ -266,9 +268,9 @@ class SpreadsheetClient:
             # For large updates, split into smaller batches
             if len(values) > 100:
                 logger.info(f"Large update detected ({len(values)} rows). Splitting into batches.")
-                BATCH_SIZE = 50
-                for i in range(0, len(values), BATCH_SIZE):
-                    batch = values[i:i + BATCH_SIZE]
+                batch_size = 50  # Use smaller batch for row updates
+                for i in range(0, len(values), batch_size):
+                    batch = values[i:i + batch_size]
                     # Calculate the batch range
                     start_row = int(''.join(filter(str.isdigit, range_start))) + i
                     end_row = min(start_row + len(batch) - 1, int(''.join(filter(str.isdigit, range_end))))
@@ -280,11 +282,11 @@ class SpreadsheetClient:
                     self._update_range_with_retry(batch_range, batch)
                     
                     # Add a delay between batches
-                    if i + BATCH_SIZE < len(values):
+                    if i + batch_size < len(values):
                         import time
-                        time.sleep(2)  # 2 second delay between batches
+                        time.sleep(self.config.retry_delay)
                     
-                    logger.debug(f"Updated batch {i//BATCH_SIZE + 1}/{(len(values) + BATCH_SIZE - 1)//BATCH_SIZE} in range {batch_range}")
+                    logger.debug(f"Updated batch {i//batch_size + 1}/{(len(values) + batch_size - 1)//batch_size} in range {batch_range}")
             else:
                 # For smaller updates, update all at once
                 self._update_range_with_retry(cell_range, values)
@@ -305,8 +307,8 @@ class SpreadsheetClient:
         import time
         import random
         
-        max_retries = 5
-        base_delay = 2  # Base delay in seconds
+        max_retries = self.config.max_retries
+        base_delay = self.config.retry_delay
         
         for attempt in range(max_retries):
             try:

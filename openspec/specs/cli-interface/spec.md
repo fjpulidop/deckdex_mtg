@@ -141,3 +141,79 @@ The system SHALL allow combining multiple arguments in a single invocation.
 #### Scenario: Custom sheet workflow
 - **WHEN** user runs `python main.py --sheet-name "legacy" --worksheet-name "old_cards" --use_openai`
 - **THEN** system processes specified sheet with OpenAI enrichment
+
+### Requirement: Profile selection flag
+
+The system SHALL accept a --profile flag to select configuration profile.
+
+#### Scenario: Select development profile
+- **WHEN** user runs `python main.py --profile development`
+- **THEN** system loads development profile from config.yaml with conservative settings
+
+#### Scenario: Select production profile
+- **WHEN** user runs `python main.py --profile production`
+- **THEN** system loads production profile from config.yaml with aggressive settings
+
+#### Scenario: Default profile
+- **WHEN** user runs `python main.py` without --profile flag
+- **THEN** system loads default profile from config.yaml
+
+#### Scenario: Invalid profile name
+- **WHEN** user runs `python main.py --profile nonexistent`
+- **THEN** system logs warning and falls back to default profile
+
+### Requirement: Custom configuration file flag
+
+The system SHALL accept a --config flag to specify custom configuration file path.
+
+#### Scenario: Custom config file
+- **WHEN** user runs `python main.py --config /path/to/custom.yaml`
+- **THEN** system loads configuration from specified file instead of default config.yaml
+
+#### Scenario: Custom config with profile
+- **WHEN** user runs `python main.py --config /path/to/custom.yaml --profile production`
+- **THEN** system loads production profile from specified custom file
+
+#### Scenario: Missing custom config file
+- **WHEN** user runs `python main.py --config /nonexistent/path.yaml`
+- **THEN** system logs warning and falls back to built-in defaults
+
+### Requirement: Configuration debugging flag
+
+The system SHALL accept a --show-config flag to display resolved configuration.
+
+#### Scenario: Show default config
+- **WHEN** user runs `python main.py --show-config`
+- **THEN** system displays resolved configuration with all values from all sources and exits without processing
+
+#### Scenario: Show config with profile
+- **WHEN** user runs `python main.py --profile production --show-config`
+- **THEN** system displays production profile configuration with all merged values
+
+#### Scenario: Show config with all overrides
+- **WHEN** user runs `python main.py --profile production --batch-size 100 --workers 10 --show-config`
+- **THEN** system displays final resolved configuration including CLI overrides
+
+#### Scenario: Show config format
+- **WHEN** user runs with --show-config flag
+- **THEN** output includes section headers (Processing, API.Scryfall, API.GoogleSheets, API.OpenAI) and all parameter values
+
+### Requirement: Help text update
+
+The system SHALL update help text to document configuration system.
+
+#### Scenario: Profile flag help
+- **WHEN** user runs `python main.py --help`
+- **THEN** help text explains --profile flag and available profiles (default, development, production)
+
+#### Scenario: Configuration examples in epilog
+- **WHEN** user runs `python main.py --help`
+- **THEN** epilog section includes examples of profile usage and configuration override
+
+#### Scenario: Configuration file flag help
+- **WHEN** user runs `python main.py --help`
+- **THEN** help text explains --config flag and default path (config.yaml)
+
+#### Scenario: Configuration debugging help
+- **WHEN** user runs `python main.py --help`
+- **THEN** help text explains --show-config flag for debugging resolved configuration
