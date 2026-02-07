@@ -34,12 +34,23 @@ This command orchestrates the full git workflow by executing the individual git 
    c. Push commits to remote
    d. Show push result
 
-4. **Create Pull Request** (`/git-pr`)
+4. **Check if PR needed** (SMART PR LOGIC)
    
-   a. Generate comprehensive PR description from commits and changes
-   b. Show PR content to user
-   c. Create PR (using gh CLI if available, or provide manual instructions)
-   d. Show PR URL
+   a. Check if PR already exists for current branch
+      ```bash
+      gh pr list --head <branch-name> --json number,url
+      ```
+   
+   b. Decision logic:
+      - **If PR exists**: Skip PR creation, show existing PR URL
+      - **If no PR exists**: Proceed to create PR
+      - **If gh CLI not available**: Show manual PR creation URL
+   
+   c. If creating PR:
+      - Generate comprehensive PR description from commits and changes
+      - Show PR content to user
+      - Create PR (using gh CLI if available)
+      - Show PR URL
 
 5. **Show complete summary**
 
@@ -50,7 +61,7 @@ At each step, show progress and allow user to:
 - Skip remaining steps
 - Cancel workflow
 
-**Output On Complete Success**
+**Output On Complete Success (PR Created)**
 
 ```
 ## Git Workflow Complete ✅
@@ -79,6 +90,37 @@ At each step, show progress and allow user to:
 - View PR: https://github.com/user/repo/pull/42
 - Assign reviewers
 - Wait for CI checks
+```
+
+**Output On Complete Success (PR Already Exists)**
+
+```
+## Git Workflow Complete ✅
+
+### 1. Files Staged
+- 11 files staged (1 new, 2 modified, 8 renamed)
+
+### 2. Commit Created
+- Commit: 72ff956
+- Message: chore: archive config-centralized change
+- Files: 11 changed (+443, -52)
+
+### 3. Pushed to Remote
+- Branch: feat/incremental-price-updates
+- Remote: origin/feat/incremental-price-updates
+- Commits pushed: 1
+
+### 4. Pull Request
+- ℹ️  PR already exists for this branch
+- PR #5: feat: Incremental Price Updates
+- URL: https://github.com/user/repo/pull/5
+- Status: Your new commits have been added to the existing PR
+
+---
+
+**Next steps:**
+- View updated PR: https://github.com/user/repo/pull/5
+- New commits will appear in the PR automatically
 ```
 
 **Output On Partial Success**
@@ -125,3 +167,6 @@ At each step, show:
 - Never force actions without confirmation
 - Each step uses the individual command logic
 - If user cancels, show what was completed and what remains
+- **SMART PR DETECTION**: Check if PR exists before attempting to create
+- If PR exists, skip creation and show existing PR URL with note that commits were added
+- If gh CLI unavailable, provide manual PR URL but don't fail the workflow
