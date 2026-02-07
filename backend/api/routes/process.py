@@ -1,0 +1,310 @@
+"""
+Process execution API routes
+Endpoints for triggering and monitoring background processes
+"""
+import uuid
+from typing import Dict, List, Optional
+from fastapi import APIRouter, HTTPException, BackgroundTasks
+from pydantic import BaseModel
+from loguru import logger
+
+from ..services.processor_service import ProcessorService
+from ..dependencies import clear_collection_cache
+from ..routes.stats import clear_stats_cache
+from ..websockets.progress import manager as ws_manager
+
+router = APIRouter(prefix="/api", tags=["process"])
+
+# In-memory job storage (MVP - will be lost on restart)
+_active_jobs: Dict[str, ProcessorService] = {}
+_job_results: Dict[str, dict] = {}
+_job_types: Dict[str, str] = {}  # job_id -> job_type
+
+
+class JobResponse(BaseModel):
+    """Response model for job creation"""
+    job_id: str
+    status: str
+    message: str
+
+
+class JobStatus(BaseModel):
+    """Job status model"""
+    job_id: str
+    status: str
+    progress: dict
+    start_time: str
+    job_type: str
+
+
+class JobListItem(BaseModel):
+    """Item in jobs list"""
+    job_id: str
+    status: str
+    job_type: str
+    progress: dict
+    start_time: str
+
+
+@router.get("/jobs", response_model=List[JobListItem])
+async def list_jobs():
+    """
+    List all active and recently completed jobs.
+    
+    Returns list of jobs with their current status and progress.
+    """
+    jobs = []
+    
+    # Active jobs
+    for job_id, service in _active_jobs.items():
+        metadata = service.get_metadata()
+        jobs.append(JobListItem(
+            job_id=job_id,
+            status=metadata.status,
+            job_type=_job_types.get(job_id, 'unknown'),
+            progress=metadata.progress,
+            start_time=metadata.start_time.isoformat(),
+        ))
+    
+    # Recently completed jobs
+    for job_id, result in _job_results.items():
+        if job_id not in _active_jobs:
+            jobs.append(JobListItem(
+                job_id=job_id,
+                status=result.get('status', 'complete'),
+                job_type=_job_types.get(job_id, 'unknown'),
+                progress={'summary': result},
+                start_time='',
+            ))
+    
+    return jobs
+
+
+@router.post("/process", response_model=JobResponse)
+async def trigger_process(
+    background_tasks: BackgroundTasks,
+    limit: Optional[int] = None
+):
+    """
+    Trigger card processing job.
+    Only one process can run at a time.
+    """
+    logger.info(f"POST /api/process - limit={limit}")
+    
+    # Check if any job is currently running
+    for job_id, service in _active_jobs.items():
+        if service.status == 'running':
+            logger.warning(f"Process already running: {job_id}")
+            raise HTTPException(
+                status_code=409,
+                detail=f"Another process is already running (job_id: {job_id})"
+            )
+    
+    # Create new processor service
+    service = ProcessorService()
+    job_id = service.job_id
+    _job_types[job_id] = 'process'
+    
+    # Set up WebSocket callback
+    async def progress_callback(event):
+        event_type = event.get('type')
+        if event_type == 'progress':
+            await ws_manager.send_progress(
+                job_id,
+                event.get('current', 0),
+                event.get('total', 0),
+                event.get('percentage', 0.0)
+            )
+        elif event_type == 'error':
+            await ws_manager.send_error(
+                job_id,
+                event.get('card_name', ''),
+                event.get('error_type', 'unknown'),
+                event.get('message', '')
+            )
+        elif event_type == 'complete':
+            await ws_manager.send_complete(
+                job_id,
+                event.get('status', 'unknown'),
+                event.get('summary', {})
+            )
+    
+    service.progress_callback = progress_callback
+    _active_jobs[job_id] = service
+    
+    async def run_process():
+        try:
+            result = await service.process_cards_async(limit=limit)
+            _job_results[job_id] = result
+            if result.get('status') == 'success':
+                clear_collection_cache()
+                clear_stats_cache()
+        except Exception as e:
+            logger.error(f"Process job {job_id} failed: {e}")
+            _job_results[job_id] = {'status': 'error', 'error': str(e)}
+        # Note: do NOT delete from _active_jobs here.
+        # Let it remain so the frontend can poll final status.
+        # It will be cleaned up on next job creation.
+    
+    background_tasks.add_task(run_process)
+    
+    logger.info(f"Created process job: {job_id}")
+    return JobResponse(
+        job_id=job_id,
+        status='pending',
+        message='Process job created and queued'
+    )
+
+
+@router.post("/prices/update", response_model=JobResponse)
+async def trigger_price_update(background_tasks: BackgroundTasks):
+    """
+    Trigger price update job.
+    Only one process can run at a time.
+    """
+    logger.info("POST /api/prices/update")
+    
+    # Check if any job is currently running
+    for job_id, service in _active_jobs.items():
+        if service.status == 'running':
+            logger.warning(f"Process already running: {job_id}")
+            raise HTTPException(
+                status_code=409,
+                detail=f"Another process is already running (job_id: {job_id})"
+            )
+    
+    # Clean up old completed jobs
+    _cleanup_old_jobs()
+    
+    # Create processor with update_prices mode
+    from deckdex.config_loader import load_config
+    config = load_config(profile="default")
+    config.update_prices = True
+    
+    service = ProcessorService(config=config)
+    job_id = service.job_id
+    _job_types[job_id] = 'update_prices'
+    
+    # Set up WebSocket callback
+    async def progress_callback(event):
+        event_type = event.get('type')
+        if event_type == 'progress':
+            await ws_manager.send_progress(
+                job_id,
+                event.get('current', 0),
+                event.get('total', 0),
+                event.get('percentage', 0.0)
+            )
+        elif event_type == 'error':
+            await ws_manager.send_error(
+                job_id,
+                event.get('card_name', ''),
+                event.get('error_type', 'unknown'),
+                event.get('message', '')
+            )
+        elif event_type == 'complete':
+            await ws_manager.send_complete(
+                job_id,
+                event.get('status', 'unknown'),
+                event.get('summary', {})
+            )
+    
+    service.progress_callback = progress_callback
+    _active_jobs[job_id] = service
+    
+    async def run_update():
+        try:
+            result = await service.update_prices_async()
+            _job_results[job_id] = result
+            if result.get('status') == 'success':
+                clear_collection_cache()
+                clear_stats_cache()
+        except Exception as e:
+            logger.error(f"Price update job {job_id} failed: {e}")
+            _job_results[job_id] = {'status': 'error', 'error': str(e)}
+    
+    background_tasks.add_task(run_update)
+    
+    logger.info(f"Created price update job: {job_id}")
+    return JobResponse(
+        job_id=job_id,
+        status='pending',
+        message='Price update job created and queued'
+    )
+
+
+@router.get("/jobs/{job_id}", response_model=JobStatus)
+async def get_job_status(job_id: str):
+    """Get status of a specific job."""
+    logger.debug(f"GET /api/jobs/{job_id}")
+    
+    # Check active jobs
+    if job_id in _active_jobs:
+        service = _active_jobs[job_id]
+        metadata = service.get_metadata()
+        return JobStatus(
+            job_id=job_id,
+            status=metadata.status,
+            progress=metadata.progress,
+            start_time=metadata.start_time.isoformat(),
+            job_type=_job_types.get(job_id, 'unknown')
+        )
+    
+    # Check completed jobs
+    if job_id in _job_results:
+        result = _job_results[job_id]
+        return JobStatus(
+            job_id=job_id,
+            status=result.get('status', 'complete'),
+            progress={'summary': result},
+            start_time='',
+            job_type=_job_types.get(job_id, 'unknown')
+        )
+    
+    raise HTTPException(status_code=404, detail=f"Job {job_id} not found")
+
+
+@router.post("/jobs/{job_id}/cancel")
+async def cancel_job(job_id: str):
+    """
+    Cancel a running job.
+    
+    Sets the cancel flag and emits a WebSocket complete event.
+    Note: the underlying processor thread may continue until it finishes
+    its current operation, but the job will be marked as cancelled and
+    no further progress events will be emitted.
+    """
+    logger.info(f"POST /api/jobs/{job_id}/cancel")
+    
+    if job_id not in _active_jobs:
+        raise HTTPException(status_code=404, detail=f"Job {job_id} not found or already finished")
+    
+    service = _active_jobs[job_id]
+    
+    if service.status != 'running':
+        raise HTTPException(status_code=409, detail=f"Job is not running (status: {service.status})")
+    
+    # Cancel the service and emit WebSocket event
+    await service.cancel_async()
+    
+    # Store result
+    _job_results[job_id] = {'status': 'cancelled', 'message': 'Job cancelled by user'}
+    
+    return {"job_id": job_id, "status": "cancelled", "message": "Job cancellation requested"}
+
+
+def _cleanup_old_jobs():
+    """Remove old completed jobs to prevent memory leaks."""
+    completed_ids = [
+        jid for jid, svc in _active_jobs.items()
+        if svc.status in ('complete', 'error', 'cancelled')
+    ]
+    for jid in completed_ids:
+        del _active_jobs[jid]
+    
+    # Keep only last 10 results
+    if len(_job_results) > 10:
+        old_keys = list(_job_results.keys())[:-10]
+        for key in old_keys:
+            del _job_results[key]
+            _job_types.pop(key, None)

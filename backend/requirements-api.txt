@@ -1,0 +1,11 @@
+# FastAPI backend dependencies for DeckDex MTG web interface
+# Install with: pip install -r requirements-api.txt
+
+fastapi==0.109.0
+uvicorn[standard]==0.27.0
+websockets==12.0
+python-dotenv==1.0.0
+pydantic==2.5.0
+
+# Reuse core dependencies from main requirements.txt
+# Install parent requirements first: pip install -r ../requirements.txt

@@ -162,3 +162,19 @@ cython_debug/
 # DeckDex MTG output files
 output/
 *.csv
+
+# Backend logs
+backend/logs/
+*.log
+
+# Frontend build
+frontend/dist/
+frontend/node_modules/
+frontend/.vite/
+
+# Node modules
+node_modules/
+
+# OS files
+.DS_Store
+
