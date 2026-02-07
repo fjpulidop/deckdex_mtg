@@ -1,0 +1,45 @@
+version: '3.8'
+
+services:
+  backend:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+    ports:
+      - "8000:8000"
+    environment:
+      - GOOGLE_API_CREDENTIALS=${GOOGLE_API_CREDENTIALS}
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - DECKDEX_PROFILE=${DECKDEX_PROFILE:-default}
+    volumes:
+      - ./backend:/app/backend:ro
+      - ./deckdex:/app/deckdex:ro
+      - ./config.yaml:/app/config.yaml:ro
+      - backend-logs:/app/backend/logs
+    env_file:
+      - .env
+    networks:
+      - deckdex-network
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    ports:
+      - "5173:5173"
+    volumes:
+      - ./frontend/src:/app/src
+      - ./frontend/public:/app/public
+    depends_on:
+      - backend
+    environment:
+      - VITE_API_URL=http://backend:8000
+    networks:
+      - deckdex-network
+
+volumes:
+  backend-logs:
+
+networks:
+  deckdex-network:
+    driver: bridge
