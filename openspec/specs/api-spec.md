@@ -14,7 +14,12 @@
 
 3. OpenAI API (optional)
    - Purpose: classify game strategy and tier for cards.
-   - Use short, deterministic prompts and caching to keep costs low.
+   - Requirements: See openai-integration/spec.md for detailed requirements.
+   - Integration SHALL use Chat Completions API (not deprecated Completion API).
+   - SDK version: >= 1.30.0
+   - Default model: gpt-3.5-turbo (configurable via OPENAI_MODEL env var)
+   - Response format: JSON mode with structured parsing
+   - Error handling: Granular exception handling with retry logic for rate limits
 
 ## Internal API (CLI / Programmatic)
 
