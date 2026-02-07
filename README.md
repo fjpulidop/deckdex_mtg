@@ -82,19 +82,62 @@ To update the prices of the cards:
 python main.py --update_prices
 ```
 
-### Interactive Command Line Interface
+### Advanced CLI Options
 
-For a more user-friendly command-line experience, you can use the interactive CLI:
+The CLI supports numerous configuration options for fine-tuning performance and behavior:
 
+#### Performance Configuration
 ```commandline
-python run_cli.py
+# Configure batch size and workers
+python main.py --batch-size 50 --workers 8
+
+# Adjust API rate limiting
+python main.py --api-delay 0.2 --max-retries 10
 ```
 
-The interactive CLI provides a menu-driven interface with the following features:
-- Configure Google API credentials and OpenAI API key
-- Process cards with or without OpenAI
-- Update card prices
-- Simple navigation through menus
+#### Testing and Debugging
+```commandline
+# Dry-run mode (simulate without writing)
+python main.py --dry-run --verbose
+
+# Process only a few cards for testing
+python main.py --limit 10 --verbose
+
+# Resume from a specific row
+python main.py --resume-from 100
+```
+
+#### Custom Google Sheets Configuration
+```commandline
+# Use different spreadsheet/worksheet
+python main.py --sheet-name "my_collection" --worksheet-name "standard_cards"
+
+# Override credentials path
+python main.py --credentials-path "/path/to/creds.json"
+```
+
+#### Full Options Reference
+
+| Option | Type | Default | Description |
+|--------|------|---------|-------------|
+| `--use_openai` | flag | false | Enable OpenAI enrichment for strategy and tier |
+| `--update_prices` | flag | false | Update only prices (not full card data) |
+| `--dry-run` | flag | false | Simulate execution without writing to Sheets |
+| `-v, --verbose` | flag | false | Enable detailed DEBUG-level logging |
+| `--batch-size N` | int | 20 | Cards to process per batch |
+| `--workers N` | int | 4 | Number of parallel workers (1-10) |
+| `--api-delay SECONDS` | float | 0.1 | Delay between API requests (Scryfall rate limiting) |
+| `--max-retries N` | int | 5 | Maximum retry attempts for failed requests |
+| `--credentials-path PATH` | str | - | Path to Google API credentials (overrides env var) |
+| `--sheet-name NAME` | str | magic | Name of the Google spreadsheet |
+| `--worksheet-name NAME` | str | cards | Name of the worksheet |
+| `--limit N` | int | - | Process only N cards (useful for testing) |
+| `--resume-from ROW` | int | - | Resume processing from row N (1-indexed) |
+
+For complete help:
+```commandline
+python main.py --help
+```
 
 <!-- Graphical interface removed: the project is terminal-only. -->
 
@@ -119,7 +162,7 @@ The current version of the project includes several optimizations to improve per
 8. **API Query Optimization**: Improvement in how queries are made to the Scryfall API.
 
 9. **Better Code Structure**: Clear separation of responsibilities and proper encapsulation.
-10. **Interactive CLI**: Addition of a menu-driven command-line interface for environments without GUI support.
+10. **Enhanced CLI**: Comprehensive command-line interface with 13+ configuration options for performance tuning and testing.
 
 These improvements result in:
 - Faster processing speed
@@ -145,3 +188,22 @@ La aplicación ofrece dos modos para actualizar los precios de las cartas:
 2. **Actualización completa**: Actualiza todos los precios, independientemente de si han cambiado o no.
 
 Ambas opciones están disponibles en la interfaz de línea de comandos.
+
+## Migration Notes
+
+### Removal of run_cli.py
+
+The `run_cli.py` interactive CLI has been removed as it was incomplete and referenced non-existent modules. All functionality is now available through the enhanced `main.py` CLI with comprehensive command-line options.
+
+**Before:**
+```commandline
+python run_cli.py
+```
+
+**After:**
+```commandline
+python main.py --verbose  # for detailed output
+python main.py --dry-run  # to test without writing
+```
+
+All previous `python main.py` commands continue to work without changes.
