@@ -6,7 +6,7 @@ from concurrent.futures import ThreadPoolExecutor
 from functools import lru_cache
 from dotenv import load_dotenv
 from .card_fetcher import CardFetcher
-from .spreadsheet_client import SpreadsheetClient
+from .config import ProcessorConfig, ClientFactory
 import gspread
 from datetime import datetime
 from tqdm import tqdm
@@ -28,14 +28,29 @@ class Colors:
 
 
 class MagicCardProcessor:
+    # Keep class constants for backwards compatibility (deprecated, use config instead)
     BATCH_SIZE = 20
     MAX_RETRIES = 5
     INITIAL_RETRY_DELAY = 1
     API_RATE_LIMIT_DELAY = 0.05
 
-    def __init__(self, use_openai: bool, update_prices: bool):
-        self.use_openai = use_openai
-        self.update_prices = update_prices
+    def __init__(self, config: ProcessorConfig):
+        """Initialize MagicCardProcessor with configuration.
+        
+        Args:
+            config: ProcessorConfig instance with all configuration parameters
+        """
+        self.config = config
+        self.use_openai = config.use_openai
+        self.update_prices = config.update_prices
+        
+        # Instance attributes from config (replace class constants)
+        self.batch_size = config.batch_size
+        self.max_workers = config.max_workers
+        self.api_delay = config.api_delay
+        self.max_retries = config.max_retries
+        self.dry_run = config.dry_run
+        
         self._initialize_clients()
         self._card_cache = {}
         self.error_count = 0
@@ -43,15 +58,12 @@ class MagicCardProcessor:
         self.not_found_cards = []  # List to store names of cards not found
 
     def _initialize_clients(self) -> None:
-        load_dotenv()
-        credential_file_path = os.getenv("GOOGLE_API_CREDENTIALS")
-        if not credential_file_path:
-            raise ValueError("GOOGLE_API_CREDENTIALS environment variable not set")
-        
-        self.card_fetcher = CardFetcher()
-        self.spreadsheet_client = SpreadsheetClient(
-            credential_file_path, "magic", "cards"
+        """Initialize card fetcher and spreadsheet client."""
+        self.card_fetcher = CardFetcher(
+            max_retries=self.max_retries,
+            retry_delay=self.config.api_delay
         )
+        self.spreadsheet_client = ClientFactory.create_spreadsheet_client(self.config)
 
     @lru_cache(maxsize=1000)
     def _fetch_card_data(self, card_name: str) -> Optional[Dict[str, Any]]:
@@ -103,7 +115,7 @@ class MagicCardProcessor:
                 row_index = i + 2
                 updated_data.append((row_index, card_name, new_price))
             
-            time.sleep(self.API_RATE_LIMIT_DELAY)
+            time.sleep(self.api_delay)
         return updated_data
 
     def _print_error_counter(self, phase: str = "search") -> None:
@@ -154,18 +166,18 @@ class MagicCardProcessor:
         
         # Configure tqdm to show only the progress bar with time estimation
         with tqdm(total=total_cards, desc="Verifying prices", unit="cards") as pbar:
-            with ThreadPoolExecutor(max_workers=4) as executor:
+            with ThreadPoolExecutor(max_workers=self.max_workers) as executor:
                 futures = []
-                for i in range(0, len(cards), self.BATCH_SIZE):
+                for i in range(0, len(cards), self.batch_size):
                     futures.append(
-                        executor.submit(self._update_prices_batch, cards, i, self.BATCH_SIZE)
+                        executor.submit(self._update_prices_batch, cards, i, self.batch_size)
                     )
                 
                 for future in futures:
                     batch_results = future.result()
                     changed_prices.extend(batch_results)
                     # Update the progress bar with the processed batch size
-                    pbar.update(min(self.BATCH_SIZE, total_cards - pbar.n))
+                    pbar.update(min(self.batch_size, total_cards - pbar.n))
                     
                     # No need to update here as _fetch_card_data already shows errors
 
@@ -281,7 +293,7 @@ class MagicCardProcessor:
         Args:
             batch_updates: List of batch update operations
         """
-        max_retries = 5
+        max_retries = self.max_retries
         base_delay = 2  # Base delay in seconds
         
         for attempt in range(max_retries):
@@ -342,7 +354,7 @@ class MagicCardProcessor:
                 cell_values = [card[0]] + ["N/A"] * 19
                 
             card_data.append(cell_values)
-            time.sleep(self.API_RATE_LIMIT_DELAY)
+            time.sleep(self.api_delay)
             
         return card_data
 
@@ -359,10 +371,20 @@ class MagicCardProcessor:
         row_index_to_start = self.spreadsheet_client.get_empty_row_index_to_start(2)
         cards = [card for i, card in enumerate(cards, start=1) if i >= row_index_to_start]
         
+        # Apply limit if configured
+        if self.config.limit is not None:
+            cards = cards[:self.config.limit]
+            logger.info(f"Limiting processing to {self.config.limit} cards")
+        
+        # Apply resume_from if configured
+        if self.config.resume_from is not None:
+            cards = cards[self.config.resume_from - row_index_to_start:]
+            logger.info(f"Resuming from row {self.config.resume_from}")
+        
         # Configure tqdm to show only the progress bar with time estimation
         with tqdm(total=len(cards), desc="Processing cards", unit="cards") as pbar:
-            for i in range(0, len(cards), self.BATCH_SIZE):
-                batch = cards[i:i + self.BATCH_SIZE]
+            for i in range(0, len(cards), self.batch_size):
+                batch = cards[i:i + self.batch_size]
                 card_data = self._process_card_batch(batch, i)
                 
                 if card_data:

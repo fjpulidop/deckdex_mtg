@@ -16,12 +16,18 @@ class CardFetcher:
     """Fetches card data from Scryfall API."""
     
     BASE_URL = "https://api.scryfall.com"
-    MAX_RETRIES = 3
-    RETRY_DELAY = 0.5
     
-    def __init__(self):
-        """Initialize the CardFetcher."""
+    def __init__(self, max_retries: int = 3, retry_delay: float = 0.5):
+        """Initialize the CardFetcher.
+        
+        Args:
+            max_retries: Maximum number of retry attempts for failed requests
+            retry_delay: Base delay in seconds between retries
+        """
         load_dotenv()
+        self.max_retries = max_retries
+        self.retry_delay = retry_delay
+        
         # Initialize OpenAI client if API key is present
         api_key = os.getenv("OPENAI_API_KEY")
         if api_key:
@@ -45,16 +51,16 @@ class CardFetcher:
         Raises:
             Exception: If the request fails after retries.
         """
-        for attempt in range(self.MAX_RETRIES):
+        for attempt in range(self.max_retries):
             try:
                 response = requests.get(url)
                 response.raise_for_status()
                 return response.json()
             except requests.exceptions.RequestException as e:
-                if attempt == self.MAX_RETRIES - 1:
+                if attempt == self.max_retries - 1:
                     # No registramos el error en el log, solo lo propagamos
                     raise
-                time.sleep(self.RETRY_DELAY * (2 ** attempt))
+                time.sleep(self.retry_delay * (2 ** attempt))
     
     def _exact_match_search(self, card_name: str) -> Optional[Dict[str, Any]]:
         """
