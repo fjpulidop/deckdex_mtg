@@ -4,6 +4,7 @@ import { ActiveJobsProvider } from './contexts/ActiveJobsContext'
 import { Dashboard } from './pages/Dashboard'
 import { Settings } from './pages/Settings'
 import { Analytics } from './pages/Analytics'
+import { DeckBuilder } from './pages/DeckBuilder'
 
 function App() {
   return (
@@ -13,6 +14,7 @@ function App() {
           <Route path="/" element={<Dashboard />} />
           <Route path="/settings" element={<Settings />} />
           <Route path="/analytics" element={<Analytics />} />
+          <Route path="/decks" element={<DeckBuilder />} />
         </Routes>
       </ActiveJobsProvider>
     </BrowserRouter>

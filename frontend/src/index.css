@@ -17,3 +17,13 @@ body {
 .card-symbol {
   background-color: #cac5c0;
 }
+
+/* Deck detail modal: curva de maná — etiquetas del eje visibles en modo oscuro */
+.dark .deck-detail-mana-curve .recharts-cartesian-axis-tick text {
+  fill: #e5e7eb;
+}
+
+/* Add cards picker: iconos de color como botones, cursor pointer (no help) */
+.picker-color-symbols .card-symbol {
+  cursor: pointer !important;
+}

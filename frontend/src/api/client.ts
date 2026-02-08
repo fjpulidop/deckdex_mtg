@@ -68,6 +68,24 @@ export interface JobStatus {
   job_type: string;
 }
 
+export interface DeckListItem {
+  id: number;
+  name: string;
+  created_at?: string;
+  updated_at?: string;
+  card_count?: number;
+  commander_card_id?: number | null;
+}
+
+export interface DeckCard extends Card {
+  quantity?: number;
+  is_commander?: boolean;
+}
+
+export interface DeckWithCards extends DeckListItem {
+  cards: DeckCard[];
+}
+
 // API functions
 export const api = {
   // Cards (same filter params as stats so list and totals match)
@@ -77,6 +95,7 @@ export const api = {
     search?: string;
     rarity?: string;
     type?: string;
+    color_identity?: string;
     set_name?: string;
     price_min?: string;
     price_max?: string;
@@ -308,5 +327,114 @@ export const api = {
       const err = await response.json().catch(() => ({}));
       throw new Error((err as { detail?: string }).detail || 'Delete failed');
     }
+  },
+
+  // Decks (require Postgres; 501 if unavailable)
+  getDecks: async (): Promise<DeckListItem[]> => {
+    const response = await apiFetch(`${API_BASE}/decks/`, FETCH_OPTS);
+    if (!response.ok) {
+      const err = await response.json().catch(() => ({}));
+      if (response.status === 501) throw new Error((err as { detail?: string }).detail || 'Decks require Postgres');
+      throw new Error((err as { detail?: string }).detail || 'Failed to fetch decks');
+    }
+    return response.json();
+  },
+  getDeck: async (id: number): Promise<DeckWithCards> => {
+    const response = await apiFetch(`${API_BASE}/decks/${id}`, FETCH_OPTS);
+    if (!response.ok) {
+      const err = await response.json().catch(() => ({}));
+      if (response.status === 501) throw new Error((err as { detail?: string }).detail || 'Decks require Postgres');
+      if (response.status === 404) throw new Error('Deck not found');
+      throw new Error((err as { detail?: string }).detail || 'Failed to fetch deck');
+    }
+    return response.json();
+  },
+  createDeck: async (name: string): Promise<DeckListItem> => {
+    const response = await apiFetch(`${API_BASE}/decks/`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name: name || 'Unnamed Deck' }),
+      ...FETCH_OPTS,
+    });
+    if (!response.ok) {
+      const err = await response.json().catch(() => ({}));
+      if (response.status === 501) throw new Error((err as { detail?: string }).detail || 'Decks require Postgres');
+      throw new Error((err as { detail?: string }).detail || 'Failed to create deck');
+    }
+    return response.json();
+  },
+  updateDeck: async (id: number, payload: { name: string }): Promise<DeckListItem> => {
+    const response = await apiFetch(`${API_BASE}/decks/${id}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+      ...FETCH_OPTS,
+    });
+    if (!response.ok) {
+      const err = await response.json().catch(() => ({}));
+      if (response.status === 404) throw new Error('Deck not found');
+      throw new Error((err as { detail?: string }).detail || 'Failed to update deck');
+    }
+    return response.json();
+  },
+  deleteDeck: async (id: number): Promise<void> => {
+    const response = await apiFetch(`${API_BASE}/decks/${id}`, {
+      method: 'DELETE',
+      ...FETCH_OPTS,
+    });
+    if (!response.ok) {
+      const err = await response.json().catch(() => ({}));
+      if (response.status === 501) throw new Error((err as { detail?: string }).detail || 'Decks require Postgres');
+      if (response.status === 404) throw new Error('Deck not found');
+      throw new Error((err as { detail?: string }).detail || 'Delete failed');
+    }
+  },
+  addCardToDeck: async (
+    deckId: number,
+    cardId: number,
+    opts?: { quantity?: number; is_commander?: boolean }
+  ): Promise<DeckWithCards> => {
+    const response = await apiFetch(`${API_BASE}/decks/${deckId}/cards`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        card_id: cardId,
+        quantity: opts?.quantity ?? 1,
+        is_commander: opts?.is_commander ?? false,
+      }),
+      ...FETCH_OPTS,
+    });
+    if (!response.ok) {
+      const err = await response.json().catch(() => ({}));
+      if (response.status === 501) throw new Error((err as { detail?: string }).detail || 'Decks require Postgres');
+      if (response.status === 404) throw new Error((err as { detail?: string }).detail || 'Deck or card not found');
+      throw new Error((err as { detail?: string }).detail || 'Failed to add card');
+    }
+    return response.json();
+  },
+  removeCardFromDeck: async (deckId: number, cardId: number): Promise<void> => {
+    const response = await apiFetch(`${API_BASE}/decks/${deckId}/cards/${cardId}`, {
+      method: 'DELETE',
+      ...FETCH_OPTS,
+    });
+    if (!response.ok) {
+      const err = await response.json().catch(() => ({}));
+      if (response.status === 404) throw new Error('Deck or card not found');
+      throw new Error((err as { detail?: string }).detail || 'Failed to remove card');
+    }
+  },
+  setDeckCardCommander: async (deckId: number, cardId: number): Promise<DeckWithCards> => {
+    const response = await apiFetch(`${API_BASE}/decks/${deckId}/cards/${cardId}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ is_commander: true }),
+      ...FETCH_OPTS,
+    });
+    if (!response.ok) {
+      const err = await response.json().catch(() => ({}));
+      if (response.status === 404) throw new Error('Deck or card not found');
+      throw new Error((err as { detail?: string }).detail || 'Failed to set commander');
+    }
+    return response.json();
   },
 };

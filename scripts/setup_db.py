@@ -100,6 +100,13 @@ def run_migrations():
         print("No migration files found in migrations/", file=sys.stderr)
         sys.exit(1)
 
+    def strip_leading_comments(s: str) -> str:
+        """Remove leading lines that are empty or only comments, so we don't skip real statements."""
+        lines = s.strip().splitlines()
+        while lines and (not lines[0].strip() or lines[0].strip().startswith("--")):
+            lines.pop(0)
+        return "\n".join(lines).strip()
+
     with engine.connect() as conn:
         for path in sql_files:
             if path.name.startswith("."):
@@ -107,8 +114,8 @@ def run_migrations():
             print(f"Running {path.name}...")
             sql_content = path.read_text()
             for stmt in sql_content.split(";"):
-                stmt = stmt.strip()
-                if stmt and not stmt.startswith("--"):
+                stmt = strip_leading_comments(stmt)
+                if stmt:
                     conn.execute(text(stmt))
     print("Migrations completed.")
 
