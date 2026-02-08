@@ -1,5 +1,6 @@
 import React from 'react';
 import { api } from '../api/client';
+import { useWebSocket } from '../hooks/useApi';
 
 interface JobInfo {
   jobId: string;
@@ -9,137 +10,264 @@ interface JobInfo {
 
 interface ActiveJobsProps {
   jobs: JobInfo[];
-  activeJobId: string | null;
-  onSelectJob: (jobId: string) => void;
   onJobCompleted: (jobId: string) => void;
 }
 
-interface JobProgress {
-  status: string;
-  percentage: number;
-  current: number;
-  total: number;
+interface JobState {
+  expanded: boolean;
+  isCancelling: boolean;
+  finishedAt: Date | null;
 }
 
-export function ActiveJobs({ jobs, activeJobId, onSelectJob, onJobCompleted }: ActiveJobsProps) {
-  const [jobProgress, setJobProgress] = React.useState<Record<string, JobProgress>>({});
+export function ActiveJobs({ jobs, onJobCompleted }: ActiveJobsProps) {
+  const [jobStates, setJobStates] = React.useState<Record<string, JobState>>({});
 
-  // Poll job status for all background jobs
-  React.useEffect(() => {
-    if (jobs.length === 0) return;
+  // Don't show if no jobs exist
+  if (jobs.length === 0) return null;
 
-    const pollJobs = async () => {
-      for (const job of jobs) {
-        try {
-          const status = await api.getJobStatus(job.jobId);
-          setJobProgress(prev => ({
-            ...prev,
-            [job.jobId]: {
-              status: status.status,
-              percentage: status.progress?.percentage || 0,
-              current: status.progress?.current || 0,
-              total: status.progress?.total || 0,
-            }
-          }));
-
-          // Remove finished jobs after a delay
-          if (status.status === 'complete' || status.status === 'error' || status.status === 'cancelled') {
-            setTimeout(() => onJobCompleted(job.jobId), 5000);
-          }
-        } catch {
-          // Job might have been cleaned up
-        }
+  const toggleExpanded = (jobId: string) => {
+    setJobStates(prev => ({
+      ...prev,
+      [jobId]: {
+        ...prev[jobId],
+        expanded: !prev[jobId]?.expanded,
       }
-    };
+    }));
+  };
 
-    pollJobs();
-    const interval = setInterval(pollJobs, 2000);
-    return () => clearInterval(interval);
-  }, [jobs, onJobCompleted]);
-
-  // Don't show if no background jobs (or all are being viewed in modal)
-  const backgroundJobs = jobs.filter(j => j.jobId !== activeJobId);
-  if (backgroundJobs.length === 0) return null;
-
-  const formatElapsed = (startedAt: Date) => {
-    const seconds = Math.floor((Date.now() - startedAt.getTime()) / 1000);
-    if (seconds < 60) return `${seconds}s`;
-    const minutes = Math.floor(seconds / 60);
-    const secs = seconds % 60;
-    return `${minutes}m ${secs}s`;
+  const handleCancel = async (jobId: string) => {
+    setJobStates(prev => ({
+      ...prev,
+      [jobId]: { ...prev[jobId], isCancelling: true }
+    }));
+    try {
+      await api.cancelJob(jobId);
+    } catch (e) {
+      console.error('Failed to cancel job:', e);
+      setJobStates(prev => ({
+        ...prev,
+        [jobId]: { ...prev[jobId], isCancelling: false }
+      }));
+    }
   };
 
   return (
-    <div className="fixed bottom-4 right-4 z-40 flex flex-col gap-2">
-      {backgroundJobs.map(job => {
-        const progress = jobProgress[job.jobId];
-        const isComplete = progress?.status === 'complete';
-        const isError = progress?.status === 'error';
-        const isCancelled = progress?.status === 'cancelled';
-        const isRunning = progress?.status === 'running';
-        const pct = progress?.percentage || 0;
+    <div className="fixed bottom-0 left-0 right-0 z-40 bg-white border-t border-gray-200 shadow-lg">
+      <div className="container mx-auto px-4 py-3">
+        <div className="flex flex-col gap-3">
+          {jobs.map(job => (
+            <JobEntry
+              key={job.jobId}
+              job={job}
+              state={jobStates[job.jobId] || { expanded: false, isCancelling: false, finishedAt: null }}
+              onToggleExpanded={() => toggleExpanded(job.jobId)}
+              onCancel={() => handleCancel(job.jobId)}
+              onComplete={() => onJobCompleted(job.jobId)}
+              onFinish={(date) => setJobStates(prev => ({
+                ...prev,
+                [job.jobId]: { ...prev[job.jobId], finishedAt: date }
+              }))}
+            />
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
 
-        return (
-          <button
-            key={job.jobId}
-            onClick={() => onSelectJob(job.jobId)}
-            className={`flex items-center gap-3 px-4 py-3 rounded-lg shadow-lg text-left transition-all hover:scale-105 cursor-pointer min-w-[280px] ${
-              isComplete ? 'bg-green-600 text-white' :
-              isCancelled ? 'bg-orange-600 text-white' :
-              isError ? 'bg-red-600 text-white' :
-              'bg-gray-800 text-white'
-            }`}
-          >
-            {/* Spinner / Status icon */}
-            <div className="flex-shrink-0">
-              {isComplete ? (
-                <span className="text-lg">&#10003;</span>
-              ) : isCancelled ? (
-                <span className="text-lg">&#8856;</span>
-              ) : isError ? (
-                <span className="text-lg">&#10007;</span>
-              ) : (
-                <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-              )}
-            </div>
+interface JobEntryProps {
+  job: JobInfo;
+  state: JobState;
+  onToggleExpanded: () => void;
+  onCancel: () => void;
+  onComplete: () => void;
+  onFinish: (date: Date) => void;
+}
 
-            {/* Info */}
-            <div className="flex-1 min-w-0">
-              <div className="text-sm font-medium truncate">{job.type}</div>
-              <div className="text-xs opacity-80">
-                {isComplete ? 'Completed' :
-                 isCancelled ? 'Cancelled' :
-                 isError ? 'Failed' :
-                 isRunning ? `${pct.toFixed(0)}% — ${progress.current}/${progress.total}` :
-                 'Starting...'}
-                {' · '}{formatElapsed(job.startedAt)}
-              </div>
-            </div>
+function JobEntry({ job, state, onToggleExpanded, onCancel, onComplete, onFinish }: JobEntryProps) {
+  const { status: wsStatus, progress, errors, complete, summary } = useWebSocket(job.jobId);
+  const hasNotifiedComplete = React.useRef(false);
+  const [elapsed, setElapsed] = React.useState('');
 
-            {/* Progress ring */}
-            {isRunning && (
-              <div className="flex-shrink-0 w-10 h-10 relative">
-                <svg className="w-10 h-10 -rotate-90" viewBox="0 0 36 36">
-                  <circle cx="18" cy="18" r="15" fill="none" stroke="rgba(255,255,255,0.2)" strokeWidth="3" />
-                  <circle
-                    cx="18" cy="18" r="15" fill="none" stroke="white" strokeWidth="3"
-                    strokeDasharray={`${pct * 0.942} 94.2`}
-                    strokeLinecap="round"
-                  />
-                </svg>
-                <span className="absolute inset-0 flex items-center justify-center text-[10px] font-bold">
-                  {pct.toFixed(0)}%
-                </span>
-              </div>
+  const isCancelled = summary?.status === 'cancelled';
+  const isError = summary?.status === 'error';
+  const isFinished = complete;
+  const isRunning = !isFinished;
+
+  // Notify parent when job completes
+  React.useEffect(() => {
+    if (complete && !hasNotifiedComplete.current) {
+      hasNotifiedComplete.current = true;
+      onFinish(new Date());
+      // Remove after 5 seconds
+      setTimeout(() => onComplete(), 5000);
+    }
+  }, [complete, onComplete, onFinish]);
+
+  // Reset on job change
+  React.useEffect(() => {
+    hasNotifiedComplete.current = false;
+  }, [job.jobId]);
+
+  // Live elapsed time counter
+  React.useEffect(() => {
+    const formatElapsed = (ms: number) => {
+      const totalSecs = Math.floor(ms / 1000);
+      if (totalSecs < 60) return `${totalSecs}s`;
+      const mins = Math.floor(totalSecs / 60);
+      const secs = totalSecs % 60;
+      if (mins < 60) return `${mins}m ${secs}s`;
+      const hrs = Math.floor(mins / 60);
+      const remainMins = mins % 60;
+      return `${hrs}h ${remainMins}m ${secs}s`;
+    };
+
+    const tick = () => {
+      const end = state.finishedAt || new Date();
+      setElapsed(formatElapsed(end.getTime() - job.startedAt.getTime()));
+    };
+    tick();
+
+    if (isFinished) return;
+
+    const interval = setInterval(tick, 1000);
+    return () => clearInterval(interval);
+  }, [job.startedAt, isFinished, state.finishedAt]);
+
+  const borderColor = 
+    isCancelled ? 'border-orange-600' :
+    isError ? 'border-red-600' :
+    isFinished ? 'border-green-600' :
+    'border-blue-600';
+
+  const statusIcon = 
+    isCancelled ? '⊗' :
+    isError ? '✗' :
+    isFinished ? '✓' :
+    '🔄';
+
+  const statusText =
+    isCancelled ? 'Cancelled' :
+    isError ? 'Failed' :
+    isFinished ? 'Completed' :
+    wsStatus === 'connected' ? 'Connected' :
+    wsStatus === 'connecting' ? 'Connecting...' :
+    'Disconnected';
+
+  const statusColor =
+    isCancelled ? 'text-orange-600' :
+    isError ? 'text-red-600' :
+    isFinished ? 'text-green-600' :
+    wsStatus === 'connected' ? 'text-green-600' :
+    'text-yellow-600';
+
+  return (
+    <div className={`border-l-4 ${borderColor} bg-white rounded shadow-sm`}>
+      {/* Main row */}
+      <div className="flex items-center gap-3 px-4 py-3">
+        {/* Status icon */}
+        <div className="flex-shrink-0 text-xl">
+          {isRunning && statusIcon === '🔄' ? (
+            <div className="w-5 h-5 border-2 border-gray-300 border-t-blue-600 rounded-full animate-spin" />
+          ) : (
+            <span className={statusColor}>{statusIcon}</span>
+          )}
+        </div>
+
+        {/* Job info */}
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-2">
+            <span className="text-sm font-medium text-gray-900">{job.type}</span>
+            <span className={`text-xs px-2 py-0.5 rounded ${
+              wsStatus === 'connected' ? 'bg-green-100 text-green-700' :
+              wsStatus === 'connecting' ? 'bg-yellow-100 text-yellow-700' :
+              'bg-red-100 text-red-700'
+            }`}>
+              {statusText}
+            </span>
+          </div>
+          <div className="text-xs text-gray-600 mt-1">
+            {isFinished ? (
+              <span>
+                {isCancelled ? `Stopped at ${progress.current}/${progress.total} cards` :
+                 isError ? summary?.error || 'An error occurred' :
+                 `${progress.total} cards processed`}
+                {errors.length > 0 && ` • ${errors.length} errors`}
+              </span>
+            ) : (
+              <span>
+                {progress.percentage.toFixed(0)}% — {progress.current}/{progress.total} cards
+                {state.isCancelling && ' • Stopping...'}
+              </span>
             )}
+          </div>
+        </div>
 
-            {/* Click hint */}
-            <div className="flex-shrink-0 text-xs opacity-60">
-              Click to view
+        {/* Progress bar (only when running) */}
+        {isRunning && (
+          <div className="flex-shrink-0 w-32">
+            <div className="h-2 bg-gray-200 rounded-full overflow-hidden">
+              <div 
+                className={`h-full transition-all duration-300 ${
+                  state.isCancelling ? 'bg-orange-400' : 'bg-blue-600'
+                }`}
+                style={{ width: `${progress.percentage}%` }}
+              />
             </div>
-          </button>
-        );
-      })}
+          </div>
+        )}
+
+        {/* Timer */}
+        <div className="flex-shrink-0 text-xs text-gray-500 font-mono tabular-nums min-w-[60px] text-right">
+          ⏱ {elapsed}
+        </div>
+
+        {/* Actions */}
+        <div className="flex-shrink-0 flex items-center gap-2">
+          {isRunning && (
+            <button
+              onClick={onCancel}
+              disabled={state.isCancelling}
+              className={`px-3 py-1 text-xs rounded transition ${
+                state.isCancelling
+                  ? 'bg-orange-100 text-orange-500 cursor-not-allowed'
+                  : 'bg-red-600 text-white hover:bg-red-700'
+              }`}
+            >
+              {state.isCancelling ? 'Stopping...' : 'Stop'}
+            </button>
+          )}
+          {errors.length > 0 && (
+            <button
+              onClick={onToggleExpanded}
+              className="px-3 py-1 text-xs bg-gray-100 text-gray-700 rounded hover:bg-gray-200 transition"
+            >
+              {state.expanded ? 'Hide' : 'Show'} errors
+            </button>
+          )}
+        </div>
+      </div>
+
+      {/* Expanded errors section */}
+      {state.expanded && errors.length > 0 && (
+        <div className="px-4 pb-3 border-t border-gray-100">
+          <div className="mt-3 max-h-40 overflow-y-auto bg-red-50 border border-red-200 rounded p-3">
+            <h4 className="text-xs font-medium text-red-800 mb-2">
+              Errors ({errors.length})
+            </h4>
+            {errors.slice(0, 20).map((error, index) => (
+              <div key={index} className="text-xs text-red-700 mb-1">
+                • {error.card_name}: {error.message}
+              </div>
+            ))}
+            {errors.length > 20 && (
+              <p className="text-xs text-red-600 mt-2">
+                ... and {errors.length - 20} more errors
+              </p>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 }

@@ -1,11 +1,11 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import { useCards } from '../hooks/useApi';
 import { StatsCards } from '../components/StatsCards';
 import { Filters } from '../components/Filters';
 import { CardTable } from '../components/CardTable';
 import { ActionButtons } from '../components/ActionButtons';
-import { ProcessModal } from '../components/ProcessModal';
 import { ActiveJobs } from '../components/ActiveJobs';
+import { api } from '../api/client';
 
 interface JobInfo {
   jobId: string;
@@ -16,7 +16,6 @@ interface JobInfo {
 export function Dashboard() {
   const [search, setSearch] = useState('');
   const [rarity, setRarity] = useState('all');
-  const [activeJobId, setActiveJobId] = useState<string | null>(null);
   const [backgroundJobs, setBackgroundJobs] = useState<JobInfo[]>([]);
 
   // Fetch cards with filters
@@ -24,6 +23,32 @@ export function Dashboard() {
     search: search || undefined,
     limit: 1000,
   });
+
+  // Restore active jobs from backend on mount
+  useEffect(() => {
+    const restoreJobs = async () => {
+      try {
+        const jobs = await api.getJobs();
+        // Only restore jobs that are still running (not complete, error, or cancelled)
+        const activeJobs = jobs.filter(job => 
+          job.status === 'running' || job.status === 'pending'
+        );
+        const restoredJobs = activeJobs.map(job => ({
+          jobId: job.job_id,
+          type: job.job_type,
+          startedAt: job.start_time ? new Date(job.start_time) : new Date(),
+        }));
+        if (restoredJobs.length > 0) {
+          setBackgroundJobs(restoredJobs);
+        }
+      } catch (err) {
+        // Log error but don't block dashboard load
+        console.error('Failed to restore jobs:', err);
+      }
+    };
+    
+    restoreJobs();
+  }, []);
 
   // Show error if backend is not accessible
   if (error) {
@@ -72,21 +97,11 @@ uvicorn api.main:app --reload
   };
 
   const handleJobStarted = useCallback((jobId: string, jobType: string) => {
-    setActiveJobId(jobId);
     setBackgroundJobs(prev => [...prev, {
       jobId,
       type: jobType,
       startedAt: new Date(),
     }]);
-  }, []);
-
-  const handleCloseModal = useCallback(() => {
-    // Don't remove from backgroundJobs - it keeps tracking
-    setActiveJobId(null);
-  }, []);
-
-  const handleSelectJob = useCallback((jobId: string) => {
-    setActiveJobId(jobId);
   }, []);
 
   const handleJobCompleted = useCallback((jobId: string) => {
@@ -121,23 +136,11 @@ uvicorn api.main:app --reload
 
         {/* Card Table */}
         <CardTable cards={filteredCards} isLoading={isLoading} />
-
-        {/* Process Modal */}
-        {activeJobId && (
-          <ProcessModal
-            jobId={activeJobId}
-            startedAt={backgroundJobs.find(j => j.jobId === activeJobId)?.startedAt}
-            onClose={handleCloseModal}
-            onComplete={handleJobCompleted}
-          />
-        )}
       </div>
 
-      {/* Floating Active Jobs bar */}
+      {/* Active Jobs Bar */}
       <ActiveJobs
         jobs={backgroundJobs}
-        activeJobId={activeJobId}
-        onSelectJob={handleSelectJob}
         onJobCompleted={handleJobCompleted}
       />
     </div>

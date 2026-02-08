@@ -90,7 +90,24 @@ def get_cached_collection(force_refresh: bool = False):
             if val is None:
                 return None
             try:
-                return float(str(val).replace(',', '.'))
+                # Handle multiple price formats (European/US with or without thousands separator)
+                price_clean = str(val).strip()
+                
+                if ',' in price_clean and '.' in price_clean:
+                    last_comma_pos = price_clean.rfind(',')
+                    last_dot_pos = price_clean.rfind('.')
+                    
+                    if last_comma_pos > last_dot_pos:
+                        # European: "1.234,56"
+                        price_clean = price_clean.replace('.', '').replace(',', '.')
+                    else:
+                        # US: "1,234.56"
+                        price_clean = price_clean.replace(',', '')
+                elif ',' in price_clean:
+                    # Only comma: European decimal "1234,56"
+                    price_clean = price_clean.replace(',', '.')
+                
+                return float(price_clean)
             except (ValueError, TypeError):
                 return None
         
