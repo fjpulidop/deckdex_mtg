@@ -29,7 +29,7 @@ export function Dashboard() {
     set: setFilter === 'all' ? undefined : setFilter,
     priceMin: priceMin.trim() || undefined,
     priceMax: priceMax.trim() || undefined,
-    limit: 1000,
+    limit: 10000,
   });
 
   const invalidateCards = useCallback(() => {
