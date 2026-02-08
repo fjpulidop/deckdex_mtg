@@ -96,10 +96,11 @@ Create a GitHub Pull Request with an intelligent, comprehensive description.
 
 6. **Create the PR**
 
-   **If using GitHub CLI:**
+   **If using GitHub CLI:** Always pass a description. Never run `gh pr create` without `--body`.
    ```bash
    gh pr create --title "Title" --body "Description"
    ```
+   Use the generated description (from step 4) as the body. Write the description **in English**.
    
    **If no GitHub CLI:**
    - Generate GitHub URL: `https://github.com/owner/repo/compare/main...branch?expand=1`
@@ -160,8 +161,10 @@ brew install gh
 **Guardrails**
 - Don't create PR from main branch
 - Verify branch is pushed before creating PR
-- Generate comprehensive, well-formatted description
-- Include test results and breaking changes
+- **Always** generate and pass a PR description (body); never create a PR without a body
+- Write the PR description **in English**
+- Generate comprehensive, well-formatted description (Summary, Changes, Why, etc.)
+- Include test results and breaking changes when relevant
 - Use emoji sparingly and meaningfully (✅ 🐛 📚 ♻️)
 - Always show description before creating
 - Provide fallback for manual PR creation if gh CLI unavailable

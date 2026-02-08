@@ -75,7 +75,11 @@ This command orchestrates the full git workflow. **Rule: New work always lands o
    - **With `gh` available:**
      - List PR for current branch: `gh pr list --head <branch-name> --json number,url,title`.
      - **If PR exists:** Skip creation; show existing PR URL and note that new commits were added.
-     - **If no PR:** Generate description from commits and diff vs main, then `gh pr create --title "..." --body "..."`.
+     - **If no PR:** You **must** create the PR **with a description (body)**. Never run `gh pr create` without `--body`.
+       1. **Generate a PR description** (in English) from: commit messages on the branch vs main, and a short summary of what changed (key files/areas). Use this structure:
+          - **Summary** (1–2 sentences: what this PR does and why).
+          - **Changes** (bullet list: main areas or files touched, or list of commit titles).
+       2. Run: `gh pr create --title "<title>" --body "<description>"`. Use the first line of the approved commit message as `<title>`. Use the generated description as `<body>`.
    - **Without `gh` (or if `gh` fails):** Do not fail. Show manual PR URL: `https://github.com/<owner>/<repo>/compare/main...<branch-name>` and suggest installing `gh` for next time.
 
 6. **Show complete summary** (what was staged, commit hash and message, branch, push result, PR link or manual PR URL).
@@ -148,4 +152,4 @@ Or run `/git-pr` later.
 - Allow user to cancel at any step; show what was completed and what remains.
 - Show progress clearly (e.g. [1/5] … [5/5]).
 - **Branch naming:** derive from approved commit message; keep type (feat/fix/docs/etc.) and a short slug; user can override if they provide a branch name as input.
-- **PR:** Prefer `gh` when available (list existing PR, create if missing). If `gh` is not installed or fails, show manual PR URL only and do not fail the workflow.
+- **PR:** Prefer `gh` when available (list existing PR, create if missing). When creating a PR, **always** pass a generated description via `--body` (in English: Summary + Changes); never create a PR without a body. If `gh` is not installed or fails, show manual PR URL only and do not fail the workflow.

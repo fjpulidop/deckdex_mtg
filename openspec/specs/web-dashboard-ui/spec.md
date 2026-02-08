@@ -2,6 +2,82 @@
 
 React (Vite, port 5173). **Overview:** 2-column grid: Total Cards, Total Value (subtitle Avg: €X.XX); 30s auto-refresh; skeleton loaders. No price chart in MVP (no history DB). **Table:** 50 cards/page; name, type, rarity, price, set; pagination; sort by column. **Filters:** search by name; by rarity, type, set, price range (min/max); active filters as removable chips; result count (e.g. "Showing X cards"); Clear Filters. **Jobs:** On mount GET /api/jobs → restore backgroundJobs. Buttons: Process Cards, Update Prices → POST, open progress modal; disable when running. **Progress modal:** 0% "Connecting…"; WebSocket → update bar and "Processing X/Y"; errors in scrollable list; complete → summary (processed, success, errors, duration); Done → close and refetch. Stop → POST cancel, "Stopping…", orange bar; cancelled → "Process cancelled — progress X/Y (Z%)". Minimize + Stop side by side; elapsed timer in header (12s / 2m 34s / 1h 5m). On reopen: GET /api/jobs/{id} for initial state (no 0% flash); if already complete → show result without WebSocket. **WebSocket:** Reconnect up to 3× backoff; "Reconnecting…"; failure → "Connection lost" + Refresh (REST). **Styling:** Tailwind v4 (@tailwindcss/postcss, @import "tailwindcss"); bg-black/50 not bg-opacity-*; responsive grid. **Data:** TanStack Query (cache, isLoading, error + retry). **Errors:** Toast on API failure (5s); process errors → count + CSV link. **Access:** localhost:5173; backend down → friendly error + retry; ErrorBoundary for render errors. **Bottom bar:** Fixed bottom when jobs exist; list jobs vertically; completed → show 5s then remove; cancelled → orange + "Cancelled"; poll GET /api/jobs/{id} every 2s. Modern browsers.
 
+### Requirement: Dashboard SHALL display collection overview
+
+The system SHALL provide a dashboard page that visualizes collection statistics in a streamlined 2-column layout without non-persistent temporal metadata.
+
+#### Scenario: Display summary statistics cards in 2-column grid
+- **WHEN** user opens dashboard
+- **THEN** system displays 2 cards in responsive grid: Total Cards (left) and Total Value (right)
+
+#### Scenario: Display average price as subtitle under Total Value
+- **WHEN** Total Value card is rendered
+- **THEN** system displays average price in smaller gray text below the total value amount (format: "Avg: €X.XX")
+
+#### Scenario: Statistics auto-refresh every 30 seconds
+- **WHEN** user remains on dashboard
+- **THEN** system automatically refetches stats every 30 seconds without page reload
+
+#### Scenario: Loading state while fetching data
+- **WHEN** dashboard is loading collection data
+- **THEN** system displays skeleton loaders for 2 stat cards (not 3)
+
+### Requirement: Dashboard SHALL restore active jobs on page load
+
+The system SHALL restore visibility of background jobs that were running before page refresh by fetching job state from the backend.
+
+#### Scenario: Fetch active jobs from backend on mount
+- **WHEN** Dashboard component mounts
+- **THEN** system sends GET request to `/api/jobs` to retrieve all active and recently completed jobs
+
+#### Scenario: Populate background jobs list from backend response
+- **WHEN** `/api/jobs` returns list of jobs
+- **THEN** system populates backgroundJobs state with job_id, job_type, and start_time for each job
+
+#### Scenario: Skip job restoration if backend returns empty list
+- **WHEN** `/api/jobs` returns empty array
+- **THEN** system does not display any jobs panel (no jobs to restore)
+
+#### Scenario: Handle job restoration API errors gracefully
+- **WHEN** `/api/jobs` request fails
+- **THEN** system logs error but continues loading dashboard without blocking UI
+
+### Requirement: Dashboard SHALL display active background jobs in fixed bottom bar
+
+The system SHALL show a fixed bottom bar (not floating pills) when background jobs exist, improving visual alignment with action buttons.
+
+#### Scenario: Show fixed bottom bar for background jobs
+- **WHEN** one or more jobs are in backgroundJobs list
+- **THEN** system displays a fixed bar anchored to bottom of viewport spanning full width
+
+#### Scenario: Position bottom bar above viewport floor
+- **WHEN** bottom bar is visible
+- **THEN** system positions it with `fixed bottom-0 left-0 right-0` styling with white background and top border shadow
+
+#### Scenario: Multiple background jobs displayed vertically
+- **WHEN** multiple jobs are running
+- **THEN** system stacks job entries vertically in the bottom bar (not side-by-side)
+
+#### Scenario: Click to re-open progress modal
+- **WHEN** user clicks a job entry in the bottom bar
+- **THEN** system re-opens the progress modal for that job with current progress state
+
+#### Scenario: Auto-remove completed jobs
+- **WHEN** a background job completes (success, error, or cancelled)
+- **THEN** system shows completion status briefly (5 seconds) then removes it from the bottom bar
+
+#### Scenario: Display cancelled job in bottom bar
+- **WHEN** a background job is cancelled
+- **THEN** system shows orange background with cancel icon and "Cancelled" label
+
+#### Scenario: Job progress via polling
+- **WHEN** a job is displayed in the bottom bar
+- **THEN** system polls GET `/api/jobs/{id}` every 2 seconds to update progress percentage and status
+
+#### Scenario: Hide bottom bar when no jobs exist
+- **WHEN** backgroundJobs list is empty
+- **THEN** system does not render the bottom bar (conditional rendering)
+
 ### Requirement: Dashboard SHALL provide card filtering by all table dimensions
 
 The system SHALL allow users to filter the card table by name (search), rarity, type, set, and price range. Filter controls SHALL be presented in a single filter bar consistent with existing Tailwind styling (rounded-lg, shadow, focus:ring-blue-500). The system SHALL show active filters as removable chips and SHALL display a result count that updates when filters change. A single "Clear Filters" action SHALL reset all filters.
@@ -41,3 +117,35 @@ The system SHALL allow users to filter the card table by name (search), rarity, 
 #### Scenario: Multiple filters combine
 - **WHEN** the user applies more than one filter (e.g. rarity Rare and set "Dominaria")
 - **THEN** the system shows only cards that satisfy all active filters simultaneously
+
+### Requirement: Main content SHALL not be covered by the jobs bar
+
+When one or more background jobs are shown in the fixed bottom jobs bar, the main content area (stats, filters, card table, and pagination controls) SHALL be adjusted so that the jobs bar does not overlap it. The user SHALL always be able to see the bottom of the card table and the pagination controls (e.g. next/previous) without them being covered by the bar, whether one job or multiple jobs are displayed.
+
+#### Scenario: Table and pagination visible with one job
+- **WHEN** at least one job is active and the jobs bar is visible at the bottom
+- **THEN** the main content has sufficient bottom spacing (or equivalent layout) so that the end of the card table and the pagination controls remain visible above the bar
+
+#### Scenario: Table and pagination visible with multiple jobs
+- **WHEN** two or more jobs are active and the jobs bar grows in height
+- **THEN** the main content adjusts so that the card table end and pagination controls remain visible and are not covered by the bar
+
+#### Scenario: No overlap when scrolling to bottom
+- **WHEN** the user scrolls to the bottom of the dashboard while jobs are active
+- **THEN** the last row of the table and the pagination controls are fully visible and not obscured by the jobs bar
+
+### Requirement: Each job SHALL offer a way to view progress and log in a modal
+
+Each job entry in the bottom jobs bar SHALL provide a control (e.g. button or link) that opens a modal (or equivalent overlay) dedicated to that job. The modal SHALL display that job's progress (e.g. percentage, current/total, elapsed time) and log or progress output so the user can see how the job is advancing.
+
+#### Scenario: Open job log modal from bar
+- **WHEN** the user activates the "View log" (or equivalent) control on a job in the bottom bar
+- **THEN** a modal opens showing that job's progress and log (or progress and errors) for the selected job
+
+#### Scenario: Modal shows live progress
+- **WHEN** the modal is open for a running job
+- **THEN** the modal shows up-to-date progress (e.g. percentage, current/total) and any log or error output, updating as the job runs (e.g. via existing WebSocket or polling)
+
+#### Scenario: Modal can be closed
+- **WHEN** the user closes the modal (e.g. close button or overlay click)
+- **THEN** the modal is dismissed and the user returns to the dashboard view; the job continues in the bar as before
