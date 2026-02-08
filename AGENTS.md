@@ -1,5 +1,7 @@
 # Agents (Cursor) for DeckDex MTG
 
+**Precedence:** The **closest `AGENTS.md`** to the files you are changing wins. Root holds global defaults only.
+
 Purpose
 -------
 This document lists the local agents and skills available for the DeckDex MTG repository, explains their responsibilities and when to use them, and provides quick examples for invoking or extending them in the Cursor environment.
@@ -71,6 +73,12 @@ Troubleshooting
 ---------------
 - If a skill reports "blocked" or "missing artifacts", open the related spec files in `openspec/` and resolve the missing pieces.
 - If a skill produces problematic edits, revert the changes locally, update the SKILL.md to clarify behavior, and re-run.
+
+Index of scoped AGENTS.md
+-------------------------
+- `backend/AGENTS.md` — API (FastAPI, routes, services, WebSockets)
+- `frontend/AGENTS.md` — Web dashboard (React, TypeScript, Vite)
+- `deckdex/AGENTS.md` — Core package (processor, storage, config)
 
 Contact / Maintainers
 ---------------------
