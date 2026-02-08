@@ -93,9 +93,26 @@ export const api = {
   /** URL for card image by id (use as img src). Backend fetches from Scryfall on first request and caches. */
   getCardImageUrl: (id: number): string => `${API_BASE}/cards/${id}/image`,
 
-  // Stats
-  getStats: async (): Promise<Stats> => {
-    const response = await apiFetch(`${API_BASE}/stats/`);
+  // Stats (optional filter params: same as dashboard filters)
+  getStats: async (params?: {
+    search?: string;
+    rarity?: string;
+    type?: string;
+    set_name?: string;
+    price_min?: string;
+    price_max?: string;
+  }): Promise<Stats> => {
+    const cleanParams: Record<string, string> = {};
+    if (params) {
+      for (const [key, value] of Object.entries(params)) {
+        if (value !== undefined && value !== null && value !== '') {
+          cleanParams[key] = String(value);
+        }
+      }
+    }
+    const query = new URLSearchParams(cleanParams).toString();
+    const url = `${API_BASE}/stats/${query ? `?${query}` : ''}`;
+    const response = await apiFetch(url, FETCH_OPTS);
     if (!response.ok) throw new Error('Failed to fetch stats');
     return response.json();
   },

@@ -20,11 +20,38 @@ export function useCard(name: string) {
   });
 }
 
-// Hook for fetching stats
-export function useStats() {
+export interface StatsFilters {
+  search?: string;
+  rarity?: string;
+  type?: string;
+  set?: string;
+  priceMin?: string;
+  priceMax?: string;
+}
+
+// Hook for fetching stats; pass current dashboard filters so stats reflect filtered set
+export function useStats(filters?: StatsFilters) {
+  const apiParams =
+    filters &&
+    (filters.search ||
+      filters.rarity ||
+      filters.type ||
+      filters.set ||
+      filters.priceMin ||
+      filters.priceMax)
+      ? {
+          search: filters.search || undefined,
+          rarity: filters.rarity || undefined,
+          type: filters.type || undefined,
+          set_name: filters.set || undefined,
+          price_min: filters.priceMin || undefined,
+          price_max: filters.priceMax || undefined,
+        }
+      : undefined;
+
   return useQuery({
-    queryKey: ['stats'],
-    queryFn: api.getStats,
+    queryKey: ['stats', apiParams],
+    queryFn: () => api.getStats(apiParams),
     staleTime: 30000,
     refetchInterval: 30000,
   });
