@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Card, api } from '../api/client';
 import { useActiveJobs } from '../contexts/ActiveJobsContext';
+import { ManaText } from './ManaText';
 
 interface CardDetailModalProps {
   card: Card;
@@ -72,7 +73,7 @@ export function CardDetailModal({ card, onClose, onPriceUpdateJobComplete }: Car
           {(card.mana_cost || card.type) && (
             <div className="flex flex-wrap items-center gap-2 mb-2 text-gray-700 dark:text-gray-300">
               {card.mana_cost && (
-                <span className="font-mono text-sm">{card.mana_cost}</span>
+                <ManaText text={card.mana_cost} className="font-mono text-sm inline-flex flex-wrap items-center gap-0.5" />
               )}
               {card.type && (
                 <span className="text-sm italic">{card.type}</span>
@@ -83,7 +84,7 @@ export function CardDetailModal({ card, onClose, onPriceUpdateJobComplete }: Car
           {card.description && (
             <div className="mb-4">
               <p className="text-sm text-gray-700 dark:text-gray-300 whitespace-pre-wrap leading-relaxed">
-                {card.description}
+                <ManaText text={card.description} />
               </p>
             </div>
           )}

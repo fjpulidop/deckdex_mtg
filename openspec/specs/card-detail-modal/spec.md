@@ -22,6 +22,18 @@ The system SHALL provide a modal component that shows the selected card's image 
 - **WHEN** the modal is open with a card
 - **THEN** the system displays at least: name, type line, mana cost, description (oracle text), power/toughness when present, set name, set number, rarity, and price in a clear layout consistent with a Scryfall-style card view
 
+### Requirement: Card detail modal SHALL render MTG mana symbols with Scryfall-style graphics
+
+Any text that contains MTG mana symbols in curly-brace notation (e.g. `{W}`, `{U}`, `{1}`, `{W/U}`, `{X}`) SHALL be rendered using graphical symbols (colored orbs / SVGs) in the Scryfall style, not as raw literal text. The system SHALL adopt Scryfall’s visual assets (CSS and SVG data URIs) for consistency with the official card look. Mana cost and description (oracle text) in the card detail modal SHALL use this rendering. Symbols SHALL be recognised for the five colours (W, U, B, R, G), generic/colourless (0–20, C), hybrid (e.g. W/U → WU, 2/W → 2W), phyrexian, and other standard symbols (X, S, P, etc.); unknown symbols MAY fall back to a neutral style. The implementation SHALL keep the original symbol text available for accessibility (e.g. `aria-label`, `title`).
+
+#### Scenario: Mana cost and description show graphical mana symbols
+- **WHEN** the card detail modal displays a card with mana cost or oracle text containing mana symbols (e.g. `{U}{R}`, `{2}{W}`, `{X}`)
+- **THEN** those symbols are shown as Scryfall-style graphical icons (colored orbs/SVGs) rather than the literal strings `{U}`, `{R}`, etc.
+
+#### Scenario: Hybrid and special mana symbols render correctly
+- **WHEN** the card text contains hybrid (e.g. `{W/U}`), generic (`{1}`–`{20}`, `{C}`), or other symbols (e.g. `{X}`, phyrexian)
+- **THEN** the system renders them using the corresponding Scryfall asset classes (e.g. `.card-symbol-*`) so that the correct icon is displayed
+
 #### Scenario: Modal can be closed
 - **WHEN** the user closes the modal (e.g. close button or overlay click)
 - **THEN** the modal is dismissed and focus returns to the dashboard; no data is persisted from the modal (read-only)
