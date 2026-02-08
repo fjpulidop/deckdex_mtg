@@ -68,12 +68,21 @@ export interface JobStatus {
 
 // API functions
 export const api = {
-  // Cards
-  getCards: async (params?: {limit?: number; offset?: number; search?: string}): Promise<Card[]> => {
+  // Cards (same filter params as stats so list and totals match)
+  getCards: async (params?: {
+    limit?: number;
+    offset?: number;
+    search?: string;
+    rarity?: string;
+    type?: string;
+    set_name?: string;
+    price_min?: string;
+    price_max?: string;
+  }): Promise<Card[]> => {
     const cleanParams: Record<string, string> = {};
     if (params) {
       for (const [key, value] of Object.entries(params)) {
-        if (value !== undefined && value !== null) {
+        if (value !== undefined && value !== null && value !== '') {
           cleanParams[key] = String(value);
         }
       }
