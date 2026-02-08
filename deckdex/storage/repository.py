@@ -102,7 +102,7 @@ class CollectionRepository(ABC):
 
     @abstractmethod
     def get_cards_for_price_update(self) -> List[tuple]:
-        """Return list of (card_id, card_name, current_price_str) for price update job."""
+        """Return list of (card_id, name_for_scryfall, current_price_str). name_for_scryfall should be english_name when set, else name, for reliable Scryfall API lookup."""
         pass
 
     @abstractmethod
@@ -169,13 +169,14 @@ class PostgresCollectionRepository(CollectionRepository):
             return [_row_to_card(dict(r)) for r in rows]
 
     def get_cards_for_price_update(self) -> List[tuple]:
+        """Return (card_id, name_for_scryfall, current_price_str). Uses english_name for Scryfall when set, else name."""
         from sqlalchemy import text
         engine = self._get_engine()
         with engine.connect() as conn:
             rows = conn.execute(
-                text("SELECT id, name, price_eur FROM cards WHERE name IS NOT NULL AND name != ''")
+                text("SELECT id, name, english_name, price_eur FROM cards WHERE name IS NOT NULL AND name != ''")
             ).fetchall()
-            return [(r[0], r[1], r[2] or "") for r in rows]
+            return [(r[0], (r[2] or r[1]) or "", r[3] or "") for r in rows]
 
     def get_card_by_id(self, id: int) -> Optional[Dict[str, Any]]:
         from sqlalchemy import text

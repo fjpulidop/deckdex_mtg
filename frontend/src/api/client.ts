@@ -174,6 +174,17 @@ export const api = {
     return response.json();
   },
 
+  triggerSingleCardPriceUpdate: async (cardId: number): Promise<JobResponse> => {
+    const response = await apiFetch(`${API_BASE}/prices/update/${cardId}`, {
+      method: 'POST',
+    });
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.detail || 'Failed to trigger single-card price update');
+    }
+    return response.json();
+  },
+
   getJobs: async (): Promise<JobStatus[]> => {
     const response = await apiFetch(`${API_BASE}/jobs`);
     if (!response.ok) throw new Error('Failed to fetch jobs');

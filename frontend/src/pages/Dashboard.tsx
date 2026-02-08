@@ -37,6 +37,20 @@ export function Dashboard() {
     queryClient.invalidateQueries({ queryKey: ['stats'] });
   }, [queryClient]);
 
+  const refetchAfterPriceUpdate = useCallback(async () => {
+    await queryClient.invalidateQueries({ queryKey: ['cards'] });
+    await queryClient.invalidateQueries({ queryKey: ['stats'] });
+    const cardId = detailCard?.id;
+    if (cardId != null) {
+      try {
+        const updated = await api.getCard(String(cardId));
+        setDetailCard((prev) => (prev?.id === updated.id ? updated : prev));
+      } catch {
+        // ignore
+      }
+    }
+  }, [queryClient, detailCard?.id]);
+
   const handleAddCard = useCallback(() => setCardModal('add'), []);
   const handleEditCard = useCallback((card: Card) => setCardModal({ card }), []);
   const handleRowClick = useCallback((card: Card) => setDetailCard(card), []);
@@ -231,6 +245,7 @@ uvicorn api.main:app --reload --port 8000
         <CardDetailModal
           card={detailCard}
           onClose={() => setDetailCard(null)}
+          onPriceUpdateJobComplete={refetchAfterPriceUpdate}
         />
       )}
     </div>
