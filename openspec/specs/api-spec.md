@@ -1,74 +1,7 @@
-# API & Integration Specification
+# API & Integration
 
-## External APIs Used
+**External:** Scryfall (card data/pricing; respect rate limits, backoff). Google Sheets v4 (batchGet/batchUpdate; Service Account). OpenAI optional (strategy/tier) — see [openai-integration](openai-integration/spec.md); Chat Completions API, JSON mode, SDK ≥1.30.
 
-1. Scryfall REST API
-   - Purpose: primary source for card data and pricing.
-   - Rate limits must be respected; implement backoff and retries.
-   - Key endpoints: card lookup by exact name, search, set endpoints.
+**Internal/CLI:** process_cards(names, use_openai, update_prices) → report {fetched, enriched, updated_rows, errors}; update_prices(force_all); enrich_cards(card_ids). Card payload: id, name, prices, game_strategy, tier. Report: counts + errors[] with name, reason.
 
-2. Google Sheets API (Sheets v4)
-   - Purpose: storage and user-facing data surface.
-   - Use batchUpdate and values.batchGet/values.batchUpdate for efficiency.
-   - Authenticate with Service Account credentials JSON.
-
-3. OpenAI API (optional)
-   - Purpose: classify game strategy and tier for cards.
-   - Requirements: See openai-integration/spec.md for detailed requirements.
-   - Integration SHALL use Chat Completions API (not deprecated Completion API).
-   - SDK version: >= 1.30.0
-   - Default model: gpt-3.5-turbo (configurable via OPENAI_MODEL env var)
-   - Response format: JSON mode with structured parsing
-   - Error handling: Granular exception handling with retry logic for rate limits
-
-## Internal API (CLI / Programmatic)
-
-The application exposes a small internal command API via CLI flags and functions:
-
-- `process_cards(names: List[str], use_openai: bool = False, update_prices: bool = True)`
-  - Orchestrates fetching, enrichment, and sheet updates.
-  - Returns a report object with counts (fetched, enriched, updated, errors).
-
-- `update_prices(force_all: bool = False)`
-  - Iterates cards from sheet and updates prices where changed (or all if forced).
-
-- `enrich_cards(card_ids: List[str])`
-  - Requests OpenAI for strategy/tier for given cards, returns enriched fields.
-
-## Payload Schemas (simplified)
-
-Card payload (internal):
-
-```json
-{
-  "id": "scryfall-id",
-  "name": "Card Name",
-  "prices": { "usd": "1.23", "eur": "1.10" },
-  "game_strategy": "Aggro",
-  "tier": "High"
-}
-```
-
-Process report:
-
-```json
-{
-  "fetched": 120,
-  "enriched": 45,
-  "updated_rows": 37,
-  "errors": [
-    {"name":"Unknown Card","reason":"not_found"}
-  ]
-}
-```
-
-## Error Handling & Retries
-
-- Normalize external errors into a small set of internal error codes: not_found, rate_limited, transient_error, permission_denied.
-- Retries with exponential backoff for transient failures. Fail fast for permission issues (e.g. Sheets auth).
-
-## Observability
-
-- Emit structured CLI summaries and optional JSON reports for CI consumption.
-- Provide verbose logging toggle for troubleshooting.
-
+**Errors:** not_found, rate_limited, transient_error, permission_denied. Retry with backoff for transient; fail fast for auth. Observability: CLI summaries, optional JSON; verbose toggle.
