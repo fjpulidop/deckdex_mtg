@@ -1,6 +1,7 @@
 import React from 'react';
 import { api } from '../api/client';
 import { useWebSocket } from '../hooks/useApi';
+import { JobLogModal } from './JobLogModal';
 
 interface JobInfo {
   jobId: string;
@@ -21,6 +22,7 @@ interface JobState {
 
 export function ActiveJobs({ jobs, onJobCompleted }: ActiveJobsProps) {
   const [jobStates, setJobStates] = React.useState<Record<string, JobState>>({});
+  const [logModalJob, setLogModalJob] = React.useState<JobInfo | null>(null);
 
   // Don't show if no jobs exist
   if (jobs.length === 0) return null;
@@ -52,26 +54,37 @@ export function ActiveJobs({ jobs, onJobCompleted }: ActiveJobsProps) {
   };
 
   return (
-    <div className="fixed bottom-0 left-0 right-0 z-40 bg-white dark:bg-gray-800 border-t border-gray-200 dark:border-gray-600 shadow-lg">
-      <div className="container mx-auto px-4 py-3">
-        <div className="flex flex-col gap-3">
-          {jobs.map(job => (
-            <JobEntry
-              key={job.jobId}
-              job={job}
-              state={jobStates[job.jobId] || { expanded: false, isCancelling: false, finishedAt: null }}
-              onToggleExpanded={() => toggleExpanded(job.jobId)}
-              onCancel={() => handleCancel(job.jobId)}
-              onComplete={() => onJobCompleted(job.jobId)}
-              onFinish={(date) => setJobStates(prev => ({
-                ...prev,
-                [job.jobId]: { ...prev[job.jobId], finishedAt: date }
-              }))}
-            />
-          ))}
+    <>
+      <div className="fixed bottom-0 left-0 right-0 z-40 bg-white dark:bg-gray-800 border-t border-gray-200 dark:border-gray-600 shadow-lg">
+        <div className="container mx-auto px-4 py-3">
+          <div className="flex flex-col gap-3">
+            {jobs.map(job => (
+              <JobEntry
+                key={job.jobId}
+                job={job}
+                state={jobStates[job.jobId] || { expanded: false, isCancelling: false, finishedAt: null }}
+                onToggleExpanded={() => toggleExpanded(job.jobId)}
+                onCancel={() => handleCancel(job.jobId)}
+                onComplete={() => onJobCompleted(job.jobId)}
+                onViewLog={() => setLogModalJob(job)}
+                onFinish={(date) => setJobStates(prev => ({
+                  ...prev,
+                  [job.jobId]: { ...prev[job.jobId], finishedAt: date }
+                }))}
+              />
+            ))}
+          </div>
         </div>
       </div>
-    </div>
+      {logModalJob && (
+        <JobLogModal
+          jobId={logModalJob.jobId}
+          jobType={logModalJob.type}
+          startedAt={logModalJob.startedAt}
+          onClose={() => setLogModalJob(null)}
+        />
+      )}
+    </>
   );
 }
 
@@ -81,10 +94,11 @@ interface JobEntryProps {
   onToggleExpanded: () => void;
   onCancel: () => void;
   onComplete: () => void;
+  onViewLog: () => void;
   onFinish: (date: Date) => void;
 }
 
-function JobEntry({ job, state, onToggleExpanded, onCancel, onComplete, onFinish }: JobEntryProps) {
+function JobEntry({ job, state, onToggleExpanded, onCancel, onComplete, onViewLog, onFinish }: JobEntryProps) {
   const { status: wsStatus, progress, errors, complete, summary } = useWebSocket(job.jobId);
   const hasNotifiedComplete = React.useRef(false);
   const [elapsed, setElapsed] = React.useState('');
@@ -237,6 +251,12 @@ function JobEntry({ job, state, onToggleExpanded, onCancel, onComplete, onFinish
               {state.isCancelling ? 'Stopping...' : 'Stop'}
             </button>
           )}
+          <button
+            onClick={onViewLog}
+            className="px-3 py-1 text-xs bg-gray-100 dark:bg-gray-600 text-gray-700 dark:text-gray-200 rounded hover:bg-gray-200 dark:hover:bg-gray-500 transition"
+          >
+            View log
+          </button>
           {errors.length > 0 && (
             <button
               onClick={onToggleExpanded}

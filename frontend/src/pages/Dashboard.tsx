@@ -215,9 +215,17 @@ uvicorn api.main:app --reload --port 8000
     );
   }
 
+  // Reserve space at bottom so the fixed jobs bar never covers table or pagination
+  const jobsBarHeight = backgroundJobs.length > 0
+    ? 24 + backgroundJobs.length * 72
+    : 0;
+
   return (
     <div className="min-h-screen bg-gray-100 dark:bg-gray-900">
-      <div className="container mx-auto px-4 py-8">
+      <div
+        className="container mx-auto px-4 py-8"
+        style={jobsBarHeight > 0 ? { paddingBottom: jobsBarHeight } : undefined}
+      >
         {/* Header */}
         <div className="mb-8 flex justify-between items-start">
           <div>

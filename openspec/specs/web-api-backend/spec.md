@@ -3,3 +3,59 @@
 FastAPI; collection data, process execution, job monitoring. **Endpoints:** GET /api/health (200 + service/version); CORS for localhost:5173. GET /api/cards (list; optional limit, offset, search); GET /api/cards/{card_name} (single). Parse prices: EU/US formats with/without thousands separators; skip invalid/N/A. GET /api/stats (total_cards, total_value, average_price, last_updated); 30s cache. POST /api/process (optional limit) → job_id, background run; POST /api/prices/update → job_id. 409 if process already running. GET /api/jobs, GET /api/jobs/{id} (status, progress, errors, start_time; completed: summary). POST /api/jobs/{id}/cancel → 200 with status cancelled (or 404/409). POST /api/import/file — upload CSV or JSON file to replace collection in Postgres (requires DATABASE_URL); 400 invalid file, 501 if Postgres not configured.
 
 Reuse SpreadsheetClient, CardFetcher, config_loader; wrap processor via ProcessorService. Errors: 400 invalid params, 503 Sheets quota (retry-after), 500 + log traceback. Log requests (endpoint, method, status) at INFO; errors at ERROR.
+
+### Requirement: Backend SHALL provide collection statistics endpoint
+
+The system SHALL calculate and return aggregate statistics about the collection with robust price parsing that handles multiple European and US number formats.
+
+#### Scenario: Get collection summary statistics
+- **WHEN** client sends GET request to `/api/stats`
+- **THEN** system returns JSON with total_cards, total_value, average_price, last_updated timestamp
+
+#### Scenario: Statistics cached to avoid excessive Sheets API calls
+- **WHEN** client requests stats within 30 seconds of previous request
+- **THEN** system returns cached statistics without querying Google Sheets
+
+#### Scenario: Parse European price format with thousands separator
+- **WHEN** Google Sheets returns price as "1.234,56" (European format with thousands separator)
+- **THEN** system correctly parses it as 1234.56 and includes it in total_value calculation
+
+#### Scenario: Parse European price format without thousands separator
+- **WHEN** Google Sheets returns price as "123,45" (European format without thousands separator)
+- **THEN** system correctly parses it as 123.45 and includes it in total_value calculation
+
+#### Scenario: Parse US price format with thousands separator
+- **WHEN** Google Sheets returns price as "1,234.56" (US format with comma thousands separator)
+- **THEN** system correctly parses it as 1234.56 and includes it in total_value calculation
+
+#### Scenario: Skip invalid price formats gracefully
+- **WHEN** price value cannot be parsed as a number
+- **THEN** system logs the error and excludes that card from total_value but continues processing remaining cards
+
+#### Scenario: Skip N/A prices
+- **WHEN** card has price value "N/A"
+- **THEN** system excludes that card from total_value and average_price calculations
+
+### Requirement: Backend SHALL provide collection data endpoints
+
+The system SHALL expose endpoints to retrieve card collection data from Google Sheets with robust price parsing.
+
+#### Scenario: List all cards in collection
+- **WHEN** client sends GET request to `/api/cards`
+- **THEN** system returns JSON array of cards with name, type, price, rarity, and other metadata
+
+#### Scenario: List cards with pagination
+- **WHEN** client sends GET request to `/api/cards?limit=50&offset=100`
+- **THEN** system returns 50 cards starting from offset 100
+
+#### Scenario: Search cards by name
+- **WHEN** client sends GET request to `/api/cards?search=lotus`
+- **THEN** system returns only cards whose name contains "lotus" (case-insensitive)
+
+#### Scenario: Get single card details
+- **WHEN** client sends GET request to `/api/cards/{card_name}`
+- **THEN** system returns detailed JSON object for that card including all available metadata
+
+#### Scenario: Parse price fields with multiple formats in collection cache
+- **WHEN** caching collection data from Google Sheets
+- **THEN** system uses same robust price parsing logic for CMC and price fields that handles European/US formats with or without thousands separators
