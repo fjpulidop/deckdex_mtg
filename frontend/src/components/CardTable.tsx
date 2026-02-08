@@ -5,12 +5,10 @@ interface CardTableProps {
   cards: Card[];
   isLoading?: boolean;
   onAdd?: () => void;
-  onEdit?: (card: Card) => void;
-  onDelete?: (card: Card) => void;
   onRowClick?: (card: Card) => void;
 }
 
-export function CardTable({ cards, isLoading, onAdd, onEdit, onDelete, onRowClick }: CardTableProps) {
+export function CardTable({ cards, isLoading, onAdd, onRowClick }: CardTableProps) {
   const hasIds = cards.some(c => c.id != null);
   const [sortKey, setSortKey] = useState<string>('name');
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
@@ -113,11 +111,6 @@ export function CardTable({ cards, isLoading, onAdd, onEdit, onDelete, onRowClic
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
                 Set
               </th>
-              {hasIds && (onEdit || onDelete) && (
-                <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                  Actions
-                </th>
-              )}
             </tr>
           </thead>
           <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-600">
@@ -149,20 +142,6 @@ export function CardTable({ cards, isLoading, onAdd, onEdit, onDelete, onRowClic
                 <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
                   {card.set_name || 'N/A'}
                 </td>
-                {hasIds && (onEdit || onDelete) && (
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-right" onClick={e => e.stopPropagation()}>
-                    {onEdit && card.id != null && (
-                      <button type="button" onClick={(e) => { e.stopPropagation(); onEdit(card); }} className="text-blue-600 dark:text-blue-400 hover:underline mr-2">
-                        Edit
-                      </button>
-                    )}
-                    {onDelete && card.id != null && (
-                      <button type="button" onClick={(e) => { e.stopPropagation(); onDelete(card); }} className="text-red-600 dark:text-red-400 hover:underline">
-                        Delete
-                      </button>
-                    )}
-                  </td>
-                )}
               </tr>
             ))}
           </tbody>
