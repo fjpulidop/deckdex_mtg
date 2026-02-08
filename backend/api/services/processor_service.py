@@ -341,7 +341,68 @@ class ProcessorService:
                 'summary': {'status': 'error', 'error': str(e)}
             })
             raise
-    
+
+    async def update_single_card_price_async(self, card_id: int):
+        """Update price for one card asynchronously with same progress/WebSocket pattern as bulk update."""
+        logger.info(f"Starting async single-card price update (job_id={self.job_id}, card_id={card_id})")
+        self._loop = asyncio.get_event_loop()
+        with self._lock:
+            self.status = 'running'
+        try:
+            processor = MagicCardProcessor(self.config)
+            executor = ThreadPoolExecutor(max_workers=1)
+
+            def run_update():
+                original_stderr = sys.stderr
+                original_stdout = sys.stdout
+                capture_err = ProgressCapture(original_stderr, self._on_tqdm_progress, self._cancel_flag)
+                capture_out = ProgressCapture(original_stdout, self._on_tqdm_progress, self._cancel_flag)
+                try:
+                    sys.stderr = capture_err
+                    sys.stdout = capture_out
+                    processor.update_prices_for_card_ids([card_id])
+                    return {
+                        'status': 'success',
+                        'error_count': processor.error_count,
+                        'not_found_cards': processor.not_found_cards[:20],
+                    }
+                except JobCancelledException:
+                    logger.info(f"Single-card price update job cancelled (job_id={self.job_id})")
+                    return {
+                        'status': 'cancelled',
+                        'message': 'Job cancelled by user',
+                        'error_count': getattr(processor, 'error_count', 0),
+                        'not_found_cards': getattr(processor, 'not_found_cards', [])[:20],
+                    }
+                except Exception as e:
+                    logger.error(f"Single-card price update error: {e}")
+                    return {'status': 'error', 'error': str(e)}
+                finally:
+                    sys.stderr = original_stderr
+                    sys.stdout = original_stdout
+
+            result = await self._loop.run_in_executor(executor, run_update)
+            with self._lock:
+                if result.get('status') == 'cancelled':
+                    self.status = 'cancelled'
+                elif result.get('status') == 'success':
+                    self.status = 'complete'
+                else:
+                    self.status = 'error'
+            if not self._cancel_flag.is_set():
+                await self._emit_progress('complete', {'status': self.status, 'summary': result})
+            logger.info(f"Single-card price update finished (job_id={self.job_id}, status={self.status})")
+            return result
+        except Exception as e:
+            logger.error(f"Error in update_single_card_price_async: {e}")
+            with self._lock:
+                self.status = 'error'
+            await self._emit_progress('complete', {
+                'status': 'error',
+                'summary': {'status': 'error', 'error': str(e)}
+            })
+            raise
+
     def cancel(self):
         """Request cancellation of current process (sync, no WebSocket event)."""
         logger.info(f"Cancellation requested for job_id={self.job_id}")

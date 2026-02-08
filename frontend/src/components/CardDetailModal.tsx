@@ -1,14 +1,18 @@
 import { useState } from 'react';
 import { Card, api } from '../api/client';
+import { useActiveJobs } from '../contexts/ActiveJobsContext';
 
 interface CardDetailModalProps {
   card: Card;
   onClose: () => void;
+  onPriceUpdateJobComplete?: () => void;
 }
 
-export function CardDetailModal({ card, onClose }: CardDetailModalProps) {
+export function CardDetailModal({ card, onClose, onPriceUpdateJobComplete }: CardDetailModalProps) {
   const [imageLoaded, setImageLoaded] = useState(false);
   const [imageError, setImageError] = useState(false);
+  const [updatePricePending, setUpdatePricePending] = useState(false);
+  const { addJob } = useActiveJobs();
 
   const cardId = card.id != null ? card.id : null;
   const imageUrl = cardId != null ? api.getCardImageUrl(cardId) : null;
@@ -99,6 +103,30 @@ export function CardDetailModal({ card, onClose }: CardDetailModalProps) {
             )}
             <p><span className="font-medium text-gray-700 dark:text-gray-300">Price:</span> {priceStr}</p>
           </div>
+
+          {cardId != null && (
+            <div className="mt-4 pt-4 border-t border-gray-200 dark:border-gray-600">
+              <button
+                type="button"
+                disabled={updatePricePending}
+                onClick={async () => {
+                  if (card.id == null) return;
+                  setUpdatePricePending(true);
+                  try {
+                    const result = await api.triggerSingleCardPriceUpdate(card.id);
+                    addJob(result.job_id, 'Update price', onPriceUpdateJobComplete);
+                  } catch (err) {
+                    console.error('Failed to start price update:', err);
+                  } finally {
+                    setUpdatePricePending(false);
+                  }
+                }}
+                className="px-4 py-2 rounded-lg bg-blue-600 hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed text-white text-sm font-medium"
+              >
+                {updatePricePending ? 'Starting…' : 'Update price'}
+              </button>
+            </div>
+          )}
         </div>
       </div>
     </div>

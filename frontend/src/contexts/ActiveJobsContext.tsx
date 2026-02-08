@@ -1,4 +1,4 @@
-import { createContext, useCallback, useContext, useEffect, useState } from 'react';
+import { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react';
 import { api } from '../api/client';
 import { ActiveJobs } from '../components/ActiveJobs';
 
@@ -8,9 +8,11 @@ export interface JobInfo {
   startedAt: Date;
 }
 
+export type JobFinishedCallback = () => void;
+
 interface ActiveJobsContextValue {
   jobs: JobInfo[];
-  addJob: (jobId: string, jobType: string) => void;
+  addJob: (jobId: string, jobType: string, onFinished?: JobFinishedCallback) => void;
   removeJob: (jobId: string) => void;
 }
 
@@ -24,6 +26,7 @@ export function useActiveJobs(): ActiveJobsContextValue {
 
 export function ActiveJobsProvider({ children }: { children: React.ReactNode }) {
   const [jobs, setJobs] = useState<JobInfo[]>([]);
+  const finishedCallbacksRef = useRef<Map<string, JobFinishedCallback>>(new Map());
 
   useEffect(() => {
     const restoreJobs = async () => {
@@ -48,15 +51,27 @@ export function ActiveJobsProvider({ children }: { children: React.ReactNode }) 
     restoreJobs();
   }, []);
 
-  const addJob = useCallback((jobId: string, jobType: string) => {
+  const addJob = useCallback((jobId: string, jobType: string, onFinished?: JobFinishedCallback) => {
     setJobs((prev) => [
       ...prev,
       { jobId, type: jobType, startedAt: new Date() },
     ]);
+    if (onFinished) {
+      finishedCallbacksRef.current.set(jobId, onFinished);
+    }
   }, []);
 
   const removeJob = useCallback((jobId: string) => {
     setJobs((prev) => prev.filter((j) => j.jobId !== jobId));
+    finishedCallbacksRef.current.delete(jobId);
+  }, []);
+
+  const fireJobFinished = useCallback((jobId: string) => {
+    const cb = finishedCallbacksRef.current.get(jobId);
+    if (cb) {
+      finishedCallbacksRef.current.delete(jobId);
+      cb();
+    }
   }, []);
 
   const value: ActiveJobsContextValue = { jobs, addJob, removeJob };
@@ -72,7 +87,11 @@ export function ActiveJobsProvider({ children }: { children: React.ReactNode }) 
       >
         {children}
       </div>
-      <ActiveJobs jobs={jobs} onJobCompleted={removeJob} />
+      <ActiveJobs
+        jobs={jobs}
+        onJobCompleted={removeJob}
+        onJobFinished={fireJobFinished}
+      />
     </ActiveJobsContext.Provider>
   );
 }

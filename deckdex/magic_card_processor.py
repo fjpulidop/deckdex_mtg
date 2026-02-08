@@ -270,6 +270,31 @@ class MagicCardProcessor:
             
         logger.info(f"Price update completed in {datetime.now() - start_time}")
 
+    def update_prices_for_card_ids(self, card_ids: List[int]) -> None:
+        """
+        Update prices for a subset of cards by id. Builds (id, name, price) list via
+        get_card_by_id and calls update_prices_data_repo. Skips ids for which the card is not found.
+        """
+        if not self.collection_repository:
+            raise RuntimeError("collection_repository not set")
+        cards: List[Tuple[int, str, str]] = []
+        for cid in card_ids:
+            card = self.collection_repository.get_card_by_id(cid)
+            if not card:
+                logger.warning(f"Card id {cid} not found, skipping")
+                continue
+            # Use english_name for Scryfall when set (Scryfall expects canonical name), else name
+            name_for_scryfall = (card.get("english_name") or card.get("name") or "").strip()
+            if not name_for_scryfall:
+                logger.warning(f"Card id {cid} has no name or english_name, skipping")
+                continue
+            price_str = card.get("price") or card.get("price_eur") or ""
+            cards.append((cid, name_for_scryfall, price_str))
+        if not cards:
+            logger.info("No valid cards to update")
+            return
+        self.update_prices_data_repo(cards)
+
     def update_prices_data_repo(self, cards: List[Tuple[int, str, str]]) -> None:
         """
         Update prices using the collection repository (Postgres). cards: list of (card_id, name, current_price_str).

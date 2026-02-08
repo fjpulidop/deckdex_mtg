@@ -10,7 +10,7 @@ from pydantic import BaseModel
 from loguru import logger
 
 from ..services.processor_service import ProcessorService
-from ..dependencies import clear_collection_cache
+from ..dependencies import clear_collection_cache, get_collection_repo
 from ..routes.stats import clear_stats_cache
 from ..websockets.progress import manager as ws_manager
 
@@ -252,6 +252,73 @@ async def trigger_price_update(background_tasks: BackgroundTasks):
         job_id=job_id,
         status='pending',
         message='Price update job created and queued'
+    )
+
+
+@router.post("/prices/update/{card_id}", response_model=JobResponse)
+async def trigger_single_card_price_update(card_id: int, background_tasks: BackgroundTasks):
+    """
+    Trigger price update for a single card by id. Returns job_id; job uses same WebSocket progress
+    as bulk update. Does not conflict with bulk POST /api/prices/update (no 409).
+    """
+    logger.info(f"POST /api/prices/update/{card_id}")
+    repo = get_collection_repo()
+    if repo is None:
+        raise HTTPException(status_code=501, detail="Collection repository not configured")
+    card = repo.get_card_by_id(card_id)
+    if card is None:
+        raise HTTPException(status_code=404, detail=f"Card with id {card_id} not found")
+    _cleanup_old_jobs()
+    from deckdex.config_loader import load_config
+    config = load_config(profile="default")
+    config.update_prices = True
+    service = ProcessorService(config=config)
+    job_id = service.job_id
+    _job_types[job_id] = "Update price"
+
+    async def progress_callback(event):
+        event_type = event.get("type")
+        if event_type == "progress":
+            await ws_manager.send_progress(
+                job_id,
+                event.get("current", 0),
+                event.get("total", 0),
+                event.get("percentage", 0.0),
+            )
+        elif event_type == "error":
+            await ws_manager.send_error(
+                job_id,
+                event.get("card_name", ""),
+                event.get("error_type", "unknown"),
+                event.get("message", ""),
+            )
+        elif event_type == "complete":
+            await ws_manager.send_complete(
+                job_id,
+                event.get("status", "unknown"),
+                event.get("summary", {}),
+            )
+
+    service.progress_callback = progress_callback
+    _active_jobs[job_id] = service
+
+    async def run_update():
+        try:
+            result = await service.update_single_card_price_async(card_id)
+            _job_results[job_id] = result
+            if result.get("status") == "success":
+                clear_collection_cache()
+                clear_stats_cache()
+        except Exception as e:
+            logger.error(f"Single-card price update job {job_id} failed: {e}")
+            _job_results[job_id] = {"status": "error", "error": str(e)}
+
+    background_tasks.add_task(run_update)
+    logger.info(f"Created single-card price update job: {job_id}")
+    return JobResponse(
+        job_id=job_id,
+        status="pending",
+        message="Price update job created and queued",
     )
 
 

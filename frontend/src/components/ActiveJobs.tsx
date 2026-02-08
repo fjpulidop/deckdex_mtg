@@ -12,6 +12,7 @@ interface JobInfo {
 interface ActiveJobsProps {
   jobs: JobInfo[];
   onJobCompleted: (jobId: string) => void;
+  onJobFinished?: (jobId: string) => void;
 }
 
 interface JobState {
@@ -20,7 +21,7 @@ interface JobState {
   finishedAt: Date | null;
 }
 
-export function ActiveJobs({ jobs, onJobCompleted }: ActiveJobsProps) {
+export function ActiveJobs({ jobs, onJobCompleted, onJobFinished }: ActiveJobsProps) {
   const [jobStates, setJobStates] = React.useState<Record<string, JobState>>({});
   const [logModalJob, setLogModalJob] = React.useState<JobInfo | null>(null);
 
@@ -66,6 +67,7 @@ export function ActiveJobs({ jobs, onJobCompleted }: ActiveJobsProps) {
                 onToggleExpanded={() => toggleExpanded(job.jobId)}
                 onCancel={() => handleCancel(job.jobId)}
                 onComplete={() => onJobCompleted(job.jobId)}
+                onJobFinished={onJobFinished}
                 onViewLog={() => setLogModalJob(job)}
                 onFinish={(date) => setJobStates(prev => ({
                   ...prev,
@@ -94,11 +96,12 @@ interface JobEntryProps {
   onToggleExpanded: () => void;
   onCancel: () => void;
   onComplete: () => void;
+  onJobFinished?: (jobId: string) => void;
   onViewLog: () => void;
   onFinish: (date: Date) => void;
 }
 
-function JobEntry({ job, state, onToggleExpanded, onCancel, onComplete, onViewLog, onFinish }: JobEntryProps) {
+function JobEntry({ job, state, onToggleExpanded, onCancel, onComplete, onJobFinished, onViewLog, onFinish }: JobEntryProps) {
   const { status: wsStatus, progress, errors, complete, summary } = useWebSocket(job.jobId);
   const hasNotifiedComplete = React.useRef(false);
   const [elapsed, setElapsed] = React.useState('');
@@ -112,11 +115,12 @@ function JobEntry({ job, state, onToggleExpanded, onCancel, onComplete, onViewLo
   React.useEffect(() => {
     if (complete && !hasNotifiedComplete.current) {
       hasNotifiedComplete.current = true;
+      onJobFinished?.(job.jobId);
       onFinish(new Date());
       // Remove after 5 seconds
       setTimeout(() => onComplete(), 5000);
     }
-  }, [complete, onComplete, onFinish]);
+  }, [complete, job.jobId, onComplete, onFinish, onJobFinished]);
 
   // Reset on job change
   React.useEffect(() => {
