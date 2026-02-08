@@ -10,6 +10,7 @@ PostgreSQL migrations for DeckDex MTG (cards and sessions).
 export DATABASE_URL="postgresql://user:password@localhost:5432/deckdex"
 psql "$DATABASE_URL" -f migrations/001_cards_table.sql
 psql "$DATABASE_URL" -f migrations/002_sessions_table.sql
+psql "$DATABASE_URL" -f migrations/003_card_images_table.sql
 ```
 
 Or from repo root:

@@ -37,6 +37,7 @@ export interface Card {
   edhrec_rank?: string;
   game_strategy?: string;
   tier?: string;
+  created_at?: string;  // ISO timestamp when card was added
   [key: string]: any;
 }
 

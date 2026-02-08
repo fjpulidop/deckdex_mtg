@@ -1,7 +1,7 @@
 """Collection repository: abstract interface and Postgres implementation."""
 
 from abc import ABC, abstractmethod
-from typing import List, Dict, Any, Optional
+from typing import List, Dict, Any, Optional, Tuple
 
 from loguru import logger
 
@@ -12,9 +12,18 @@ def _is_incomplete_card(card: Dict[str, Any]) -> bool:
     return not (type_line and str(type_line).strip())
 
 
+def _serialize_created_at(value: Any) -> Optional[str]:
+    """Convert DB created_at (datetime or None) to ISO string for API."""
+    if value is None:
+        return None
+    if hasattr(value, "isoformat"):
+        return value.isoformat()
+    return str(value)
+
+
 # Card dict keys aligned with API and data-model (name, price, set_name, number/set_number, etc.)
 def _row_to_card(row: Dict[str, Any]) -> Dict[str, Any]:
-    """Map DB row to API-style card dict (id, name, price, number, ...)."""
+    """Map DB row to API-style card dict (id, name, price, number, created_at, ...)."""
     card = {
         "id": row["id"],
         "name": row.get("name"),
@@ -37,6 +46,7 @@ def _row_to_card(row: Dict[str, Any]) -> Dict[str, Any]:
         "edhrec_rank": row.get("edhrec_rank"),
         "game_strategy": row.get("game_strategy"),
         "tier": row.get("tier"),
+        "created_at": _serialize_created_at(row.get("created_at")),
     }
     return {k: v for k, v in card.items() if v is not None or k == "id"}
 
@@ -130,6 +140,14 @@ class CollectionRepository(ABC):
         """Replace entire collection with given cards (delete all, insert all). Return count inserted."""
         pass
 
+    def get_card_image(self, card_id: int) -> Optional[Tuple[bytes, str]]:
+        """Return (image_bytes, content_type) for the card if stored, else None. Optional for repositories that do not store images."""
+        return None
+
+    def save_card_image(self, card_id: int, content_type: str, data: bytes) -> None:
+        """Store image for the card. No-op for repositories that do not store images."""
+        pass
+
 
 class PostgresCollectionRepository(CollectionRepository):
     """PostgreSQL implementation of CollectionRepository."""
@@ -150,7 +168,7 @@ class PostgresCollectionRepository(CollectionRepository):
         from sqlalchemy import text
         engine = self._get_engine()
         with engine.connect() as conn:
-            rows = conn.execute(text("SELECT * FROM cards ORDER BY id")).mappings().fetchall()
+            rows = conn.execute(text("SELECT * FROM cards ORDER BY created_at DESC NULLS LAST, id DESC")).mappings().fetchall()
             return [_row_to_card(dict(r)) for r in rows]
 
     def get_cards_for_process(self, only_incomplete: bool = False) -> List[Dict[str, Any]]:
@@ -261,3 +279,29 @@ class PostgresCollectionRepository(CollectionRepository):
             conn.commit()
         logger.info(f"Replaced collection with {count} cards")
         return count
+
+    def get_card_image(self, card_id: int) -> Optional[Tuple[bytes, str]]:
+        from sqlalchemy import text
+        engine = self._get_engine()
+        with engine.connect() as conn:
+            row = conn.execute(
+                text("SELECT content_type, data FROM card_images WHERE card_id = :card_id"),
+                {"card_id": card_id}
+            ).fetchone()
+            if row is None:
+                return None
+            return (bytes(row[1]), row[0] or "image/jpeg")
+
+    def save_card_image(self, card_id: int, content_type: str, data: bytes) -> None:
+        from sqlalchemy import text
+        engine = self._get_engine()
+        with engine.connect() as conn:
+            conn.execute(
+                text("""
+                    INSERT INTO card_images (card_id, content_type, data)
+                    VALUES (:card_id, :content_type, :data)
+                    ON CONFLICT (card_id) DO UPDATE SET content_type = EXCLUDED.content_type, data = EXCLUDED.data
+                """),
+                {"card_id": card_id, "content_type": content_type, "data": data}
+            )
+            conn.commit()

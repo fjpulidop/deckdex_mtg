@@ -1,6 +1,8 @@
-# Card Image Storage
+# Card Image Storage (delta: persist in database)
 
-Backend behavior to resolve a card's image by surrogate card id: return stored image if present (from database); otherwise fetch the card by name from Scryfall, download the image, persist it to the database, then serve it. Defines the GET endpoint contract and storage semantics.
+Backend SHALL persist card images in the database so they are not re-downloaded from Scryfall on every session. The GET endpoint contract is unchanged.
+
+## MODIFIED Requirements
 
 ### Requirement: Card images SHALL be stored in the database
 
@@ -14,10 +16,10 @@ The system SHALL store card images in PostgreSQL (e.g. in a `card_images` table 
 - **WHEN** client sends GET request to `/api/cards/{id}/image` and no image is stored in the database for that card id
 - **THEN** system looks up the card by id to get its name, fetches the card from Scryfall by name, obtains the image URL, downloads the image, stores it in the database, and returns the image with status 200
 
-#### Scenario: Return 404 when card not found
-- **WHEN** client sends GET request to `/api/cards/{id}/image` and no card exists with that id
-- **THEN** system returns 404 (or 404 when image cannot be obtained after a valid card lookup, per product choice)
-
 #### Scenario: Images persist in database for subsequent requests
 - **WHEN** an image was stored in the database in a previous request for a given card id
 - **THEN** subsequent GET requests to `/api/cards/{id}/image` for that id return the stored image from the database without calling Scryfall again
+
+## Unchanged
+
+- GET `/api/cards/{id}/image` response body, status codes (200 image body, 404 when card not found or image unavailable), and Content-Type behavior remain as before. No API contract change for clients.
