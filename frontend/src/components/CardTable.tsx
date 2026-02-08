@@ -40,15 +40,29 @@ export function CardTable({ cards, isLoading, onAdd, onEdit, onDelete, onRowClic
     }
   };
 
+  // Sort full list first so order is consistent across all pages
   const sortedCards = [...cards].sort((a, b) => {
-    const aVal = a[sortKey] || '';
-    const bVal = b[sortKey] || '';
-    
-    if (sortDirection === 'asc') {
-      return aVal > bVal ? 1 : -1;
-    } else {
-      return aVal < bVal ? 1 : -1;
+    if (sortKey === 'price') {
+      const parsePrice = (v: unknown): number => {
+        if (v == null || v === '') return NaN;
+        const s = String(v).replace(',', '.');
+        const n = parseFloat(s);
+        return Number.isFinite(n) ? n : NaN;
+      };
+      const aNum = parsePrice(a.price);
+      const bNum = parsePrice(b.price);
+      const aNaN = Number.isNaN(aNum);
+      const bNaN = Number.isNaN(bNum);
+      if (aNaN && bNaN) return 0;
+      if (aNaN) return 1;
+      if (bNaN) return -1;
+      if (sortDirection === 'asc') return aNum < bNum ? -1 : aNum > bNum ? 1 : 0;
+      return bNum < aNum ? -1 : bNum > aNum ? 1 : 0;
     }
+    const aVal = (a[sortKey] ?? '') as string;
+    const bVal = (b[sortKey] ?? '') as string;
+    if (sortDirection === 'asc') return aVal > bVal ? 1 : aVal < bVal ? -1 : 0;
+    return bVal > aVal ? 1 : bVal < aVal ? -1 : 0;
   });
 
   const totalPages = Math.ceil(sortedCards.length / itemsPerPage);

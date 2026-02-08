@@ -45,7 +45,7 @@ class Card(BaseModel):
 
 @router.get("/", response_model=List[Card])
 async def list_cards(
-    limit: int = Query(default=100, ge=1, le=1000),
+    limit: int = Query(default=100, ge=1, le=10000),
     offset: int = Query(default=0, ge=0),
     search: Optional[str] = Query(default=None),
     rarity: Optional[str] = Query(default=None),
