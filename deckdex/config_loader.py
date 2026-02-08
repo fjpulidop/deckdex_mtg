@@ -19,7 +19,8 @@ from .config import (
     ProcessingConfig,
     ScryfallConfig,
     GoogleSheetsConfig,
-    OpenAIConfig
+    OpenAIConfig,
+    DatabaseConfig,
 )
 
 
@@ -117,6 +118,7 @@ def apply_env_overrides(config: Dict[str, Any]) -> Dict[str, Any]:
         "scryfall": ["api", "scryfall"],
         "google_sheets": ["api", "google_sheets"],
         "openai": ["api", "openai"],
+        "database": ["database"],
     }
     
     for env_key, env_value in os.environ.items():
@@ -211,26 +213,34 @@ def build_processor_config(
     scryfall_cfg = api_cfg.get("scryfall", {})
     sheets_cfg = api_cfg.get("google_sheets", {})
     openai_cfg = api_cfg.get("openai", {})
-    
+    database_cfg = yaml_config.get("database", {}).copy()
+
+    # Database URL: YAML or DATABASE_URL env (standard name, no DECKDEX_ prefix)
+    if os.getenv("DATABASE_URL"):
+        database_cfg["url"] = os.getenv("DATABASE_URL")
+
     # Apply CLI overrides if provided
     if cli_overrides:
         processing_cfg.update(cli_overrides.get("processing", {}))
         scryfall_cfg.update(cli_overrides.get("scryfall", {}))
         sheets_cfg.update(cli_overrides.get("google_sheets", {}))
         openai_cfg.update(cli_overrides.get("openai", {}))
-    
+        database_cfg.update(cli_overrides.get("database", {}))
+
     # Build nested config objects
     processing = ProcessingConfig(**processing_cfg)
     scryfall = ScryfallConfig(**scryfall_cfg)
     google_sheets = GoogleSheetsConfig(**sheets_cfg)
     openai = OpenAIConfig(**openai_cfg)
-    
+    database = DatabaseConfig(**database_cfg) if database_cfg.get("url") else None
+
     # Build main config
     return ProcessorConfig(
         processing=processing,
         scryfall=scryfall,
         google_sheets=google_sheets,
         openai=openai,
+        database=database,
         credentials_path=credentials_path,
         update_prices=update_prices,
         dry_run=dry_run,

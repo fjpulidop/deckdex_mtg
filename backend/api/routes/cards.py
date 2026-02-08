@@ -7,13 +7,14 @@ from fastapi import APIRouter, Query, HTTPException
 from pydantic import BaseModel
 from loguru import logger
 
-from ..dependencies import get_cached_collection
+from ..dependencies import get_cached_collection, get_collection_repo, clear_collection_cache
 
 router = APIRouter(prefix="/api/cards", tags=["cards"])
 
 # Pydantic models for request/response
 class Card(BaseModel):
-    """Card data model matching Google Sheets column layout"""
+    """Card data model matching Google Sheets column layout + optional id (Postgres)"""
+    id: Optional[int] = None
     name: Optional[str] = None
     english_name: Optional[str] = None
     type: Optional[str] = None
@@ -34,7 +35,7 @@ class Card(BaseModel):
     edhrec_rank: Optional[str] = None
     game_strategy: Optional[str] = None
     tier: Optional[str] = None
-    
+
     class Config:
         from_attributes = True
 
@@ -89,48 +90,120 @@ async def list_cards(
         
         raise HTTPException(status_code=500, detail=f"Failed to fetch cards: {str(e)}")
 
-@router.get("/{card_name}", response_model=Card)
-async def get_card(card_name: str):
+@router.get("/{card_id_or_name}", response_model=Card)
+async def get_card(card_id_or_name: str):
     """
-    Get details for a specific card
-    
+    Get details for a specific card by surrogate id (integer) or by name (string).
+
     Args:
-        card_name: Name of the card to retrieve
-    
+        card_id_or_name: Numeric id (e.g. 42) or card name (e.g. Black Lotus)
+
     Returns:
         Card details
-    
+
     Raises:
         HTTPException: 404 if card not found
     """
-    logger.info(f"GET /api/cards/{card_name}")
-    
+    logger.info(f"GET /api/cards/{card_id_or_name}")
+
     try:
-        # Get collection data (cached)
+        repo = get_collection_repo()
+        if repo is not None:
+            # Try as id first (numeric path segment)
+            try:
+                card_id = int(card_id_or_name)
+                card = repo.get_card_by_id(card_id)
+                if card is not None:
+                    return card
+            except ValueError:
+                pass
+            # Fall back to get by name
+            collection = get_cached_collection()
+            card_name_lower = card_id_or_name.lower()
+            for card in collection:
+                if card.get("name") and card["name"].lower() == card_name_lower:
+                    return card
+            raise HTTPException(status_code=404, detail=f"Card '{card_id_or_name}' not found")
+
+        # No repo: use collection (Sheets)
         collection = get_cached_collection()
-        
-        # Find card by name (case-insensitive)
-        card_name_lower = card_name.lower()
+        card_name_lower = card_id_or_name.lower()
         for card in collection:
-            if card.get('name') and card['name'].lower() == card_name_lower:
-                logger.info(f"Found card: {card['name']}")
+            if card.get("name") and card["name"].lower() == card_name_lower:
                 return card
-        
-        # Card not found
-        logger.warning(f"Card not found: {card_name}")
-        raise HTTPException(status_code=404, detail=f"Card '{card_name}' not found")
-        
+        raise HTTPException(status_code=404, detail=f"Card '{card_id_or_name}' not found")
+
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"Error fetching card {card_name}: {e}")
-        
-        # Check for Google Sheets quota errors
-        if 'Quota exceeded' in str(e) or 'RESOURCE_EXHAUSTED' in str(e):
+        logger.error(f"Error fetching card {card_id_or_name}: {e}")
+        if "Quota exceeded" in str(e) or "RESOURCE_EXHAUSTED" in str(e):
             raise HTTPException(
                 status_code=503,
                 detail="Google Sheets API quota exceeded. Please try again later.",
-                headers={"Retry-After": "60"}
+                headers={"Retry-After": "60"},
             )
-        
-        raise HTTPException(status_code=500, detail=f"Failed to fetch card: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post("/", response_model=Card, status_code=201)
+async def create_card(card: Card):
+    """
+    Create a new card. Requires Postgres (DATABASE_URL set).
+    """
+    repo = get_collection_repo()
+    if repo is None:
+        raise HTTPException(
+            status_code=501,
+            detail="Card create requires PostgreSQL. Set DATABASE_URL.",
+        )
+    try:
+        payload = card.model_dump(exclude_unset=True, exclude={"id"})
+        created = repo.create(payload)
+        clear_collection_cache()
+        return created
+    except Exception as e:
+        logger.error(f"Error creating card: {e}")
+        raise HTTPException(status_code=400, detail=str(e))
+
+
+@router.put("/{id}", response_model=Card)
+async def update_card(id: int, card: Card):
+    """
+    Update a card by surrogate id. Requires Postgres.
+    """
+    repo = get_collection_repo()
+    if repo is None:
+        raise HTTPException(
+            status_code=501,
+            detail="Card update requires PostgreSQL. Set DATABASE_URL.",
+        )
+    try:
+        payload = card.model_dump(exclude_unset=True, exclude={"id"})
+        updated = repo.update(id, payload)
+        if updated is None:
+            raise HTTPException(status_code=404, detail=f"Card id {id} not found")
+        clear_collection_cache()
+        return updated
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error updating card {id}: {e}")
+        raise HTTPException(status_code=400, detail=str(e))
+
+
+@router.delete("/{id}", status_code=204)
+async def delete_card(id: int):
+    """
+    Delete a card by surrogate id. Requires Postgres.
+    """
+    repo = get_collection_repo()
+    if repo is None:
+        raise HTTPException(
+            status_code=501,
+            detail="Card delete requires PostgreSQL. Set DATABASE_URL.",
+        )
+    deleted = repo.delete(id)
+    if not deleted:
+        raise HTTPException(status_code=404, detail=f"Card id {id} not found")
+    clear_collection_cache()

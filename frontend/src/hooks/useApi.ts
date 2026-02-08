@@ -30,12 +30,12 @@ export function useStats() {
   });
 }
 
-// Hook for triggering process
+// Hook for triggering process (opts.scope: 'all' | 'new_only')
 export function useTriggerProcess() {
   const queryClient = useQueryClient();
   
   return useMutation({
-    mutationFn: (limit?: number) => api.triggerProcess(limit),
+    mutationFn: (opts?: { limit?: number; scope?: 'all' | 'new_only' }) => api.triggerProcess(opts),
     onSuccess: () => {
       queryClient.invalidateQueries({queryKey: ['cards']});
       queryClient.invalidateQueries({queryKey: ['stats']});

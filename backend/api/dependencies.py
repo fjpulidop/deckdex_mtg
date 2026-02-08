@@ -18,14 +18,29 @@ load_dotenv()
 from deckdex.spreadsheet_client import SpreadsheetClient
 from deckdex.config_loader import load_config
 from deckdex.config import ProcessorConfig
+from deckdex.storage import get_collection_repository
+from deckdex.storage.repository import CollectionRepository
 from loguru import logger
 
-# Cache for collection data
+# Cache for collection data (used when source is Google Sheets)
 _collection_cache = {
     'data': None,
     'timestamp': None,
     'ttl': 30  # seconds
 }
+
+
+def get_collection_repo() -> Optional[CollectionRepository]:
+    """
+    Get CollectionRepository when DATABASE_URL (or config.database.url) is set; else None.
+    """
+    config = load_config(profile=os.getenv("DECKDEX_PROFILE", "default"))
+    url = None
+    if config.database is not None and getattr(config.database, "url", None):
+        url = config.database.url
+    if not url:
+        url = os.getenv("DATABASE_URL")
+    return get_collection_repository(url)
 
 def get_spreadsheet_client() -> SpreadsheetClient:
     """
@@ -46,27 +61,41 @@ def get_spreadsheet_client() -> SpreadsheetClient:
 
 def get_cached_collection(force_refresh: bool = False):
     """
-    Get collection data with 30-second TTL cache
-    
+    Get collection data. When DATABASE_URL is set, reads from Postgres (with optional TTL cache).
+    Otherwise reads from Google Sheets with 30-second TTL cache.
+
     Args:
         force_refresh: If True, bypass cache and fetch fresh data
-    
+
     Returns:
-        List of card data from Google Sheets
+        List of card data (from Postgres or Google Sheets)
     """
+    repo = get_collection_repo()
+    if repo is not None:
+        now = datetime.now()
+        if (not force_refresh and
+            _collection_cache['data'] is not None and
+            _collection_cache['timestamp'] is not None):
+            age = (now - _collection_cache['timestamp']).total_seconds()
+            if age < _collection_cache['ttl']:
+                logger.debug(f"Returning cached collection data from Postgres (age: {age:.1f}s)")
+                return _collection_cache['data']
+        logger.info("Fetching fresh collection data from Postgres")
+        collection_data = repo.get_all_cards()
+        _collection_cache['data'] = collection_data
+        _collection_cache['timestamp'] = now
+        logger.info(f"Cached {len(collection_data)} cards from Postgres")
+        return collection_data
+
     now = datetime.now()
-    
-    # Check if cache is valid
-    if (not force_refresh and 
-        _collection_cache['data'] is not None and 
+    if (not force_refresh and
+        _collection_cache['data'] is not None and
         _collection_cache['timestamp'] is not None):
-        
         age = (now - _collection_cache['timestamp']).total_seconds()
         if age < _collection_cache['ttl']:
             logger.debug(f"Returning cached collection data (age: {age:.1f}s)")
             return _collection_cache['data']
-    
-    # Fetch fresh data
+
     logger.info("Fetching fresh collection data from Google Sheets")
     try:
         client = get_spreadsheet_client()

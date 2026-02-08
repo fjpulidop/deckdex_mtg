@@ -8,18 +8,18 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     gcc \
     && rm -rf /var/lib/apt/lists/*
 
-# Copy requirements
-COPY requirements-api.txt .
-COPY ../requirements.txt ./requirements-core.txt
+# Copy requirements (build context is repo root)
+COPY backend/requirements-api.txt .
+COPY requirements.txt ./requirements-core.txt
 
 # Install Python dependencies
 RUN pip install --no-cache-dir -r requirements-core.txt
 RUN pip install --no-cache-dir -r requirements-api.txt
 
 # Copy application code
-COPY . /app/backend
-COPY ../deckdex /app/deckdex
-COPY ../config.yaml /app/config.yaml
+COPY backend /app/backend
+COPY deckdex /app/deckdex
+COPY config.yaml /app/config.yaml
 
 # Create logs directory
 RUN mkdir -p /app/backend/logs

@@ -1,6 +1,24 @@
 version: '3.8'
 
 services:
+  db:
+    image: postgres:15-alpine
+    environment:
+      POSTGRES_USER: deckdex
+      POSTGRES_PASSWORD: deckdex
+      POSTGRES_DB: deckdex
+    ports:
+      - "5432:5432"
+    volumes:
+      - deckdex-pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U deckdex -d deckdex"]
+      interval: 2s
+      timeout: 5s
+      retries: 10
+    networks:
+      - deckdex-network
+
   backend:
     build:
       context: .
@@ -11,6 +29,7 @@ services:
       - GOOGLE_API_CREDENTIALS=${GOOGLE_API_CREDENTIALS}
       - OPENAI_API_KEY=${OPENAI_API_KEY}
       - DECKDEX_PROFILE=${DECKDEX_PROFILE:-default}
+      - DATABASE_URL=postgresql://deckdex:deckdex@db:5432/deckdex
     volumes:
       - ./backend:/app/backend:ro
       - ./deckdex:/app/deckdex:ro
@@ -18,6 +37,9 @@ services:
       - backend-logs:/app/backend/logs
     env_file:
       - .env
+    depends_on:
+      db:
+        condition: service_healthy
     networks:
       - deckdex-network
 
@@ -39,6 +61,7 @@ services:
 
 volumes:
   backend-logs:
+  deckdex-pgdata:
 
 networks:
   deckdex-network:

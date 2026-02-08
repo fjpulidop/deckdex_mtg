@@ -1,5 +1,7 @@
 # DeckDex MTG
 
+DeckDex MTG can use **PostgreSQL** as the primary store for your card collection (recommended) or **Google Sheets**. When using Postgres, you can import from a CSV or JSON file via the web Settings page and use full CRUD (create, edit, delete cards) in the dashboard.
+
 ![Logo](images/Deckdex.png)
 
 A comprehensive tool for managing your Magic: The Gathering card collection with both CLI and Web interfaces. Fetches card data from Scryfall, tracks prices, and syncs everything to Google Sheets.
@@ -82,7 +84,13 @@ OPENAI_API_KEY=your_key_here
 OPENAI_MODEL=gpt-3.5-turbo
 ```
 
-4. Share your Google Sheet with the service account email from your credentials.
+**Optional – PostgreSQL (recommended):** Use Postgres as the collection store and enable CRUD and file import from Settings:
+```env
+DATABASE_URL=postgresql://user:password@localhost:5432/deckdex
+```
+Run migrations with `./scripts/setup_db.sh` (Docker) or `python scripts/setup_db.py`. See `migrations/README.md`.
+
+4. If using only Google Sheets: share your Google Sheet with the service account email from your credentials.
 
 ## Web Interface
 
@@ -277,23 +285,29 @@ deckdex_mtg/
 └── README.md             # This file
 ```
 
-## Docker Deployment
+## Docker
+
+Levantar todo el proyecto (Postgres, backend y frontend):
 
 ```bash
-# Start both services
-docker-compose up
+# 1. Crear la base de datos y aplicar migraciones (solo la primera vez o tras borrar el volumen)
+./scripts/setup_db.sh
 
-# Access
+# 2. Levantar los tres servicios
+docker compose up --build
+
+# Acceso
 # Frontend: http://localhost:5173
-# Backend: http://localhost:8000
-
-# Stop
-docker-compose down
+# Backend:  http://localhost:8000
 ```
+
+O en segundo plano: `docker compose up -d --build`. Para parar: `docker compose down`.
+
+Opcional: crea un `.env` en la raíz con variables que necesite el backend (p. ej. `OPENAI_API_KEY`, `GOOGLE_API_CREDENTIALS` para OAuth). El compose ya define `DATABASE_URL` para el backend.
 
 ## Important Notes
 
-⚠️ **Concurrency:** Do NOT run CLI and web processes simultaneously (race conditions with Google Sheets)
+⚠️ **Concurrency:** When using **Google Sheets** as the only source, do not run CLI and web simultaneously (writes conflict). When using **PostgreSQL** (`DATABASE_URL` set), CLI and web may run at the same time.
 
 ⚠️ **MVP Limitations:**
 - No authentication (localhost only)

@@ -262,7 +262,7 @@ Caches are automatically cleared when processes complete successfully.
 
 ⚠️ **Important**: Only one process (card processing or price update) can run at a time. If you attempt to start a second process, you'll receive a `409 Conflict` response.
 
-The CLI and web backend should **not** run processes simultaneously to avoid race conditions when writing to Google Sheets.
+When using **Google Sheets** as the only data source, the CLI and web backend should not run processes simultaneously. When using **PostgreSQL** (`DATABASE_URL`), both may run at the same time.
 
 ## Error Handling
 

@@ -8,6 +8,7 @@ from functools import lru_cache
 from dotenv import load_dotenv
 from .card_fetcher import CardFetcher
 from .config import ProcessorConfig, ClientFactory
+from .storage import get_collection_repository
 import gspread
 from datetime import datetime
 from tqdm import tqdm
@@ -46,12 +47,20 @@ class MagicCardProcessor:
         self.not_found_cards = []  # List to store names of cards not found
 
     def _initialize_clients(self) -> None:
-        """Initialize card fetcher and spreadsheet client."""
+        """Initialize card fetcher, optional collection repository (Postgres), and spreadsheet client (only when not using Postgres)."""
         self.card_fetcher = CardFetcher(
             scryfall_config=self.config.scryfall,
             openai_config=self.config.openai
         )
-        self.spreadsheet_client = ClientFactory.create_spreadsheet_client(self.config)
+        url = getattr(self.config.database, "url", None) if self.config.database else None
+        if not url:
+            import os
+            url = os.getenv("DATABASE_URL")
+        self.collection_repository = get_collection_repository(url) if url else None
+        # Only create spreadsheet client when not using Postgres (e.g. update_prices + repo never touches Sheets)
+        self.spreadsheet_client = None
+        if self.collection_repository is None:
+            self.spreadsheet_client = ClientFactory.create_spreadsheet_client(self.config)
 
     @lru_cache(maxsize=1000)
     def _fetch_card_data(self, card_name: str) -> Optional[Dict[str, Any]]:
@@ -80,15 +89,7 @@ class MagicCardProcessor:
 
     def _update_prices_batch(self, cards: List[List[str]], start_idx: int, batch_size: int) -> List[Tuple[int, str, str]]:
         """
-        Process a batch of cards for price updates.
-        
-        Args:
-            cards: List of [card_name, current_price] entries
-            start_idx: Starting index in the cards list
-            batch_size: Number of cards to process in this batch
-            
-        Returns:
-            List of tuples (row_index, card_name, new_price) for cards with changed prices
+        Process a batch of cards for price updates (Sheet path: row_index, name, new_price).
         """
         updated_data = []
         for i, card in enumerate(cards[start_idx:start_idx + batch_size], start=start_idx):
@@ -96,13 +97,29 @@ class MagicCardProcessor:
             data = self._fetch_card_data(card_name)
             new_price_raw = data.get("prices", {}).get("eur") if data else None
             new_price = self._process_price(new_price_raw)
-            
-            # Only include cards where the price has changed
             if new_price != current_price:
-                # Row index is 0-based index + 2 (header row + 1-based indexing)
                 row_index = i + 2
                 updated_data.append((row_index, card_name, new_price))
-            
+            time.sleep(self.config.processing.api_delay)
+        return updated_data
+
+    def _update_prices_batch_repo(
+        self, cards: List[Tuple[int, str, str]], start_idx: int, batch_size: int
+    ) -> List[Tuple[int, str, str]]:
+        """
+        Process a batch of cards for price updates (Repo path: card_id, name, new_price).
+        cards: list of (card_id, card_name, current_price_str).
+        Returns: list of (card_id, card_name, new_price) for changed prices.
+        """
+        updated_data = []
+        for i, (card_id, card_name, current_price) in enumerate(
+            cards[start_idx : start_idx + batch_size], start=start_idx
+        ):
+            data = self._fetch_card_data(card_name)
+            new_price_raw = data.get("prices", {}).get("eur") if data else None
+            new_price = self._process_price(new_price_raw)
+            if new_price != current_price:
+                updated_data.append((card_id, card_name, new_price))
             time.sleep(self.config.processing.api_delay)
         return updated_data
 
@@ -252,7 +269,129 @@ class MagicCardProcessor:
             print(f"{Colors.CYAN}💡 To resume from here: --resume-from {total_cards + 2}{Colors.END}")
             
         logger.info(f"Price update completed in {datetime.now() - start_time}")
-        
+
+    def update_prices_data_repo(self, cards: List[Tuple[int, str, str]]) -> None:
+        """
+        Update prices using the collection repository (Postgres). cards: list of (card_id, name, current_price_str).
+        """
+        if not self.collection_repository:
+            raise RuntimeError("collection_repository not set")
+        logger.info("Checking price updates from Scryfall API (Postgres)...")
+        start_time = datetime.now()
+        self.error_count = 0
+        self.last_error_count = 0
+        self.not_found_cards = []
+        total_cards = len(cards)
+        total_prices_updated = 0
+        print(f"{Colors.BOLD}Cards not found: 0{Colors.END}", end="", flush=True)
+        with tqdm(total=total_cards, desc="Verifying prices", unit="cards") as pbar:
+            with ThreadPoolExecutor(max_workers=self.config.processing.max_workers) as executor:
+                futures = []
+                for i in range(0, len(cards), self.config.processing.batch_size):
+                    futures.append(
+                        executor.submit(
+                            self._update_prices_batch_repo,
+                            cards,
+                            i,
+                            self.config.processing.batch_size,
+                        )
+                    )
+                for future in futures:
+                    batch_results = future.result()
+                    for card_id, _name, new_price in batch_results:
+                        self.collection_repository.update(card_id, {"price_eur": new_price})
+                        total_prices_updated += 1
+                    pbar.update(min(self.config.processing.batch_size, total_cards - pbar.n))
+        if self.error_count > 0:
+            print(f"\n{Colors.BOLD}{Colors.RED}Total cards not found: {self.error_count}{Colors.END}")
+        if total_prices_updated > 0:
+            print(f"\n{Colors.BOLD}{Colors.GREEN}✅ Completed: {total_cards} cards verified, {total_prices_updated} prices updated{Colors.END}")
+        logger.info(f"Price update (Postgres) completed in {datetime.now() - start_time}")
+
+    def process_cards_repo(self) -> None:
+        """
+        Full card processing against Postgres: read cards (all or only new/incomplete),
+        fetch fresh data from Scryfall (and optional OpenAI), update each card in the repository.
+        """
+        if not self.collection_repository:
+            raise RuntimeError("collection_repository not set")
+        only_incomplete = getattr(self.config, "process_scope", None) == "new_only"
+        if only_incomplete:
+            cards = self.collection_repository.get_cards_for_process(only_incomplete=True)
+            logger.info(f"Processing only new/incomplete cards (with only name): {len(cards)} cards")
+        else:
+            all_cards = self.collection_repository.get_all_cards()
+            cards = [c for c in all_cards if c.get("id") is not None]
+        if self.config.limit is not None:
+            cards = cards[: self.config.limit]
+            logger.info(f"Limiting processing to {self.config.limit} cards")
+        if self.config.resume_from is not None:
+            cards = cards[self.config.resume_from :]
+            logger.info(f"Resuming from index {self.config.resume_from}")
+        self.error_count = 0
+        self.last_error_count = 0
+        self.not_found_cards = []
+        print(f"{Colors.BOLD}Cards not found counter: {self.error_count}{Colors.END}")
+        total = len(cards)
+        with tqdm(total=total, desc="Processing cards", unit="cards") as pbar:
+            for i in range(0, len(cards), self.config.processing.batch_size):
+                batch = cards[i : i + self.config.processing.batch_size]
+                for card in batch:
+                    card_id = card.get("id")
+                    name = card.get("name") or card.get("english_name")
+                    if not name or card_id is None:
+                        pbar.update(1)
+                        continue
+                    data = self._fetch_card_data(name)
+                    if self.config.openai.enabled and data:
+                        data, game_strategy, tier = self.card_fetcher.get_card_info(data.get("name"))
+                    else:
+                        game_strategy, tier = None, None
+                    if data:
+                        price_eur = self._process_price(data.get("prices", {}).get("eur"))
+                        cmc_val = data.get("cmc")
+                        if cmc_val is not None and str(cmc_val).strip() in ("", "N/A"):
+                            cmc_val = None
+                        elif cmc_val is not None:
+                            try:
+                                cmc_val = float(cmc_val)
+                            except (TypeError, ValueError):
+                                cmc_val = None
+                        update = {
+                            "type_line": data.get("type_line"),
+                            "description": data.get("oracle_text"),
+                            "keywords": str(data.get("keywords")) if data.get("keywords") is not None else None,
+                            "mana_cost": data.get("mana_cost"),
+                            "cmc": cmc_val,
+                            "colors": str(data.get("colors")) if data.get("colors") is not None else None,
+                            "color_identity": str(data.get("color_identity")) if data.get("color_identity") is not None else None,
+                            "power": data.get("power"),
+                            "toughness": data.get("toughness"),
+                            "rarity": data.get("rarity"),
+                            "price_eur": price_eur,
+                            "release_date": data.get("released_at"),
+                            "set_id": data.get("set"),
+                            "set_name": data.get("set_name"),
+                            "set_number": data.get("collector_number"),
+                            "edhrec_rank": str(data.get("edhrec_rank")) if data.get("edhrec_rank") is not None else None,
+                            "game_strategy": game_strategy,
+                            "tier": tier,
+                        }
+                        update = {k: v for k, v in update.items() if v is not None}
+                        if update:
+                            self.collection_repository.update(card_id, update)
+                    time.sleep(self.config.processing.api_delay)
+                    pbar.update(1)
+        if self.error_count > 0:
+            print(f"\n{Colors.BOLD}{Colors.RED}Total cards not found: {self.error_count}{Colors.END}")
+            if self.not_found_cards:
+                display_cards = self.not_found_cards[:10]
+                cards_str = ", ".join(f"'{c}'" for c in display_cards)
+                if len(self.not_found_cards) > 10:
+                    cards_str += f" and {len(self.not_found_cards) - 10} more..."
+                print(f"{Colors.YELLOW}Cards not found: {cards_str}{Colors.END}")
+        logger.info("Card processing (Postgres) completed successfully")
+
     def _get_price_column_index(self) -> int:
         """
         Get the column index for the Price column.
@@ -470,14 +609,21 @@ class MagicCardProcessor:
         logger.info("Card processing completed successfully")
 
     def process_card_data(self) -> None:
-        """Main processing method."""
+        """Main processing method. Uses collection repository (Postgres) when configured; else Spreadsheet."""
         try:
             if self.update_prices:
-                cards = self.spreadsheet_client.get_all_cards_prices()
-                self.update_prices_data(cards)
+                if self.collection_repository:
+                    cards = self.collection_repository.get_cards_for_price_update()
+                    self.update_prices_data_repo(cards)
+                else:
+                    cards = self.spreadsheet_client.get_all_cards_prices()
+                    self.update_prices_data(cards)
             else:
-                cards = self.spreadsheet_client.get_cards()
-                self.process_cards(cards)
+                if self.collection_repository:
+                    self.process_cards_repo()
+                else:
+                    cards = self.spreadsheet_client.get_cards()
+                    self.process_cards(cards)
         except Exception as e:
             logger.error(f"Error processing card data: {e}")
             raise
