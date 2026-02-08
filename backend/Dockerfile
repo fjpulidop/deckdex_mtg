@@ -19,6 +19,8 @@ RUN pip install --no-cache-dir -r requirements-api.txt
 # Copy application code
 COPY backend /app/backend
 COPY deckdex /app/deckdex
+COPY scripts /app/scripts
+COPY migrations /app/migrations
 COPY config.yaml /app/config.yaml
 
 # Create logs directory
@@ -27,5 +29,8 @@ RUN mkdir -p /app/backend/logs
 # Expose port
 EXPOSE 8000
 
-# Run uvicorn
+# Entrypoint: run migrations (when DATABASE_URL is set) then start the API
+COPY backend/docker-entrypoint.sh /app/docker-entrypoint.sh
+RUN chmod +x /app/docker-entrypoint.sh
+ENTRYPOINT ["/app/docker-entrypoint.sh"]
 CMD ["uvicorn", "backend.api.main:app", "--host", "0.0.0.0", "--port", "8000"]

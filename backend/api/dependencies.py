@@ -20,6 +20,7 @@ from deckdex.config_loader import load_config
 from deckdex.config import ProcessorConfig
 from deckdex.storage import get_collection_repository
 from deckdex.storage.repository import CollectionRepository
+from deckdex.storage.deck_repository import DeckRepository
 from loguru import logger
 
 # Cache for collection data (used when source is Google Sheets)
@@ -41,6 +42,23 @@ def get_collection_repo() -> Optional[CollectionRepository]:
     if not url:
         url = os.getenv("DATABASE_URL")
     return get_collection_repository(url)
+
+
+def get_deck_repo() -> Optional[DeckRepository]:
+    """
+    Get DeckRepository when DATABASE_URL (or config.database.url) is set; else None.
+    Decks require Postgres; when None, deck endpoints should return 501.
+    """
+    config = load_config(profile=os.getenv("DECKDEX_PROFILE", "default"))
+    url = None
+    if config.database is not None and getattr(config.database, "url", None):
+        url = config.database.url
+    if not url:
+        url = os.getenv("DATABASE_URL")
+    if not url or not str(url).strip().startswith("postgresql"):
+        return None
+    return DeckRepository(url)
+
 
 def get_spreadsheet_client() -> SpreadsheetClient:
     """

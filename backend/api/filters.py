@@ -1,10 +1,25 @@
 """
 Shared collection filtering for cards list and stats.
-Same semantics: name contains, exact match for rarity/type/set_name, price range inclusive.
+Same semantics: name contains, type line contains, color identity has all selected, exact match for rarity/set_name, price range inclusive.
 """
-from typing import Optional
+from typing import Optional, Union
 
 from loguru import logger
+
+
+def _normalize_color_identity(raw: Union[str, list, None]) -> set:
+    """Normalize color_identity (string like 'W,U' or list like ['W','U']) to set of single letters (W,U,B,R,G)."""
+    if raw is None:
+        return set()
+    if isinstance(raw, list):
+        raw = ",".join(str(x) for x in raw)
+    if not raw or not str(raw).strip():
+        return set()
+    s = set()
+    for part in str(raw).strip().upper().replace(",", "").replace(" ", ""):
+        if part in "WUBRG":
+            s.add(part)
+    return s
 
 
 def parse_price(price_str: str) -> Optional[float]:
@@ -35,11 +50,12 @@ def filter_collection(
     search: Optional[str] = None,
     rarity: Optional[str] = None,
     type_: Optional[str] = None,
+    color_identity: Optional[str] = None,
     set_name: Optional[str] = None,
     price_min: Optional[str] = None,
     price_max: Optional[str] = None,
 ) -> list:
-    """Filter collection: name contains, exact match for rarity/type/set_name, price range inclusive."""
+    """Filter collection: name contains, type line contains, color identity has all selected, exact match for rarity/set_name, price range inclusive."""
     result = collection
     if search and search.strip():
         search_lower = search.strip().lower()
@@ -48,8 +64,21 @@ def filter_collection(
         r = rarity.strip().lower()
         result = [c for c in result if (c.get("rarity") or "").lower() == r]
     if type_ and type_.strip():
-        t = type_.strip()
-        result = [c for c in result if c.get("type") == t]
+        t = type_.strip().lower()
+        result = [
+            c for c in result
+            if t in (c.get("type") or c.get("type_line") or "").lower()
+        ]
+    if color_identity and str(color_identity).strip():
+        want = _normalize_color_identity(color_identity)
+        if want:
+            filtered = []
+            for c in result:
+                raw = c.get("color_identity") or c.get("identity") or ""
+                have = _normalize_color_identity(raw)
+                if want <= have:
+                    filtered.append(c)
+            result = filtered
     if set_name and set_name.strip():
         s = set_name.strip()
         result = [c for c in result if c.get("set_name") == s]

@@ -52,6 +52,7 @@ async def list_cards(
     search: Optional[str] = Query(default=None),
     rarity: Optional[str] = Query(default=None),
     type_filter: Optional[str] = Query(default=None, alias="type"),
+    color_identity: Optional[str] = Query(default=None),
     set_name: Optional[str] = Query(default=None),
     price_min: Optional[str] = Query(default=None),
     price_max: Optional[str] = Query(default=None),
@@ -59,10 +60,12 @@ async def list_cards(
     """
     List cards from collection with optional pagination and filters.
     Same filter semantics as GET /api/stats so list and stats stay in sync.
+    type: substring match on type line (e.g. "Creature" matches "Creature — Elf").
+    color_identity: comma-separated WUBRG (e.g. "W,U"); card must contain all listed colors.
     """
     logger.info(
-        "GET /api/cards - limit=%s, offset=%s, search=%s, set_name=%s",
-        limit, offset, search, set_name,
+        "GET /api/cards - limit=%s, offset=%s, search=%s, type=%s, color_identity=%s, set_name=%s",
+        limit, offset, search, type_filter, color_identity, set_name,
     )
     try:
         collection = get_cached_collection()
@@ -72,6 +75,7 @@ async def list_cards(
             search=search_param,
             rarity=rarity,
             type_=type_filter,
+            color_identity=color_identity,
             set_name=set_name,
             price_min=price_min,
             price_max=price_max,
