@@ -9,6 +9,7 @@ from pydantic import BaseModel
 from loguru import logger
 
 from ..dependencies import get_cached_collection, get_collection_repo, clear_collection_cache
+from ..filters import filter_collection
 from ..services.card_image_service import get_card_image as resolve_card_image
 
 router = APIRouter(prefix="/api/cards", tags=["cards"])
@@ -45,40 +46,38 @@ class Card(BaseModel):
 async def list_cards(
     limit: int = Query(default=100, ge=1, le=1000),
     offset: int = Query(default=0, ge=0),
-    search: Optional[str] = Query(default=None)
+    search: Optional[str] = Query(default=None),
+    rarity: Optional[str] = Query(default=None),
+    type_filter: Optional[str] = Query(default=None, alias="type"),
+    set_name: Optional[str] = Query(default=None),
+    price_min: Optional[str] = Query(default=None),
+    price_max: Optional[str] = Query(default=None),
 ):
     """
-    List cards from collection with optional pagination and search
-    
-    Args:
-        limit: Maximum number of cards to return (1-1000)
-        offset: Number of cards to skip
-        search: Search term to filter cards by name (case-insensitive)
-    
-    Returns:
-        List of cards matching criteria
+    List cards from collection with optional pagination and filters.
+    Same filter semantics as GET /api/stats so list and stats stay in sync.
     """
-    logger.info(f"GET /api/cards - limit={limit}, offset={offset}, search={search}")
-    
+    logger.info(
+        "GET /api/cards - limit=%s, offset=%s, search=%s, set_name=%s",
+        limit, offset, search, set_name,
+    )
     try:
-        # Get collection data (cached)
         collection = get_cached_collection()
-        
-        # Filter by search term if provided (ignore literal "undefined" from JS)
-        if search and search != 'undefined':
-            search_lower = search.lower()
-            collection = [
-                card for card in collection 
-                if card.get('name') and search_lower in card['name'].lower()
-            ]
-        
-        # Apply pagination
-        total = len(collection)
-        paginated = collection[offset:offset + limit]
-        
-        logger.info(f"Returning {len(paginated)} cards (total: {total}, offset: {offset})")
+        search_param = search if search and search != "undefined" else None
+        filtered = filter_collection(
+            collection,
+            search=search_param,
+            rarity=rarity,
+            type_=type_filter,
+            set_name=set_name,
+            price_min=price_min,
+            price_max=price_max,
+        )
+        total = len(filtered)
+        paginated = filtered[offset : offset + limit]
+        logger.info("Returning %s cards (total: %s, offset: %s)", len(paginated), total, offset)
         return paginated
-        
+
     except Exception as e:
         logger.error(f"Error listing cards: {e}")
         

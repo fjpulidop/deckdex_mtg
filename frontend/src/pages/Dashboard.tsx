@@ -30,9 +30,14 @@ export function Dashboard() {
   const [cardModal, setCardModal] = useState<null | 'add' | { card: Card }>(null);
   const [detailCard, setDetailCard] = useState<Card | null>(null);
 
-  // Fetch cards with filters
+  // Fetch cards with current filters so list and stats match (API applies filters server-side)
   const { data: cards, isLoading, error } = useCards({
     search: search || undefined,
+    rarity: rarity === 'all' ? undefined : rarity,
+    type: type === 'all' ? undefined : type,
+    set: setFilter === 'all' ? undefined : setFilter,
+    priceMin: priceMin.trim() || undefined,
+    priceMax: priceMax.trim() || undefined,
     limit: 1000,
   });
 
@@ -102,7 +107,7 @@ export function Dashboard() {
     invalidateCards();
   }, [cardModal, invalidateCards]);
 
-  // Derive distinct type and set options from search-filtered cards (sorted)
+  // Derive type and set options from API response (filtered result)
   const typeOptions = Array.from(
     new Set((cards || []).map(c => c.type).filter(Boolean) as string[])
   ).sort((a, b) => a.localeCompare(b));
@@ -110,29 +115,8 @@ export function Dashboard() {
     new Set((cards || []).map(c => c.set_name).filter(Boolean) as string[])
   ).sort((a, b) => a.localeCompare(b));
 
-  const parsePrice = (value: string | undefined): number | null => {
-    if (value === undefined || value === null || value === '' || value === 'N/A') return null;
-    const n = parseFloat(String(value).replace(',', '.'));
-    return Number.isFinite(n) && n >= 0 ? n : null;
-  };
-
-  // Filter cards by rarity, type, set, and price range (client-side)
-  const filteredCards = (cards || []).filter(card => {
-    if (rarity !== 'all' && card.rarity?.toLowerCase() !== rarity) return false;
-    if (type !== 'all' && card.type !== type) return false;
-    if (setFilter !== 'all' && card.set_name !== setFilter) return false;
-    const minNum = priceMin.trim() === '' ? NaN : parseFloat(priceMin.replace(',', '.'));
-    const maxNum = priceMax.trim() === '' ? NaN : parseFloat(priceMax.replace(',', '.'));
-    const hasMin = Number.isFinite(minNum);
-    const hasMax = Number.isFinite(maxNum);
-    if (hasMin || hasMax) {
-      const cardPrice = parsePrice(card.price);
-      if (cardPrice === null) return false;
-      if (hasMin && cardPrice < minNum) return false;
-      if (hasMax && cardPrice > maxNum) return false;
-    }
-    return true;
-  });
+  // List is the API response (filters applied server-side); no client-side filter
+  const displayCards = cards ?? [];
 
   const handleSearchChange = (value: string) => setSearch(value);
   const handleRarityChange = (value: string) => setRarity(value);
@@ -276,13 +260,13 @@ uvicorn api.main:app --reload --port 8000
           priceMax={priceMax}
           onPriceRangeChange={handlePriceRangeChange}
           activeChips={activeChips}
-          resultCount={filteredCards.length}
+          resultCount={displayCards.length}
           onClearFilters={handleClearFilters}
         />
 
         {/* Card Table */}
         <CardTable
-          cards={filteredCards}
+          cards={displayCards}
           isLoading={isLoading}
           onAdd={handleAddCard}
           onEdit={handleEditCard}

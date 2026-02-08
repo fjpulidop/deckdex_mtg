@@ -2,11 +2,36 @@ import React from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api, Card, Stats, JobResponse } from '../api/client';
 
-// Hook for fetching cards
-export function useCards(params?: {limit?: number; offset?: number; search?: string}) {
+// Params for cards list (same filter shape as dashboard; map to API snake_case in getCards)
+export interface CardsParams {
+  limit?: number;
+  offset?: number;
+  search?: string;
+  rarity?: string;
+  type?: string;
+  set?: string;
+  priceMin?: string;
+  priceMax?: string;
+}
+
+// Hook for fetching cards; pass current dashboard filters so list and stats match
+export function useCards(params?: CardsParams) {
+  const apiParams =
+    params
+      ? {
+          limit: params.limit,
+          offset: params.offset,
+          search: params.search,
+          rarity: params.rarity,
+          type: params.type,
+          set_name: params.set,
+          price_min: params.priceMin,
+          price_max: params.priceMax,
+        }
+      : undefined;
   return useQuery({
-    queryKey: ['cards', params],
-    queryFn: () => api.getCards(params),
+    queryKey: ['cards', apiParams],
+    queryFn: () => api.getCards(apiParams),
     staleTime: 30000, // 30 seconds
   });
 }
