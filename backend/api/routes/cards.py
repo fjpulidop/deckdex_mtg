@@ -10,6 +10,7 @@ from loguru import logger
 
 from ..dependencies import get_cached_collection, get_collection_repo, clear_collection_cache
 from ..filters import filter_collection
+from .stats import clear_stats_cache
 from ..services.card_image_service import get_card_image as resolve_card_image
 from ..services.scryfall_service import suggest_card_names, resolve_card_by_name, CardNotFoundError
 
@@ -39,6 +40,7 @@ class Card(BaseModel):
     edhrec_rank: Optional[str] = None
     game_strategy: Optional[str] = None
     tier: Optional[str] = None
+    created_at: Optional[str] = None  # ISO timestamp when card was added
 
     class Config:
         from_attributes = True
@@ -207,6 +209,7 @@ async def create_card(card: Card):
         payload = card.model_dump(exclude_unset=True, exclude={"id"})
         created = repo.create(payload)
         clear_collection_cache()
+        clear_stats_cache()
         return created
     except Exception as e:
         logger.error(f"Error creating card: {e}")
@@ -230,6 +233,7 @@ async def update_card(id: int, card: Card):
         if updated is None:
             raise HTTPException(status_code=404, detail=f"Card id {id} not found")
         clear_collection_cache()
+        clear_stats_cache()
         return updated
     except HTTPException:
         raise
@@ -253,3 +257,4 @@ async def delete_card(id: int):
     if not deleted:
         raise HTTPException(status_code=404, detail=f"Card id {id} not found")
     clear_collection_cache()
+    clear_stats_cache()

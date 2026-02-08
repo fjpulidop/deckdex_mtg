@@ -54,6 +54,7 @@ export function CardDetailModal({
   const [savePending, setSavePending] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
   const [deletePending, setDeletePending] = useState(false);
+  const [imageLightboxOpen, setImageLightboxOpen] = useState(false);
   const { addJob } = useActiveJobs();
 
   const cardId = card.id != null ? card.id : null;
@@ -62,6 +63,18 @@ export function CardDetailModal({
   useEffect(() => {
     setEditForm(cardToEditForm(card));
   }, [card]);
+
+  useEffect(() => {
+    if (!imageLightboxOpen) return;
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        e.stopPropagation();
+        setImageLightboxOpen(false);
+      }
+    };
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, [imageLightboxOpen]);
 
   const pt = [card.power, card.toughness].filter(Boolean).join('/');
   const priceStr = card.price && card.price !== 'N/A' ? `€${card.price}` : 'N/A';
@@ -131,20 +144,29 @@ export function CardDetailModal({
           {imageUrl ? (
             <>
               {!imageLoaded && !imageError && (
-                <div className="absolute w-[244px] h-[340px] rounded-lg bg-gray-200 dark:bg-gray-700 animate-pulse" aria-hidden />
+                <div className="absolute w-[280px] h-[390px] rounded-lg bg-gray-200 dark:bg-gray-700 animate-pulse" aria-hidden />
               )}
               {imageError && (
                 <div className="text-center text-gray-500 dark:text-gray-400 text-sm p-4">
                   Image unavailable
                 </div>
               )}
-              <img
-                src={imageUrl}
-                alt={displayName}
-                className={`max-w-[244px] max-h-[340px] w-auto h-auto object-contain rounded-lg shadow-md ${!imageLoaded && !imageError ? 'invisible' : ''}`}
-                onLoad={() => { setImageLoaded(true); setImageError(false); }}
-                onError={() => setImageError(true)}
-              />
+              <div
+                role="button"
+                tabIndex={0}
+                onClick={() => !imageError && imageLoaded && setImageLightboxOpen(true)}
+                onKeyDown={e => e.key === 'Enter' && !imageError && imageLoaded && setImageLightboxOpen(true)}
+                className="cursor-zoom-in inline-block"
+                aria-label="View image larger"
+              >
+                <img
+                  src={imageUrl}
+                  alt={displayName}
+                  className={`max-w-[280px] max-h-[390px] w-auto h-auto object-contain rounded-lg shadow-md ${!imageLoaded && !imageError ? 'invisible' : ''}`}
+                  onLoad={() => { setImageLoaded(true); setImageError(false); }}
+                  onError={() => setImageError(true)}
+                />
+              </div>
             </>
           ) : (
             <div className="text-center text-gray-500 dark:text-gray-400 text-sm p-4">
@@ -373,6 +395,28 @@ export function CardDetailModal({
           )}
         </div>
       </div>
+
+      {/* Lightbox: larger image, click or Escape to close */}
+      {imageLightboxOpen && imageUrl && (
+        <div
+          className="fixed inset-0 z-[60] flex items-center justify-center bg-black/70 cursor-zoom-out p-4"
+          onClick={e => {
+            e.stopPropagation();
+            setImageLightboxOpen(false);
+          }}
+          role="button"
+          tabIndex={0}
+          aria-label="Close enlarged image"
+          onKeyDown={e => e.key === 'Enter' && setImageLightboxOpen(false)}
+        >
+          <img
+            src={imageUrl}
+            alt={displayName}
+            className="max-w-[488px] max-h-[680px] w-auto h-auto object-contain rounded-lg shadow-2xl pointer-events-none"
+            aria-hidden
+          />
+        </div>
+      )}
     </div>
   );
 }

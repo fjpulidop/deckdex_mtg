@@ -59,7 +59,10 @@ export function Dashboard() {
       await api.createCard(payload);
     }
     invalidateCards();
-  }, [cardModal, invalidateCards]);
+    // Refetch so Total Cards and Total Value are updated when the modal closes
+    await queryClient.refetchQueries({ queryKey: ['cards'] });
+    await queryClient.refetchQueries({ queryKey: ['stats'] });
+  }, [cardModal, invalidateCards, queryClient]);
 
   // Derive type and set options from API response (filtered result)
   const typeOptions = Array.from(

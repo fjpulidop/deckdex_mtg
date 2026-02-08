@@ -1,9 +1,8 @@
 """
-Card image service: resolve card image by id, with on-demand fetch from Scryfall and filesystem storage.
+Card image service: resolve card image by id, with on-demand fetch from Scryfall and database storage.
 """
 import os
 import sys
-from pathlib import Path
 from typing import Tuple
 
 # Project root for default data path
@@ -18,29 +17,10 @@ from deckdex.config_loader import load_config
 from deckdex.card_fetcher import CardFetcher
 
 
-# Directory for stored card images (default: data/card_images under project root)
-def _images_dir() -> Path:
-    raw = os.getenv("DECKDEX_CARD_IMAGES_DIR", "").strip()
-    if raw:
-        path = Path(raw)
-        if not path.is_absolute():
-            path = project_root / path
-    else:
-        path = Path(project_root) / "data" / "card_images"
-    return path
-
-
-def ensure_images_dir() -> Path:
-    """Create card images directory if it does not exist. Return the path."""
-    d = _images_dir()
-    d.mkdir(parents=True, exist_ok=True)
-    return d
-
-
 def get_card_image(card_id: int) -> Tuple[bytes, str]:
     """
     Return (image_bytes, content_type) for the given card id.
-    If image is already stored, read from filesystem; otherwise fetch from Scryfall, store, then return.
+    If image is already stored in the database, return it; otherwise fetch from Scryfall, store in DB, then return.
     Raises FileNotFoundError if card not found or image unavailable.
     """
     from ..dependencies import get_collection_repo
@@ -49,6 +29,16 @@ def get_card_image(card_id: int) -> Tuple[bytes, str]:
     if repo is None:
         raise FileNotFoundError("Card images require PostgreSQL (DATABASE_URL)")
 
+    # 1) Try database first
+    try:
+        stored = repo.get_card_image(card_id)
+        if stored is not None:
+            return stored
+    except Exception as e:
+        logger.warning(f"Failed to read card image from DB for card_id={card_id}: {e}")
+        # Fall through to fetch from Scryfall
+
+    # 2) Card lookup and Scryfall fetch
     card = repo.get_card_by_id(card_id)
     if not card:
         raise FileNotFoundError(f"Card id {card_id} not found")
@@ -56,17 +46,6 @@ def get_card_image(card_id: int) -> Tuple[bytes, str]:
     name = (card.get("name") or "").strip()
     if not name:
         raise FileNotFoundError(f"Card id {card_id} has no name")
-
-    images_dir = ensure_images_dir()
-    path = images_dir / f"{card_id}.jpg"
-
-    if path.exists():
-        try:
-            data = path.read_bytes()
-            return data, "image/jpeg"
-        except Exception as e:
-            logger.warning(f"Failed to read stored image {path}: {e}")
-            # Fall through to re-fetch
 
     config = load_config(profile=os.getenv("DECKDEX_PROFILE", "default"))
     fetcher = CardFetcher(config.scryfall, config.openai)
@@ -96,10 +75,11 @@ def get_card_image(card_id: int) -> Tuple[bytes, str]:
         logger.warning(f"Failed to download image from Scryfall: {e}")
         raise FileNotFoundError(f"Could not download image for '{name}'") from e
 
+    content_type = "image/jpeg"
     try:
-        path.write_bytes(data)
+        repo.save_card_image(card_id, content_type, data)
     except Exception as e:
-        logger.warning(f"Failed to write image to {path}: {e}")
+        logger.warning(f"Failed to save card image to DB for card_id={card_id}: {e}")
         # Still return the bytes
 
-    return data, "image/jpeg"
+    return data, content_type

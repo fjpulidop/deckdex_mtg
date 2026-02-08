@@ -10,8 +10,8 @@ interface CardTableProps {
 
 export function CardTable({ cards, isLoading, onAdd, onRowClick }: CardTableProps) {
   const hasIds = cards.some(c => c.id != null);
-  const [sortKey, setSortKey] = useState<string>('name');
-  const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
+  const [sortKey, setSortKey] = useState<string>('created_at');
+  const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc');
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 50;
 
@@ -57,6 +57,13 @@ export function CardTable({ cards, isLoading, onAdd, onRowClick }: CardTableProp
       if (sortDirection === 'asc') return aNum < bNum ? -1 : aNum > bNum ? 1 : 0;
       return bNum < aNum ? -1 : bNum > aNum ? 1 : 0;
     }
+    if (sortKey === 'created_at') {
+      const aVal = (a.created_at ?? '') as string;
+      const bVal = (b.created_at ?? '') as string;
+      // ISO strings compare lexicographically for chronological order
+      if (sortDirection === 'asc') return aVal > bVal ? 1 : aVal < bVal ? -1 : 0;
+      return bVal > aVal ? 1 : bVal < aVal ? -1 : 0;
+    }
     const aVal = (a[sortKey] ?? '') as string;
     const bVal = (b[sortKey] ?? '') as string;
     if (sortDirection === 'asc') return aVal > bVal ? 1 : aVal < bVal ? -1 : 0;
@@ -84,6 +91,13 @@ export function CardTable({ cards, isLoading, onAdd, onRowClick }: CardTableProp
         <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-600">
           <thead className="bg-gray-50 dark:bg-gray-700/50">
             <tr>
+              <th
+                className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-600"
+                onClick={() => handleSort('created_at')}
+                title="Date added (newest first by default)"
+              >
+                Added {sortKey === 'created_at' && (sortDirection === 'asc' ? '↑' : '↓')}
+              </th>
               <th
                 className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-600"
                 onClick={() => handleSort('name')}
@@ -120,6 +134,11 @@ export function CardTable({ cards, isLoading, onAdd, onRowClick }: CardTableProp
                 className={`hover:bg-gray-50 dark:hover:bg-gray-700/50 ${onRowClick ? 'cursor-pointer' : ''}`}
                 onClick={() => onRowClick?.(card)}
               >
+                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
+                  {card.created_at
+                    ? new Date(card.created_at).toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' })
+                    : '—'}
+                </td>
                 <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900 dark:text-white">
                   {card.name}
                 </td>

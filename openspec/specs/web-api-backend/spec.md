@@ -76,9 +76,33 @@ The system SHALL expose endpoints to retrieve card collection data from Google S
 - **WHEN** caching collection data from Google Sheets
 - **THEN** system uses same robust price parsing logic for CMC and price fields that handles European/US formats with or without thousands separators
 
+### Requirement: Card response SHALL include created_at
+
+The system SHALL include an optional **`created_at`** field in each card object returned by GET `/api/cards` and GET `/api/cards/{id}` (and any other endpoint that returns card data). The value SHALL be an ISO 8601 timestamp string (e.g. from the `cards.created_at` column when using Postgres), or SHALL be omitted if not available (e.g. when the source does not provide it). This allows the frontend to sort and display cards by date added.
+
+#### Scenario: Card list includes created_at when available
+- **WHEN** client requests GET `/api/cards` and the collection is stored in Postgres (or another source that provides creation time)
+- **THEN** each card object in the response MAY include a `created_at` field with an ISO timestamp string
+
+#### Scenario: Single card response includes created_at when available
+- **WHEN** client requests GET `/api/cards/{id}` and the card exists and the store provides creation time
+- **THEN** the response MAY include `created_at` with an ISO timestamp string
+
+### Requirement: Card list SHALL be ordered by newest first by default
+
+When the collection is served from a store that supports ordering (e.g. Postgres), GET `/api/cards` SHALL return cards in an order that supports "newest first" as the default UX. For example, the underlying repository SHALL order by `created_at DESC NULLS LAST, id DESC` so that the first page of results contains the most recently added cards. Filtering and pagination SHALL apply to this ordered list so that the same ordering is preserved when filters are applied.
+
+#### Scenario: Unfiltered list returns newest cards first
+- **WHEN** client requests GET `/api/cards` without filter parameters (or with only limit/offset)
+- **THEN** the returned list is ordered so that the most recently added cards (by created_at) appear first, when the store supports it
+
+#### Scenario: Filtered list preserves newest-first order
+- **WHEN** client requests GET `/api/cards` with filter parameters (search, rarity, type, etc.)
+- **THEN** the filtered result is ordered so that the most recently added cards in that subset appear first, when the store supports it
+
 ### Requirement: Backend SHALL provide card image endpoint
 
-The system SHALL provide GET `/api/cards/{id}/image` where `id` is the surrogate card id (integer). The endpoint SHALL return the card's image (binary, with appropriate image Content-Type). If the image is not stored, the system SHALL fetch the card by name from Scryfall, download the image, persist it (e.g. to filesystem), and then serve it. The system SHALL return 404 when the card does not exist or the image cannot be obtained.
+The system SHALL provide GET `/api/cards/{id}/image` where `id` is the surrogate card id (integer). The endpoint SHALL return the card's image (binary, with appropriate image Content-Type). If the image is not stored, the system SHALL fetch the card by name from Scryfall, download the image, persist it (e.g. to database per card-image-storage spec), and then serve it. The system SHALL return 404 when the card does not exist or the image cannot be obtained.
 
 #### Scenario: GET card image by id returns image when available
 - **WHEN** client sends GET request to `/api/cards/{id}/image` and the card exists and has a stored image (or image is successfully fetched and stored)
