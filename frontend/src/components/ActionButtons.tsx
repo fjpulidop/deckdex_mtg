@@ -3,9 +3,11 @@ import { useTriggerProcess, useTriggerPriceUpdate } from '../hooks/useApi';
 
 interface ActionButtonsProps {
   onJobStarted: (jobId: string, jobType: string) => void;
+  /** When true, render only the buttons (no card wrapper, no heading). Use inside a parent section. */
+  inline?: boolean;
 }
 
-export function ActionButtons({ onJobStarted }: ActionButtonsProps) {
+export function ActionButtons({ onJobStarted, inline }: ActionButtonsProps) {
   const triggerProcess = useTriggerProcess();
   const triggerPriceUpdate = useTriggerPriceUpdate();
   const [processScopeOpen, setProcessScopeOpen] = useState(false);
@@ -44,10 +46,8 @@ export function ActionButtons({ onJobStarted }: ActionButtonsProps) {
 
   const isProcessing = triggerProcess.isPending || triggerPriceUpdate.isPending;
 
-  return (
-    <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6 mb-8">
-      <h2 className="text-xl font-semibold text-gray-900 dark:text-white mb-4">Actions</h2>
-      <div className="flex flex-wrap gap-4 items-center">
+  const buttons = (
+    <div className="flex flex-wrap gap-4 items-center">
         <div className="relative" ref={processDropdownRef}>
           <button
             type="button"
@@ -85,6 +85,13 @@ export function ActionButtons({ onJobStarted }: ActionButtonsProps) {
           {triggerPriceUpdate.isPending ? 'Starting...' : 'Update Prices'}
         </button>
       </div>
+  );
+
+  if (inline) return buttons;
+  return (
+    <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6 mb-8">
+      <h2 className="text-xl font-semibold text-gray-900 dark:text-white mb-4">Actions</h2>
+      {buttons}
     </div>
   );
 }

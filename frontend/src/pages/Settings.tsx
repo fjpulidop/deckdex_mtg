@@ -1,9 +1,12 @@
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { api } from '../api/client';
+import { ActionButtons } from '../components/ActionButtons';
 import { ThemeToggle } from '../components/ThemeToggle';
+import { useActiveJobs } from '../contexts/ActiveJobsContext';
 
 export function Settings() {
+  const { addJob } = useActiveJobs();
   const [importFileLoading, setImportFileLoading] = useState(false);
   const [importFileResult, setImportFileResult] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -155,6 +158,11 @@ export function Settings() {
           {importFileResult && (
             <p className="mt-2 text-green-700 dark:text-green-400">{importFileResult}</p>
           )}
+        </section>
+
+        <section className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
+          <h2 className="text-lg font-semibold mb-4 text-gray-900 dark:text-white">Deck Actions</h2>
+          <ActionButtons onJobStarted={addJob} inline />
         </section>
       </div>
     </div>
