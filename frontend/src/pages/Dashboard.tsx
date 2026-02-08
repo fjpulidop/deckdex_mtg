@@ -174,6 +174,10 @@ uvicorn api.main:app --reload --port 8000
           </div>
           <div className="flex items-center gap-3">
             <ThemeToggle />
+            <Link to="/analytics" className="inline-flex items-center gap-1 text-indigo-600 hover:underline dark:text-indigo-400">
+              Analytics
+              <span className="text-xs bg-indigo-100 dark:bg-indigo-900 text-indigo-700 dark:text-indigo-300 px-1.5 py-0.5 rounded-full">beta</span>
+            </Link>
             <Link to="/settings" className="text-blue-600 hover:underline dark:text-blue-400">Settings</Link>
           </div>
         </div>

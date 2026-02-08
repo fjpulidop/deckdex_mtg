@@ -230,6 +230,32 @@ export const api = {
     return response.json();
   },
 
+  // Analytics aggregations
+  getAnalyticsRarity: async (params?: Record<string, string>): Promise<{ rarity: string; count: number }[]> => {
+    const query = params ? new URLSearchParams(params).toString() : '';
+    const response = await apiFetch(`${API_BASE}/analytics/rarity${query ? `?${query}` : ''}`, FETCH_OPTS);
+    if (!response.ok) throw new Error('Failed to fetch analytics rarity');
+    return response.json();
+  },
+  getAnalyticsColorIdentity: async (params?: Record<string, string>): Promise<{ color_identity: string; count: number }[]> => {
+    const query = params ? new URLSearchParams(params).toString() : '';
+    const response = await apiFetch(`${API_BASE}/analytics/color-identity${query ? `?${query}` : ''}`, FETCH_OPTS);
+    if (!response.ok) throw new Error('Failed to fetch analytics color identity');
+    return response.json();
+  },
+  getAnalyticsCmc: async (params?: Record<string, string>): Promise<{ cmc: string; count: number }[]> => {
+    const query = params ? new URLSearchParams(params).toString() : '';
+    const response = await apiFetch(`${API_BASE}/analytics/cmc${query ? `?${query}` : ''}`, FETCH_OPTS);
+    if (!response.ok) throw new Error('Failed to fetch analytics CMC');
+    return response.json();
+  },
+  getAnalyticsSets: async (params?: Record<string, string>): Promise<{ set_name: string; count: number }[]> => {
+    const query = params ? new URLSearchParams(params).toString() : '';
+    const response = await apiFetch(`${API_BASE}/analytics/sets${query ? `?${query}` : ''}`, FETCH_OPTS);
+    if (!response.ok) throw new Error('Failed to fetch analytics sets');
+    return response.json();
+  },
+
   // Import from file (CSV/JSON)
   importFromFile: async (file: File): Promise<{ imported: number }> => {
     const form = new FormData();
