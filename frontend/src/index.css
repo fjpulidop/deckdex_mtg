@@ -1,4 +1,5 @@
 @import "tailwindcss";
+@import "./mana-symbols-scryfall.css";
 
 /* Dark mode: class on <html> (e.g. class="dark") */
 @custom-variant dark (&&:where(.dark, .dark *));
@@ -10,4 +11,9 @@ body {
 }
 .dark body {
   background-color: #111827;
+}
+
+/* MTG mana symbols: estilos Scryfall (SVG) en mana-symbols-scryfall.css; fallback para símbolos sin clase */
+.card-symbol {
+  background-color: #cac5c0;
 }
