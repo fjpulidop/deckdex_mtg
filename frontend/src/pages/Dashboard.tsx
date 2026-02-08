@@ -1,11 +1,14 @@
 import { useState, useCallback, useEffect } from 'react';
+import { Link } from 'react-router-dom';
+import { useQueryClient } from '@tanstack/react-query';
 import { useCards } from '../hooks/useApi';
 import { StatsCards } from '../components/StatsCards';
 import { Filters } from '../components/Filters';
 import { CardTable } from '../components/CardTable';
+import { CardFormModal } from '../components/CardFormModal';
 import { ActionButtons } from '../components/ActionButtons';
 import { ActiveJobs } from '../components/ActiveJobs';
-import { api } from '../api/client';
+import { api, Card } from '../api/client';
 
 interface JobInfo {
   jobId: string;
@@ -14,6 +17,7 @@ interface JobInfo {
 }
 
 export function Dashboard() {
+  const queryClient = useQueryClient();
   const [search, setSearch] = useState('');
   const [rarity, setRarity] = useState('all');
   const [type, setType] = useState('all');
@@ -21,6 +25,7 @@ export function Dashboard() {
   const [priceMin, setPriceMin] = useState('');
   const [priceMax, setPriceMax] = useState('');
   const [backgroundJobs, setBackgroundJobs] = useState<JobInfo[]>([]);
+  const [cardModal, setCardModal] = useState<null | 'add' | { card: Card }>(null);
 
   // Fetch cards with filters
   const { data: cards, isLoading, error } = useCards({
@@ -54,32 +59,44 @@ export function Dashboard() {
     restoreJobs();
   }, []);
 
-  // Show error if backend is not accessible
-  if (error) {
-    return (
-      <div className="min-h-screen bg-gray-100 flex items-center justify-center">
-        <div className="bg-white rounded-lg shadow-lg p-8 max-w-lg">
-          <h1 className="text-2xl font-bold text-red-600 mb-4">Backend Connection Error</h1>
-          <p className="text-gray-700 mb-4">
-            Cannot connect to the backend API. Please ensure the backend is running:
-          </p>
-          <pre className="bg-gray-100 p-4 rounded text-sm mb-4">
-cd backend{'\n'}
-uvicorn api.main:app --reload
-          </pre>
-          <p className="text-gray-600 text-sm">
-            The backend should be running on http://localhost:8000
-          </p>
-          <button
-            onClick={() => window.location.reload()}
-            className="mt-4 px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
-          >
-            Retry Connection
-          </button>
-        </div>
-      </div>
-    );
-  }
+  const invalidateCards = useCallback(() => {
+    queryClient.invalidateQueries({ queryKey: ['cards'] });
+    queryClient.invalidateQueries({ queryKey: ['stats'] });
+  }, [queryClient]);
+
+  const handleJobStarted = useCallback((jobId: string, jobType: string) => {
+    setBackgroundJobs(prev => [...prev, {
+      jobId,
+      type: jobType,
+      startedAt: new Date(),
+    }]);
+  }, []);
+
+  const handleJobCompleted = useCallback((jobId: string) => {
+    setBackgroundJobs(prev => prev.filter(j => j.jobId !== jobId));
+  }, []);
+
+  const handleAddCard = useCallback(() => setCardModal('add'), []);
+  const handleEditCard = useCallback((card: Card) => setCardModal({ card }), []);
+  const handleDeleteCard = useCallback(async (card: Card) => {
+    if (card.id == null) return;
+    if (!window.confirm(`Delete "${card.name}"?`)) return;
+    try {
+      await api.deleteCard(card.id);
+      invalidateCards();
+    } catch (e) {
+      alert(e instanceof Error ? e.message : 'Delete failed');
+    }
+  }, [invalidateCards]);
+
+  const handleCardSubmit = useCallback(async (payload: Partial<Card>) => {
+    if (cardModal === 'add') {
+      await api.createCard(payload);
+    } else if (cardModal && 'card' in cardModal && cardModal.card.id != null) {
+      await api.updateCard(cardModal.card.id, payload);
+    }
+    invalidateCards();
+  }, [cardModal, invalidateCards]);
 
   // Derive distinct type and set options from search-filtered cards (sorted)
   const typeOptions = Array.from(
@@ -166,29 +183,51 @@ uvicorn api.main:app --reload
     });
   }
 
-  const handleJobStarted = useCallback((jobId: string, jobType: string) => {
-    setBackgroundJobs(prev => [...prev, {
-      jobId,
-      type: jobType,
-      startedAt: new Date(),
-    }]);
-  }, []);
-
-  const handleJobCompleted = useCallback((jobId: string) => {
-    setBackgroundJobs(prev => prev.filter(j => j.jobId !== jobId));
-  }, []);
+  // Show error if backend is not accessible (after all hooks)
+  if (error) {
+    return (
+      <div className="min-h-screen bg-gray-100 flex items-center justify-center">
+        <div className="bg-white rounded-lg shadow-lg p-8 max-w-lg">
+          <h1 className="text-2xl font-bold text-red-600 mb-4">Backend Connection Error</h1>
+          <p className="text-gray-700 mb-4">
+            Cannot connect to the backend API at http://localhost:8000. Start it in one of these ways:
+          </p>
+          <div className="space-y-3 text-sm">
+            <p className="font-medium text-gray-800">Docker (all services):</p>
+            <pre className="bg-gray-100 p-3 rounded overflow-x-auto">
+docker compose up --build
+            </pre>
+            <p className="font-medium text-gray-800 mt-2">Or run backend only (from repo root):</p>
+            <pre className="bg-gray-100 p-3 rounded overflow-x-auto">
+cd backend{'\n'}
+uvicorn api.main:app --reload --port 8000
+            </pre>
+          </div>
+          <button
+            onClick={() => window.location.reload()}
+            className="mt-4 px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
+          >
+            Retry Connection
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gray-100">
       <div className="container mx-auto px-4 py-8">
         {/* Header */}
-        <div className="mb-8">
-          <h1 className="text-4xl font-bold text-gray-900 mb-2">
-            DeckDex MTG
-          </h1>
-          <p className="text-gray-600">
-            Manage your Magic: The Gathering collection
-          </p>
+        <div className="mb-8 flex justify-between items-start">
+          <div>
+            <h1 className="text-4xl font-bold text-gray-900 mb-2">
+              DeckDex MTG
+            </h1>
+            <p className="text-gray-600">
+              Manage your Magic: The Gathering collection
+            </p>
+          </div>
+          <Link to="/settings" className="text-blue-600 hover:underline">Settings</Link>
         </div>
 
         {/* Stats Cards */}
@@ -218,8 +257,23 @@ uvicorn api.main:app --reload
         />
 
         {/* Card Table */}
-        <CardTable cards={filteredCards} isLoading={isLoading} />
+        <CardTable
+          cards={filteredCards}
+          isLoading={isLoading}
+          onAdd={handleAddCard}
+          onEdit={handleEditCard}
+          onDelete={handleDeleteCard}
+        />
       </div>
+
+      {cardModal && (
+        <CardFormModal
+          title={cardModal === 'add' ? 'Add card' : 'Edit card'}
+          initial={cardModal === 'add' ? undefined : cardModal.card}
+          onSubmit={handleCardSubmit}
+          onClose={() => setCardModal(null)}
+        />
+      )}
 
       {/* Active Jobs Bar */}
       <ActiveJobs

@@ -55,6 +55,23 @@ class ScryfallConfig:
 
 
 @dataclass
+class DatabaseConfig:
+    """Configuration for PostgreSQL connection.
+
+    Attributes:
+        url: Full database URL (e.g. postgresql://user:password@host:5432/dbname).
+            Can be set via config or DATABASE_URL env var.
+    """
+    url: Optional[str] = None
+
+    def __post_init__(self):
+        """Validate database configuration."""
+        if self.url is not None and self.url.strip():
+            if not self.url.strip().startswith("postgresql"):
+                raise ValueError("database url must be a postgresql:// URL when set")
+
+
+@dataclass
 class GoogleSheetsConfig:
     """Configuration for Google Sheets API.
     
@@ -125,10 +142,12 @@ class ProcessorConfig:
         credentials_path: Path to Google API credentials JSON file
         limit: Process only N cards (useful for testing)
         resume_from: Resume processing from row N (1-indexed)
+        process_scope: When running full process: "all" or "new_only" (only cards with just name, no type_line).
     """
     
     # Behavioral flags
     update_prices: bool = False
+    process_scope: Optional[str] = None  # "all" | "new_only"
     dry_run: bool = False
     verbose: bool = False
     
@@ -137,6 +156,7 @@ class ProcessorConfig:
     scryfall: ScryfallConfig = field(default_factory=ScryfallConfig)
     google_sheets: GoogleSheetsConfig = field(default_factory=GoogleSheetsConfig)
     openai: OpenAIConfig = field(default_factory=OpenAIConfig)
+    database: Optional[DatabaseConfig] = field(default_factory=lambda: None)
     
     # Google Sheets credentials (not in YAML)
     credentials_path: Optional[str] = None
@@ -299,8 +319,15 @@ class ClientFactory:
             load_dotenv()
             credentials_path = config.credentials_path or os.getenv("GOOGLE_API_CREDENTIALS")
             if not credentials_path:
-                raise ValueError("GOOGLE_API_CREDENTIALS environment variable not set and --credentials-path not provided")
-            
+                raise ValueError(
+                    "Google API credentials not configured. Set GOOGLE_API_CREDENTIALS to a valid credentials file path, "
+                    "or configure credentials in Settings (Import from Google Sheets)."
+                )
+            if not os.path.isfile(credentials_path):
+                raise ValueError(
+                    f"Google API credentials file not found: {credentials_path}. "
+                    "Please set GOOGLE_API_CREDENTIALS to a valid file path or configure credentials in Settings."
+                )
             return SpreadsheetClient(
                 credentials_path,
                 config.google_sheets

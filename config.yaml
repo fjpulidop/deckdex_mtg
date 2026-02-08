@@ -5,6 +5,11 @@
 # DEFAULT PROFILE (current production values)
 # ============================================================
 default:
+  # PostgreSQL (optional). When set, collection uses DB instead of Google Sheets.
+  # Override with DATABASE_URL env var (e.g. postgresql://user:pass@host:5432/deckdex).
+  # database:
+  #   url: postgresql://localhost:5432/deckdex
+
   processing:
     batch_size: 20                    # Cards per batch
     max_workers: 4                    # Parallel workers (1-10)

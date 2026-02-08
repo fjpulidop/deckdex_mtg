@@ -2,6 +2,7 @@
 Process execution API routes
 Endpoints for triggering and monitoring background processes
 """
+import os
 import uuid
 from typing import Dict, List, Optional
 from fastapi import APIRouter, HTTPException, BackgroundTasks
@@ -46,6 +47,12 @@ class JobListItem(BaseModel):
     start_time: str
 
 
+class ProcessRequest(BaseModel):
+    """Body for POST /process"""
+    limit: Optional[int] = None
+    scope: Optional[str] = "all"  # "all" | "new_only"
+
+
 @router.get("/jobs", response_model=List[JobListItem])
 async def list_jobs():
     """
@@ -83,28 +90,40 @@ async def list_jobs():
 @router.post("/process", response_model=JobResponse)
 async def trigger_process(
     background_tasks: BackgroundTasks,
-    limit: Optional[int] = None
+    body: Optional[ProcessRequest] = None,
 ):
     """
     Trigger card processing job.
-    Only one process can run at a time.
+    Body: { "limit": optional number, "scope": "all" | "new_only" }.
+    scope=new_only: only cards that have just the name (no type_line). scope=all: all cards.
+    Only one full process job can run at a time; update_prices can run in parallel.
     """
-    logger.info(f"POST /api/process - limit={limit}")
+    req = body or ProcessRequest()
+    limit = req.limit
+    scope = (req.scope or "all").strip().lower() if req.scope else "all"
+    if scope not in ("all", "new_only"):
+        scope = "all"
+    logger.info(f"POST /api/process - limit={limit}, scope={scope}")
     
-    # Check if any job is currently running
+    # Check if another job of the same type is already running
     for job_id, service in _active_jobs.items():
-        if service.status == 'running':
-            logger.warning(f"Process already running: {job_id}")
+        if service.status == 'running' and _job_types.get(job_id) == 'process':
+            logger.warning(f"Process job already running: {job_id}")
             raise HTTPException(
                 status_code=409,
-                detail=f"Another process is already running (job_id: {job_id})"
+                detail=f"Another process (full) job is already running (job_id: {job_id})"
             )
     
     # Clean up old completed jobs
     _cleanup_old_jobs()
     
-    # Create new processor service
-    service = ProcessorService()
+    # Build config with process_scope so processor runs only new/incomplete cards when requested
+    from deckdex.config_loader import load_config
+    config = load_config(profile=os.getenv("DECKDEX_PROFILE", "default"))
+    config.process_scope = scope
+    
+    # Create new processor service with config
+    service = ProcessorService(config=config)
     job_id = service.job_id
     _job_types[job_id] = 'process'
     
@@ -163,17 +182,17 @@ async def trigger_process(
 async def trigger_price_update(background_tasks: BackgroundTasks):
     """
     Trigger price update job.
-    Only one process can run at a time.
+    Only one update_prices job at a time; full process can run in parallel.
     """
     logger.info("POST /api/prices/update")
     
-    # Check if any job is currently running
+    # Check if another update_prices job is already running
     for job_id, service in _active_jobs.items():
-        if service.status == 'running':
-            logger.warning(f"Process already running: {job_id}")
+        if service.status == 'running' and _job_types.get(job_id) == 'update_prices':
+            logger.warning(f"Price update job already running: {job_id}")
             raise HTTPException(
                 status_code=409,
-                detail=f"Another process is already running (job_id: {job_id})"
+                detail=f"Another price update job is already running (job_id: {job_id})"
             )
     
     # Clean up old completed jobs

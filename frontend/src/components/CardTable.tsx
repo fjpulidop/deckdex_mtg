@@ -4,9 +4,13 @@ import { Card } from '../api/client';
 interface CardTableProps {
   cards: Card[];
   isLoading?: boolean;
+  onAdd?: () => void;
+  onEdit?: (card: Card) => void;
+  onDelete?: (card: Card) => void;
 }
 
-export function CardTable({ cards, isLoading }: CardTableProps) {
+export function CardTable({ cards, isLoading, onAdd, onEdit, onDelete }: CardTableProps) {
+  const hasIds = cards.some(c => c.id != null);
   const [sortKey, setSortKey] = useState<string>('name');
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
   const [currentPage, setCurrentPage] = useState(1);
@@ -52,6 +56,17 @@ export function CardTable({ cards, isLoading }: CardTableProps) {
 
   return (
     <div className="bg-white rounded-lg shadow overflow-hidden">
+      {onAdd && hasIds && (
+        <div className="px-6 py-3 border-b border-gray-200">
+          <button
+            type="button"
+            onClick={onAdd}
+            className="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700 text-sm"
+          >
+            Add card
+          </button>
+        </div>
+      )}
       <div className="overflow-x-auto">
         <table className="min-w-full divide-y divide-gray-200">
           <thead className="bg-gray-50">
@@ -83,11 +98,16 @@ export function CardTable({ cards, isLoading }: CardTableProps) {
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                 Set
               </th>
+              {hasIds && (onEdit || onDelete) && (
+                <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Actions
+                </th>
+              )}
             </tr>
           </thead>
           <tbody className="bg-white divide-y divide-gray-200">
             {paginatedCards.map((card, index) => (
-              <tr key={index} className="hover:bg-gray-50">
+              <tr key={card.id ?? index} className="hover:bg-gray-50">
                 <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
                   {card.name}
                 </td>
@@ -110,6 +130,20 @@ export function CardTable({ cards, isLoading }: CardTableProps) {
                 <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                   {card.set_name || 'N/A'}
                 </td>
+                {hasIds && (onEdit || onDelete) && (
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-right">
+                    {onEdit && card.id != null && (
+                      <button type="button" onClick={() => onEdit(card)} className="text-blue-600 hover:underline mr-2">
+                        Edit
+                      </button>
+                    )}
+                    {onDelete && card.id != null && (
+                      <button type="button" onClick={() => onDelete(card)} className="text-red-600 hover:underline">
+                        Delete
+                      </button>
+                    )}
+                  </td>
+                )}
               </tr>
             ))}
           </tbody>

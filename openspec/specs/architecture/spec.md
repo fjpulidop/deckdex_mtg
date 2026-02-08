@@ -39,7 +39,7 @@ Config load (YAML → ENV → CLI) → ProcessorConfig. Read card names from she
 - **CLI-only:** `python main.py`.
 - **Web:** backend `uvicorn api.main:app --reload --port 8000`; frontend `npm run dev` (5173). Vite proxies /api to backend.
 - **Docker:** optional `docker-compose up`.
-- Concurrency: do not run CLI process and web process simultaneously (writes conflict). Reads are safe. Sheets limit 600 req/min.
+- Concurrency: when using PostgreSQL as the collection store, CLI and web MAY run simultaneously (both read/write the same DB). When using Google Sheets as the only source, do not run CLI and web simultaneously (writes conflict). Sheets limit 600 req/min when using Sheets.
 
 ## Directory structure
 
