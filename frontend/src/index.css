@@ -1,7 +1,13 @@
 @import "tailwindcss";
 
+/* Dark mode: class on <html> (e.g. class="dark") */
+@custom-variant dark (&&:where(.dark, .dark *));
+
 body {
   margin: 0;
   min-height: 100vh;
   background-color: #f3f4f6;
+}
+.dark body {
+  background-color: #111827;
 }
