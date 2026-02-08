@@ -245,8 +245,17 @@ uvicorn api.main:app --reload --port 8000
           </div>
         </div>
 
-        {/* Stats Cards */}
-        <StatsCards />
+        {/* Stats Cards: pass current filters so totals reflect the filtered set */}
+        <StatsCards
+          filters={{
+            search: search || undefined,
+            rarity: rarity === 'all' ? undefined : rarity,
+            type: type === 'all' ? undefined : type,
+            set: setFilter === 'all' ? undefined : setFilter,
+            priceMin: priceMin.trim() || undefined,
+            priceMax: priceMax.trim() || undefined,
+          }}
+        />
 
         {/* Action Buttons */}
         <ActionButtons onJobStarted={handleJobStarted} />

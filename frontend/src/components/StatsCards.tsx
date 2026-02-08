@@ -1,7 +1,12 @@
-import { useStats } from '../hooks/useApi';
+import { useStats, type StatsFilters } from '../hooks/useApi';
 
-export function StatsCards() {
-  const { data: stats, isLoading } = useStats();
+interface StatsCardsProps {
+  /** When provided, stats are fetched with these filters so totals reflect the filtered set. */
+  filters?: StatsFilters;
+}
+
+export function StatsCards({ filters }: StatsCardsProps = {}) {
+  const { data: stats, isLoading } = useStats(filters);
 
   if (isLoading) {
     return (
