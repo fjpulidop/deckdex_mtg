@@ -4,6 +4,7 @@ import time
 import random
 import json
 import requests
+from urllib.parse import quote_plus
 from typing import Dict, Any, Optional, List, Tuple
 from loguru import logger
 from rapidfuzz import fuzz
@@ -70,6 +71,27 @@ class CardFetcher:
                     # No registramos el error en el log, solo lo propagamos
                     raise
                 time.sleep(self.retry_delay * (2 ** attempt))
+
+    def autocomplete(self, q: str) -> List[str]:
+        """
+        Return card names matching the query using Scryfall's autocomplete API.
+        https://scryfall.com/docs/api/cards/autocomplete
+
+        Args:
+            q: Search query (at least 2 characters recommended).
+
+        Returns:
+            List of card name strings (up to 20 from Scryfall).
+        """
+        if not q or not (q := q.strip()):
+            return []
+        url = f"{self.BASE_URL}/cards/autocomplete?q={quote_plus(q)}"
+        try:
+            response = self._make_request(url)
+            data = response.get("data") if isinstance(response.get("data"), list) else []
+            return data[:20]
+        except Exception:
+            return []
     
     def _exact_match_search(self, card_name: str) -> Optional[Dict[str, Any]]:
         """

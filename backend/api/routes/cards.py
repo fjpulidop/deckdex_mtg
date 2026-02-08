@@ -11,6 +11,7 @@ from loguru import logger
 from ..dependencies import get_cached_collection, get_collection_repo, clear_collection_cache
 from ..filters import filter_collection
 from ..services.card_image_service import get_card_image as resolve_card_image
+from ..services.scryfall_service import suggest_card_names, resolve_card_by_name, CardNotFoundError
 
 router = APIRouter(prefix="/api/cards", tags=["cards"])
 
@@ -90,6 +91,36 @@ async def list_cards(
             )
         
         raise HTTPException(status_code=500, detail=f"Failed to fetch cards: {str(e)}")
+
+
+@router.get("/suggest", response_model=List[str])
+async def suggest_cards(q: Optional[str] = Query(default=None)):
+    """
+    Return card name suggestions from Scryfall autocomplete for the Add card name field.
+    Query param q: search string. If missing or length < 2, returns empty array.
+    """
+    if not q or len(q.strip()) < 2:
+        return []
+    return suggest_card_names(q.strip())
+
+
+@router.get("/resolve", response_model=Card)
+async def resolve_card(name: Optional[str] = Query(default=None, alias="name")):
+    """
+    Resolve a card by name: return full card payload (type, rarity, set_name, price, ...)
+    from Scryfall (or from collection if already present) for use in POST create.
+    Returns 404 if card cannot be resolved.
+    """
+    if not name or not name.strip():
+        raise HTTPException(status_code=400, detail="Query param 'name' is required")
+    try:
+        collection = get_cached_collection()
+        name_lower = name.strip().lower()
+        from_coll = next((c for c in collection if (c.get("name") or "").lower() == name_lower), None)
+        payload = resolve_card_by_name(name.strip(), from_collection=from_coll)
+        return Card(**{k: v for k, v in payload.items() if k in Card.model_fields})
+    except CardNotFoundError as e:
+        raise HTTPException(status_code=404, detail=str(e))
 
 
 @router.get("/{id}/image")

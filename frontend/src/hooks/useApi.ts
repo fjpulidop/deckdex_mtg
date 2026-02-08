@@ -135,11 +135,14 @@ export function useWebSocket(jobId: string | null) {
     api.getJobStatus(jobId).then((jobStatus) => {
       if (cancelled) return;
       const p = jobStatus.progress || {};
-      if (p.percentage > 0 || p.current > 0 || p.total > 0) {
+      const perc = p.percentage ?? 0;
+      const cur = p.current ?? 0;
+      const tot = p.total ?? 0;
+      if (perc > 0 || cur > 0 || tot > 0) {
         setProgress({
-          current: p.current || 0,
-          total: p.total || 0,
-          percentage: p.percentage || 0,
+          current: cur,
+          total: tot,
+          percentage: perc,
         });
       } else {
         // Only reset to 0 if REST says progress is 0 (truly just started)
@@ -148,7 +151,7 @@ export function useWebSocket(jobId: string | null) {
       // If job already completed before we opened the modal
       if (jobStatus.status === 'complete' || jobStatus.status === 'error') {
         setComplete(true);
-        setSummary(p.summary || jobStatus);
+        setSummary(p.summary ?? jobStatus);
       }
     }).catch(() => {
       // REST fetch failed - start from zero, WebSocket will update
