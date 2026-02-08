@@ -61,6 +61,7 @@ export interface JobStatus {
     total?: number;
     percentage?: number;
     errors?: Array<{card_name: string; message: string}>;
+    summary?: Record<string, unknown>;
   };
   start_time: string;
   job_type: string;
@@ -96,6 +97,27 @@ export const api = {
   getCard: async (name: string): Promise<Card> => {
     const response = await apiFetch(`${API_BASE}/cards/${encodeURIComponent(name)}`, FETCH_OPTS);
     if (!response.ok) throw new Error('Failed to fetch card');
+    return response.json();
+  },
+
+  /** Card name suggestions from Scryfall autocomplete for Add card name field. */
+  getCardSuggest: async (query: string): Promise<string[]> => {
+    const q = (query || '').trim();
+    if (q.length < 2) return [];
+    const response = await apiFetch(`${API_BASE}/cards/suggest?q=${encodeURIComponent(q)}`, FETCH_OPTS);
+    if (!response.ok) throw new Error('Failed to fetch suggestions');
+    return response.json();
+  },
+
+  /** Resolve full card data by name (Scryfall or collection) for use in POST create. */
+  resolveCardByName: async (name: string): Promise<Card> => {
+    const n = (name || '').trim();
+    if (!n) throw new Error('Card name is required');
+    const response = await apiFetch(`${API_BASE}/cards/resolve?name=${encodeURIComponent(n)}`, FETCH_OPTS);
+    if (!response.ok) {
+      if (response.status === 404) throw new Error('Card not found');
+      throw new Error('Failed to resolve card');
+    }
     return response.json();
   },
 

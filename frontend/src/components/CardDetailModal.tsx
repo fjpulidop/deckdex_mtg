@@ -10,8 +10,8 @@ export function CardDetailModal({ card, onClose }: CardDetailModalProps) {
   const [imageLoaded, setImageLoaded] = useState(false);
   const [imageError, setImageError] = useState(false);
 
-  const hasId = card.id != null;
-  const imageUrl = hasId ? api.getCardImageUrl(card.id) : null;
+  const cardId = card.id != null ? card.id : null;
+  const imageUrl = cardId != null ? api.getCardImageUrl(cardId) : null;
 
   const pt = [card.power, card.toughness].filter(Boolean).join('/');
   const priceStr = card.price && card.price !== 'N/A' ? `€${card.price}` : 'N/A';

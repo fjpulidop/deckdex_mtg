@@ -277,6 +277,7 @@ uvicorn api.main:app --reload --port 8000
 
       {cardModal && (
         <CardFormModal
+          mode={cardModal === 'add' ? 'add' : 'edit'}
           title={cardModal === 'add' ? 'Add card' : 'Edit card'}
           initial={cardModal === 'add' ? undefined : cardModal.card}
           onSubmit={handleCardSubmit}
