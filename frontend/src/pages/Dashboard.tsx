@@ -16,6 +16,10 @@ interface JobInfo {
 export function Dashboard() {
   const [search, setSearch] = useState('');
   const [rarity, setRarity] = useState('all');
+  const [type, setType] = useState('all');
+  const [setFilter, setSetFilter] = useState('all');
+  const [priceMin, setPriceMin] = useState('');
+  const [priceMax, setPriceMax] = useState('');
   const [backgroundJobs, setBackgroundJobs] = useState<JobInfo[]>([]);
 
   // Fetch cards with filters
@@ -77,24 +81,90 @@ uvicorn api.main:app --reload
     );
   }
 
-  // Filter cards by rarity (client-side)
-  const filteredCards = cards?.filter(card => {
-    if (rarity === 'all') return true;
-    return card.rarity?.toLowerCase() === rarity;
-  }) || [];
+  // Derive distinct type and set options from search-filtered cards (sorted)
+  const typeOptions = Array.from(
+    new Set((cards || []).map(c => c.type).filter(Boolean) as string[])
+  ).sort((a, b) => a.localeCompare(b));
+  const setOptions = Array.from(
+    new Set((cards || []).map(c => c.set_name).filter(Boolean) as string[])
+  ).sort((a, b) => a.localeCompare(b));
 
-  const handleSearchChange = (value: string) => {
-    setSearch(value);
+  const parsePrice = (value: string | undefined): number | null => {
+    if (value === undefined || value === null || value === '' || value === 'N/A') return null;
+    const n = parseFloat(String(value).replace(',', '.'));
+    return Number.isFinite(n) && n >= 0 ? n : null;
   };
 
-  const handleRarityChange = (value: string) => {
-    setRarity(value);
+  // Filter cards by rarity, type, set, and price range (client-side)
+  const filteredCards = (cards || []).filter(card => {
+    if (rarity !== 'all' && card.rarity?.toLowerCase() !== rarity) return false;
+    if (type !== 'all' && card.type !== type) return false;
+    if (setFilter !== 'all' && card.set_name !== setFilter) return false;
+    const minNum = priceMin.trim() === '' ? NaN : parseFloat(priceMin.replace(',', '.'));
+    const maxNum = priceMax.trim() === '' ? NaN : parseFloat(priceMax.replace(',', '.'));
+    const hasMin = Number.isFinite(minNum);
+    const hasMax = Number.isFinite(maxNum);
+    if (hasMin || hasMax) {
+      const cardPrice = parsePrice(card.price);
+      if (cardPrice === null) return false;
+      if (hasMin && cardPrice < minNum) return false;
+      if (hasMax && cardPrice > maxNum) return false;
+    }
+    return true;
+  });
+
+  const handleSearchChange = (value: string) => setSearch(value);
+  const handleRarityChange = (value: string) => setRarity(value);
+  const handleTypeChange = (value: string) => setType(value);
+  const handleSetChange = (value: string) => setSetFilter(value);
+  const handlePriceRangeChange = (min: string, max: string) => {
+    setPriceMin(min);
+    setPriceMax(max);
   };
 
   const handleClearFilters = () => {
     setSearch('');
     setRarity('all');
+    setType('all');
+    setSetFilter('all');
+    setPriceMin('');
+    setPriceMax('');
   };
+
+  const hasPriceRange =
+    (priceMin.trim() !== '' && Number.isFinite(parseFloat(priceMin.replace(',', '.')))) ||
+    (priceMax.trim() !== '' && Number.isFinite(parseFloat(priceMax.replace(',', '.'))));
+
+  const activeChips: { id: string; label: string; onRemove: () => void }[] = [];
+  if (rarity !== 'all') {
+    activeChips.push({
+      id: 'rarity',
+      label: rarity.charAt(0).toUpperCase() + rarity.slice(1),
+      onRemove: () => setRarity('all'),
+    });
+  }
+  if (type !== 'all') {
+    activeChips.push({ id: 'type', label: type, onRemove: () => setType('all') });
+  }
+  if (setFilter !== 'all') {
+    activeChips.push({
+      id: 'set',
+      label: `Set: ${setFilter}`,
+      onRemove: () => setSetFilter('all'),
+    });
+  }
+  if (hasPriceRange) {
+    const minStr = priceMin.trim() ? `€${priceMin}` : '';
+    const maxStr = priceMax.trim() ? `€${priceMax}` : '';
+    activeChips.push({
+      id: 'price',
+      label: minStr && maxStr ? `${minStr} – ${maxStr}` : minStr || maxStr,
+      onRemove: () => {
+        setPriceMin('');
+        setPriceMax('');
+      },
+    });
+  }
 
   const handleJobStarted = useCallback((jobId: string, jobType: string) => {
     setBackgroundJobs(prev => [...prev, {
@@ -129,8 +199,21 @@ uvicorn api.main:app --reload
 
         {/* Filters */}
         <Filters
+          search={search}
           onSearchChange={handleSearchChange}
+          rarity={rarity}
           onRarityChange={handleRarityChange}
+          type={type}
+          onTypeChange={handleTypeChange}
+          typeOptions={typeOptions}
+          set={setFilter}
+          onSetChange={handleSetChange}
+          setOptions={setOptions}
+          priceMin={priceMin}
+          priceMax={priceMax}
+          onPriceRangeChange={handlePriceRangeChange}
+          activeChips={activeChips}
+          resultCount={filteredCards.length}
           onClearFilters={handleClearFilters}
         />
 
