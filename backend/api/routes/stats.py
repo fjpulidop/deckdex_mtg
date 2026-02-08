@@ -29,6 +29,50 @@ class Stats(BaseModel):
     class Config:
         from_attributes = True
 
+def parse_price(price_str: str) -> Optional[float]:
+    """
+    Parse price string handling multiple formats (European/US with or without thousands separator).
+    
+    Supported formats:
+    - European with thousands: "1.234,56" → 1234.56
+    - European without thousands: "1234,56" → 1234.56
+    - US with thousands: "1,234.56" → 1234.56
+    - US without thousands: "1234.56" → 1234.56
+    
+    Args:
+        price_str: Price string to parse
+        
+    Returns:
+        Parsed float value or None if invalid
+    """
+    if not price_str or price_str == 'N/A':
+        return None
+        
+    try:
+        price_clean = str(price_str).strip()
+        
+        # Detect format by last separator position
+        if ',' in price_clean and '.' in price_clean:
+            # Mixed format: check which comes last
+            last_comma_pos = price_clean.rfind(',')
+            last_dot_pos = price_clean.rfind('.')
+            
+            if last_comma_pos > last_dot_pos:
+                # European: "1.234,56" → remove dots, replace comma with dot
+                price_clean = price_clean.replace('.', '').replace(',', '.')
+            else:
+                # US: "1,234.56" → remove commas
+                price_clean = price_clean.replace(',', '')
+        elif ',' in price_clean:
+            # Only comma: assume European decimal "1234,56"
+            price_clean = price_clean.replace(',', '.')
+        # else: only dots or no separator, use as-is
+        
+        return float(price_clean)
+    except (ValueError, TypeError) as e:
+        logger.warning(f"Could not parse price '{price_str}': {e}")
+        return None
+
 def calculate_stats(collection: list) -> dict:
     """
     Calculate collection statistics
@@ -45,14 +89,9 @@ def calculate_stats(collection: list) -> dict:
     prices = []
     for card in collection:
         price_str = card.get('price')
-        if price_str and price_str != 'N/A':
-            try:
-                # Handle European format (comma as decimal separator)
-                price_normalized = str(price_str).replace(',', '.')
-                price = float(price_normalized)
-                prices.append(price)
-            except (ValueError, TypeError):
-                continue
+        price = parse_price(price_str)
+        if price is not None:
+            prices.append(price)
     
     total_value = sum(prices)
     average_price = total_value / len(prices) if prices else 0.0

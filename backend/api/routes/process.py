@@ -100,6 +100,9 @@ async def trigger_process(
                 detail=f"Another process is already running (job_id: {job_id})"
             )
     
+    # Clean up old completed jobs
+    _cleanup_old_jobs()
+    
     # Create new processor service
     service = ProcessorService()
     job_id = service.job_id

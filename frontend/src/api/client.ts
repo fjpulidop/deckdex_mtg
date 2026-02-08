@@ -109,6 +109,12 @@ export const api = {
     return response.json();
   },
 
+  getJobs: async (): Promise<JobStatus[]> => {
+    const response = await fetch(`${API_BASE}/jobs/`);
+    if (!response.ok) throw new Error('Failed to fetch jobs');
+    return response.json();
+  },
+
   getJobStatus: async (jobId: string): Promise<JobStatus> => {
     const response = await fetch(`${API_BASE}/jobs/${jobId}/`);
     if (!response.ok) throw new Error('Failed to fetch job status');
