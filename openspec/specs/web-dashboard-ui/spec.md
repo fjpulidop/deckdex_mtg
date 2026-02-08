@@ -1,6 +1,6 @@
 # Web Dashboard UI
 
-React (Vite, port 5173). **Overview:** 2-column grid: Total Cards, Total Value (subtitle Avg: €X.XX); 30s auto-refresh; skeleton loaders. No price chart in MVP (no history DB). **Table:** 50 cards/page; name, type, rarity, price, set; pagination; sort by column. **Filters:** search by name; by rarity, type, set, price range (min/max); active filters as removable chips; result count (e.g. "Showing X cards"); Clear Filters. **Jobs:** On mount GET /api/jobs → restore backgroundJobs. Buttons: Process Cards, Update Prices → POST, open progress modal; disable when running. **Progress modal:** 0% "Connecting…"; WebSocket → update bar and "Processing X/Y"; errors in scrollable list; complete → summary (processed, success, errors, duration); Done → close and refetch. Stop → POST cancel, "Stopping…", orange bar; cancelled → "Process cancelled — progress X/Y (Z%)". Minimize + Stop side by side; elapsed timer in header (12s / 2m 34s / 1h 5m). On reopen: GET /api/jobs/{id} for initial state (no 0% flash); if already complete → show result without WebSocket. **WebSocket:** Reconnect up to 3× backoff; "Reconnecting…"; failure → "Connection lost" + Refresh (REST). **Styling:** Tailwind v4 (@tailwindcss/postcss, @import "tailwindcss"); bg-black/50 not bg-opacity-*; responsive grid. **Data:** TanStack Query (cache, isLoading, error + retry). **Errors:** Toast on API failure (5s); process errors → count + CSV link. **Access:** localhost:5173; backend down → friendly error + retry; ErrorBoundary for render errors. **Bottom bar:** Fixed bottom when jobs exist; list jobs vertically; completed → show 5s then remove; cancelled → orange + "Cancelled"; poll GET /api/jobs/{id} every 2s. Modern browsers.
+React (Vite, port 5173). **Overview:** 2-column grid: Total Cards, Total Value (subtitle Avg: €X.XX); 30s auto-refresh; skeleton loaders. No price chart in MVP (no history DB). **Table:** 50 cards/page; name, type, rarity, price, set; pagination; sort by column. Rows clickable to open card detail modal (image + data); Edit/Delete do not open detail modal. **Filters:** search by name; by rarity, type, set, price range (min/max); active filters as removable chips; result count (e.g. "Showing X cards"); Clear Filters. **Jobs:** On mount GET /api/jobs → restore backgroundJobs. Buttons: Process Cards, Update Prices → POST, open progress modal; disable when running. **Progress modal:** 0% "Connecting…"; WebSocket → update bar and "Processing X/Y"; errors in scrollable list; complete → summary (processed, success, errors, duration); Done → close and refetch. Stop → POST cancel, "Stopping…", orange bar; cancelled → "Process cancelled — progress X/Y (Z%)". Minimize + Stop side by side; elapsed timer in header (12s / 2m 34s / 1h 5m). On reopen: GET /api/jobs/{id} for initial state (no 0% flash); if already complete → show result without WebSocket. **WebSocket:** Reconnect up to 3× backoff; "Reconnecting…"; failure → "Connection lost" + Refresh (REST). **Styling:** Tailwind v4 (@tailwindcss/postcss, @import "tailwindcss"); bg-black/50 not bg-opacity-*; responsive grid. **Data:** TanStack Query (cache, isLoading, error + retry). **Errors:** Toast on API failure (5s); process errors → count + CSV link. **Access:** localhost:5173; backend down → friendly error + retry; ErrorBoundary for render errors. **Bottom bar:** Fixed bottom when jobs exist; list jobs vertically; completed → show 5s then remove; cancelled → orange + "Cancelled"; poll GET /api/jobs/{id} every 2s. Modern browsers.
 
 ### Requirement: Dashboard SHALL display collection overview
 
@@ -149,3 +149,23 @@ Each job entry in the bottom jobs bar SHALL provide a control (e.g. button or li
 #### Scenario: Modal can be closed
 - **WHEN** the user closes the modal (e.g. close button or overlay click)
 - **THEN** the modal is dismissed and the user returns to the dashboard view; the job continues in the bar as before
+
+### Requirement: Card table rows SHALL be clickable to open card detail modal
+
+The system SHALL allow the user to click on a card table row to open a read-only card detail modal. Clicks on row actions (Edit, Delete) SHALL NOT open the detail modal; only clicking the row itself SHALL trigger opening the modal.
+
+#### Scenario: Clicking a row opens card detail modal
+- **WHEN** the user clicks on a card row in the table (and not on Edit or Delete)
+- **THEN** the system opens the card detail modal with that card's data and loads its image
+
+#### Scenario: Clicking Edit does not open detail modal
+- **WHEN** the user clicks the Edit button on a row
+- **THEN** the system performs the edit action (e.g. opens edit form) and does NOT open the card detail modal
+
+#### Scenario: Clicking Delete does not open detail modal
+- **WHEN** the user clicks the Delete button on a row
+- **THEN** the system performs the delete action and does NOT open the card detail modal
+
+#### Scenario: Dashboard wires table to card detail modal
+- **WHEN** the dashboard renders the card table
+- **THEN** the table is configured with a row-click handler that opens the card detail modal for the clicked card, and the modal receives the selected card and uses the image API for that card's id

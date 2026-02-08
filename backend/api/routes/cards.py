@@ -4,10 +4,12 @@ Endpoints for accessing card collection data
 """
 from typing import Optional, List, Dict, Any
 from fastapi import APIRouter, Query, HTTPException
+from fastapi.responses import Response
 from pydantic import BaseModel
 from loguru import logger
 
 from ..dependencies import get_cached_collection, get_collection_repo, clear_collection_cache
+from ..services.card_image_service import get_card_image as resolve_card_image
 
 router = APIRouter(prefix="/api/cards", tags=["cards"])
 
@@ -89,6 +91,20 @@ async def list_cards(
             )
         
         raise HTTPException(status_code=500, detail=f"Failed to fetch cards: {str(e)}")
+
+
+@router.get("/{id}/image")
+async def get_card_image(id: int):
+    """
+    Return the card's image by surrogate id. If not stored, fetch from Scryfall, store, then return.
+    Returns 404 if card not found or image unavailable.
+    """
+    try:
+        data, media_type = resolve_card_image(id)
+        return Response(content=data, media_type=media_type)
+    except FileNotFoundError:
+        raise HTTPException(status_code=404, detail="Card or image not found")
+
 
 @router.get("/{card_id_or_name}", response_model=Card)
 async def get_card(card_id_or_name: str):

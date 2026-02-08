@@ -90,6 +90,9 @@ export const api = {
     return response.json();
   },
 
+  /** URL for card image by id (use as img src). Backend fetches from Scryfall on first request and caches. */
+  getCardImageUrl: (id: number): string => `${API_BASE}/cards/${id}/image`,
+
   // Stats
   getStats: async (): Promise<Stats> => {
     const response = await apiFetch(`${API_BASE}/stats/`);
