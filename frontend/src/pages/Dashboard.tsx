@@ -6,6 +6,7 @@ import { StatsCards } from '../components/StatsCards';
 import { Filters } from '../components/Filters';
 import { CardTable } from '../components/CardTable';
 import { CardFormModal } from '../components/CardFormModal';
+import { CardDetailModal } from '../components/CardDetailModal';
 import { ActionButtons } from '../components/ActionButtons';
 import { ActiveJobs } from '../components/ActiveJobs';
 import { ThemeToggle } from '../components/ThemeToggle';
@@ -27,6 +28,7 @@ export function Dashboard() {
   const [priceMax, setPriceMax] = useState('');
   const [backgroundJobs, setBackgroundJobs] = useState<JobInfo[]>([]);
   const [cardModal, setCardModal] = useState<null | 'add' | { card: Card }>(null);
+  const [detailCard, setDetailCard] = useState<Card | null>(null);
 
   // Fetch cards with filters
   const { data: cards, isLoading, error } = useCards({
@@ -79,6 +81,7 @@ export function Dashboard() {
 
   const handleAddCard = useCallback(() => setCardModal('add'), []);
   const handleEditCard = useCallback((card: Card) => setCardModal({ card }), []);
+  const handleRowClick = useCallback((card: Card) => setDetailCard(card), []);
   const handleDeleteCard = useCallback(async (card: Card) => {
     if (card.id == null) return;
     if (!window.confirm(`Delete "${card.name}"?`)) return;
@@ -275,6 +278,7 @@ uvicorn api.main:app --reload --port 8000
           onAdd={handleAddCard}
           onEdit={handleEditCard}
           onDelete={handleDeleteCard}
+          onRowClick={handleRowClick}
         />
       </div>
 
@@ -284,6 +288,13 @@ uvicorn api.main:app --reload --port 8000
           initial={cardModal === 'add' ? undefined : cardModal.card}
           onSubmit={handleCardSubmit}
           onClose={() => setCardModal(null)}
+        />
+      )}
+
+      {detailCard && (
+        <CardDetailModal
+          card={detailCard}
+          onClose={() => setDetailCard(null)}
         />
       )}
 

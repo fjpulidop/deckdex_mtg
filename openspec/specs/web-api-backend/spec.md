@@ -1,6 +1,6 @@
 # Web API Backend
 
-FastAPI; collection data, process execution, job monitoring. **Endpoints:** GET /api/health (200 + service/version); CORS for localhost:5173. GET /api/cards (list; optional limit, offset, search); GET /api/cards/{card_name} (single). Parse prices: EU/US formats with/without thousands separators; skip invalid/N/A. GET /api/stats (total_cards, total_value, average_price, last_updated); 30s cache. POST /api/process (optional limit) → job_id, background run; POST /api/prices/update → job_id. 409 if process already running. GET /api/jobs, GET /api/jobs/{id} (status, progress, errors, start_time; completed: summary). POST /api/jobs/{id}/cancel → 200 with status cancelled (or 404/409). POST /api/import/file — upload CSV or JSON file to replace collection in Postgres (requires DATABASE_URL); 400 invalid file, 501 if Postgres not configured.
+FastAPI; collection data, process execution, job monitoring. **Endpoints:** GET /api/health (200 + service/version); CORS for localhost:5173. GET /api/cards (list; optional limit, offset, search); GET /api/cards/{id}/image (card image by id, on-demand Scryfall fetch and store); GET /api/cards/{card_name} (single). Parse prices: EU/US formats with/without thousands separators; skip invalid/N/A. GET /api/stats (total_cards, total_value, average_price, last_updated); 30s cache. POST /api/process (optional limit) → job_id, background run; POST /api/prices/update → job_id. 409 if process already running. GET /api/jobs, GET /api/jobs/{id} (status, progress, errors, start_time; completed: summary). POST /api/jobs/{id}/cancel → 200 with status cancelled (or 404/409). POST /api/import/file — upload CSV or JSON file to replace collection in Postgres (requires DATABASE_URL); 400 invalid file, 501 if Postgres not configured.
 
 Reuse SpreadsheetClient, CardFetcher, config_loader; wrap processor via ProcessorService. Errors: 400 invalid params, 503 Sheets quota (retry-after), 500 + log traceback. Log requests (endpoint, method, status) at INFO; errors at ERROR.
 
@@ -59,3 +59,19 @@ The system SHALL expose endpoints to retrieve card collection data from Google S
 #### Scenario: Parse price fields with multiple formats in collection cache
 - **WHEN** caching collection data from Google Sheets
 - **THEN** system uses same robust price parsing logic for CMC and price fields that handles European/US formats with or without thousands separators
+
+### Requirement: Backend SHALL provide card image endpoint
+
+The system SHALL provide GET `/api/cards/{id}/image` where `id` is the surrogate card id (integer). The endpoint SHALL return the card's image (binary, with appropriate image Content-Type). If the image is not stored, the system SHALL fetch the card by name from Scryfall, download the image, persist it (e.g. to filesystem), and then serve it. The system SHALL return 404 when the card does not exist or the image cannot be obtained.
+
+#### Scenario: GET card image by id returns image when available
+- **WHEN** client sends GET request to `/api/cards/{id}/image` and the card exists and has a stored image (or image is successfully fetched and stored)
+- **THEN** system responds with status 200 and body containing the image bytes with appropriate Content-Type (e.g. image/jpeg)
+
+#### Scenario: GET card image returns 404 when card not found
+- **WHEN** client sends GET request to `/api/cards/{id}/image` and no card exists with that id
+- **THEN** system responds with status 404
+
+#### Scenario: Card image route does not conflict with get card by name
+- **WHEN** client sends GET request to `/api/cards/123/image`
+- **THEN** system treats this as a request for the image of card with id 123, not as a request for a card with name "123" or "123/image"

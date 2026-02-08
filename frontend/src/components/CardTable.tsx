@@ -7,9 +7,10 @@ interface CardTableProps {
   onAdd?: () => void;
   onEdit?: (card: Card) => void;
   onDelete?: (card: Card) => void;
+  onRowClick?: (card: Card) => void;
 }
 
-export function CardTable({ cards, isLoading, onAdd, onEdit, onDelete }: CardTableProps) {
+export function CardTable({ cards, isLoading, onAdd, onEdit, onDelete, onRowClick }: CardTableProps) {
   const hasIds = cards.some(c => c.id != null);
   const [sortKey, setSortKey] = useState<string>('name');
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
@@ -107,7 +108,11 @@ export function CardTable({ cards, isLoading, onAdd, onEdit, onDelete }: CardTab
           </thead>
           <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-600">
             {paginatedCards.map((card, index) => (
-              <tr key={card.id ?? index} className="hover:bg-gray-50 dark:hover:bg-gray-700/50">
+              <tr
+                key={card.id ?? index}
+                className={`hover:bg-gray-50 dark:hover:bg-gray-700/50 ${onRowClick ? 'cursor-pointer' : ''}`}
+                onClick={() => onRowClick?.(card)}
+              >
                 <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900 dark:text-white">
                   {card.name}
                 </td>
@@ -131,14 +136,14 @@ export function CardTable({ cards, isLoading, onAdd, onEdit, onDelete }: CardTab
                   {card.set_name || 'N/A'}
                 </td>
                 {hasIds && (onEdit || onDelete) && (
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-right">
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-right" onClick={e => e.stopPropagation()}>
                     {onEdit && card.id != null && (
-                      <button type="button" onClick={() => onEdit(card)} className="text-blue-600 dark:text-blue-400 hover:underline mr-2">
+                      <button type="button" onClick={(e) => { e.stopPropagation(); onEdit(card); }} className="text-blue-600 dark:text-blue-400 hover:underline mr-2">
                         Edit
                       </button>
                     )}
                     {onDelete && card.id != null && (
-                      <button type="button" onClick={() => onDelete(card)} className="text-red-600 dark:text-red-400 hover:underline">
+                      <button type="button" onClick={(e) => { e.stopPropagation(); onDelete(card); }} className="text-red-600 dark:text-red-400 hover:underline">
                         Delete
                       </button>
                     )}
