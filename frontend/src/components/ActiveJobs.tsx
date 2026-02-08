@@ -52,7 +52,7 @@ export function ActiveJobs({ jobs, onJobCompleted }: ActiveJobsProps) {
   };
 
   return (
-    <div className="fixed bottom-0 left-0 right-0 z-40 bg-white border-t border-gray-200 shadow-lg">
+    <div className="fixed bottom-0 left-0 right-0 z-40 bg-white dark:bg-gray-800 border-t border-gray-200 dark:border-gray-600 shadow-lg">
       <div className="container mx-auto px-4 py-3">
         <div className="flex flex-col gap-3">
           {jobs.map(job => (
@@ -155,20 +155,20 @@ function JobEntry({ job, state, onToggleExpanded, onCancel, onComplete, onFinish
     'Disconnected';
 
   const statusColor =
-    isCancelled ? 'text-orange-600' :
-    isError ? 'text-red-600' :
-    isFinished ? 'text-green-600' :
-    wsStatus === 'connected' ? 'text-green-600' :
-    'text-yellow-600';
+    isCancelled ? 'text-orange-600 dark:text-orange-400' :
+    isError ? 'text-red-600 dark:text-red-400' :
+    isFinished ? 'text-green-600 dark:text-green-400' :
+    wsStatus === 'connected' ? 'text-green-600 dark:text-green-400' :
+    'text-yellow-600 dark:text-yellow-400';
 
   return (
-    <div className={`border-l-4 ${borderColor} bg-white rounded shadow-sm`}>
+    <div className={`border-l-4 ${borderColor} bg-white dark:bg-gray-700 rounded shadow-sm`}>
       {/* Main row */}
       <div className="flex items-center gap-3 px-4 py-3">
         {/* Status icon */}
         <div className="flex-shrink-0 text-xl">
           {isRunning && statusIcon === '🔄' ? (
-            <div className="w-5 h-5 border-2 border-gray-300 border-t-blue-600 rounded-full animate-spin" />
+            <div className="w-5 h-5 border-2 border-gray-300 dark:border-gray-500 border-t-blue-600 dark:border-t-blue-400 rounded-full animate-spin" />
           ) : (
             <span className={statusColor}>{statusIcon}</span>
           )}
@@ -177,16 +177,16 @@ function JobEntry({ job, state, onToggleExpanded, onCancel, onComplete, onFinish
         {/* Job info */}
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2">
-            <span className="text-sm font-medium text-gray-900">{job.type}</span>
+            <span className="text-sm font-medium text-gray-900 dark:text-white">{job.type}</span>
             <span className={`text-xs px-2 py-0.5 rounded ${
-              wsStatus === 'connected' ? 'bg-green-100 text-green-700' :
-              wsStatus === 'connecting' ? 'bg-yellow-100 text-yellow-700' :
-              'bg-red-100 text-red-700'
+              wsStatus === 'connected' ? 'bg-green-100 dark:bg-green-900/40 text-green-700 dark:text-green-300' :
+              wsStatus === 'connecting' ? 'bg-yellow-100 dark:bg-yellow-900/40 text-yellow-700 dark:text-yellow-300' :
+              'bg-red-100 dark:bg-red-900/40 text-red-700 dark:text-red-300'
             }`}>
               {statusText}
             </span>
           </div>
-          <div className="text-xs text-gray-600 mt-1">
+          <div className="text-xs text-gray-600 dark:text-gray-400 mt-1">
             {isFinished ? (
               <span>
                 {isCancelled ? `Stopped at ${progress.current}/${progress.total} cards` :
@@ -206,7 +206,7 @@ function JobEntry({ job, state, onToggleExpanded, onCancel, onComplete, onFinish
         {/* Progress bar (only when running) */}
         {isRunning && (
           <div className="flex-shrink-0 w-32">
-            <div className="h-2 bg-gray-200 rounded-full overflow-hidden">
+            <div className="h-2 bg-gray-200 dark:bg-gray-600 rounded-full overflow-hidden">
               <div 
                 className={`h-full transition-all duration-300 ${
                   state.isCancelling ? 'bg-orange-400' : 'bg-blue-600'
@@ -218,7 +218,7 @@ function JobEntry({ job, state, onToggleExpanded, onCancel, onComplete, onFinish
         )}
 
         {/* Timer */}
-        <div className="flex-shrink-0 text-xs text-gray-500 font-mono tabular-nums min-w-[60px] text-right">
+        <div className="flex-shrink-0 text-xs text-gray-500 dark:text-gray-400 font-mono tabular-nums min-w-[60px] text-right">
           ⏱ {elapsed}
         </div>
 
@@ -230,8 +230,8 @@ function JobEntry({ job, state, onToggleExpanded, onCancel, onComplete, onFinish
               disabled={state.isCancelling}
               className={`px-3 py-1 text-xs rounded transition ${
                 state.isCancelling
-                  ? 'bg-orange-100 text-orange-500 cursor-not-allowed'
-                  : 'bg-red-600 text-white hover:bg-red-700'
+                  ? 'bg-orange-100 dark:bg-orange-900/40 text-orange-500 dark:text-orange-300 cursor-not-allowed'
+                  : 'bg-red-600 text-white hover:bg-red-700 dark:bg-red-500 dark:hover:bg-red-600'
               }`}
             >
               {state.isCancelling ? 'Stopping...' : 'Stop'}
@@ -240,7 +240,7 @@ function JobEntry({ job, state, onToggleExpanded, onCancel, onComplete, onFinish
           {errors.length > 0 && (
             <button
               onClick={onToggleExpanded}
-              className="px-3 py-1 text-xs bg-gray-100 text-gray-700 rounded hover:bg-gray-200 transition"
+              className="px-3 py-1 text-xs bg-gray-100 dark:bg-gray-600 text-gray-700 dark:text-gray-200 rounded hover:bg-gray-200 dark:hover:bg-gray-500 transition"
             >
               {state.expanded ? 'Hide' : 'Show'} errors
             </button>
@@ -250,18 +250,18 @@ function JobEntry({ job, state, onToggleExpanded, onCancel, onComplete, onFinish
 
       {/* Expanded errors section */}
       {state.expanded && errors.length > 0 && (
-        <div className="px-4 pb-3 border-t border-gray-100">
-          <div className="mt-3 max-h-40 overflow-y-auto bg-red-50 border border-red-200 rounded p-3">
-            <h4 className="text-xs font-medium text-red-800 mb-2">
+        <div className="px-4 pb-3 border-t border-gray-100 dark:border-gray-600">
+          <div className="mt-3 max-h-40 overflow-y-auto bg-red-50 dark:bg-red-900/30 border border-red-200 dark:border-red-800 rounded p-3">
+            <h4 className="text-xs font-medium text-red-800 dark:text-red-200 mb-2">
               Errors ({errors.length})
             </h4>
             {errors.slice(0, 20).map((error, index) => (
-              <div key={index} className="text-xs text-red-700 mb-1">
+              <div key={index} className="text-xs text-red-700 dark:text-red-300 mb-1">
                 • {error.card_name}: {error.message}
               </div>
             ))}
             {errors.length > 20 && (
-              <p className="text-xs text-red-600 mt-2">
+              <p className="text-xs text-red-600 dark:text-red-400 mt-2">
                 ... and {errors.length - 20} more errors
               </p>
             )}

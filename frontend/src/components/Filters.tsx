@@ -26,7 +26,7 @@ interface FiltersProps {
 }
 
 const inputClass =
-  'w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500';
+  'w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400';
 
 export function Filters({
   search,
@@ -61,7 +61,7 @@ export function Filters({
   const handlePriceMaxChange = (value: string) => onPriceRangeChange(priceMin, value);
 
   return (
-    <div className="bg-white rounded-lg shadow p-4 mb-6 transition-opacity duration-150">
+    <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-4 mb-6 transition-opacity duration-150">
       {/* Row 1: Search + dropdowns + Clear */}
       <div className="flex flex-wrap gap-4 items-center">
         <div className="flex-1 min-w-[200px]">
@@ -132,31 +132,31 @@ export function Filters({
 
         <button
           onClick={onClearFilters}
-          className="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition"
+          className="px-4 py-2 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-200 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600 transition"
         >
           Clear Filters
         </button>
       </div>
 
       {/* Row 2: Active chips + result count */}
-      <div className="flex flex-wrap items-center gap-2 mt-3 pt-3 border-t border-gray-100">
+      <div className="flex flex-wrap items-center gap-2 mt-3 pt-3 border-t border-gray-100 dark:border-gray-700">
         {activeChips.map((chip) => (
           <span
             key={chip.id}
-            className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md bg-blue-50 text-blue-800 text-sm"
+            className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md bg-blue-50 dark:bg-blue-900/40 text-blue-800 dark:text-blue-200 text-sm"
           >
             {chip.label}
             <button
               type="button"
               onClick={chip.onRemove}
-              className="ml-0.5 rounded hover:bg-blue-100 p-0.5 leading-none"
+              className="ml-0.5 rounded hover:bg-blue-100 dark:hover:bg-blue-800/50 p-0.5 leading-none"
               aria-label={`Remove ${chip.label} filter`}
             >
               ×
             </button>
           </span>
         ))}
-        <span className="ml-auto text-sm text-gray-500">
+        <span className="ml-auto text-sm text-gray-500 dark:text-gray-400">
           Showing {resultCount} card{resultCount !== 1 ? 's' : ''}
         </span>
       </div>

@@ -8,6 +8,7 @@ import { CardTable } from '../components/CardTable';
 import { CardFormModal } from '../components/CardFormModal';
 import { ActionButtons } from '../components/ActionButtons';
 import { ActiveJobs } from '../components/ActiveJobs';
+import { ThemeToggle } from '../components/ThemeToggle';
 import { api, Card } from '../api/client';
 
 interface JobInfo {
@@ -186,26 +187,26 @@ export function Dashboard() {
   // Show error if backend is not accessible (after all hooks)
   if (error) {
     return (
-      <div className="min-h-screen bg-gray-100 flex items-center justify-center">
-        <div className="bg-white rounded-lg shadow-lg p-8 max-w-lg">
-          <h1 className="text-2xl font-bold text-red-600 mb-4">Backend Connection Error</h1>
-          <p className="text-gray-700 mb-4">
+      <div className="min-h-screen bg-gray-100 dark:bg-gray-900 flex items-center justify-center">
+        <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-8 max-w-lg">
+          <h1 className="text-2xl font-bold text-red-600 dark:text-red-400 mb-4">Backend Connection Error</h1>
+          <p className="text-gray-700 dark:text-gray-300 mb-4">
             Cannot connect to the backend API at http://localhost:8000. Start it in one of these ways:
           </p>
           <div className="space-y-3 text-sm">
-            <p className="font-medium text-gray-800">Docker (all services):</p>
-            <pre className="bg-gray-100 p-3 rounded overflow-x-auto">
+            <p className="font-medium text-gray-800 dark:text-gray-200">Docker (all services):</p>
+            <pre className="bg-gray-100 dark:bg-gray-700 p-3 rounded overflow-x-auto text-gray-900 dark:text-gray-100">
 docker compose up --build
             </pre>
-            <p className="font-medium text-gray-800 mt-2">Or run backend only (from repo root):</p>
-            <pre className="bg-gray-100 p-3 rounded overflow-x-auto">
+            <p className="font-medium text-gray-800 dark:text-gray-200 mt-2">Or run backend only (from repo root):</p>
+            <pre className="bg-gray-100 dark:bg-gray-700 p-3 rounded overflow-x-auto text-gray-900 dark:text-gray-100">
 cd backend{'\n'}
 uvicorn api.main:app --reload --port 8000
             </pre>
           </div>
           <button
             onClick={() => window.location.reload()}
-            className="mt-4 px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
+            className="mt-4 px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 dark:bg-blue-500 dark:hover:bg-blue-600"
           >
             Retry Connection
           </button>
@@ -215,19 +216,22 @@ uvicorn api.main:app --reload --port 8000
   }
 
   return (
-    <div className="min-h-screen bg-gray-100">
+    <div className="min-h-screen bg-gray-100 dark:bg-gray-900">
       <div className="container mx-auto px-4 py-8">
         {/* Header */}
         <div className="mb-8 flex justify-between items-start">
           <div>
-            <h1 className="text-4xl font-bold text-gray-900 mb-2">
+            <h1 className="text-4xl font-bold text-gray-900 dark:text-white mb-2">
               DeckDex MTG
             </h1>
-            <p className="text-gray-600">
+            <p className="text-gray-600 dark:text-gray-400">
               Manage your Magic: The Gathering collection
             </p>
           </div>
-          <Link to="/settings" className="text-blue-600 hover:underline">Settings</Link>
+          <div className="flex items-center gap-3">
+            <ThemeToggle />
+            <Link to="/settings" className="text-blue-600 hover:underline dark:text-blue-400">Settings</Link>
+          </div>
         </div>
 
         {/* Stats Cards */}

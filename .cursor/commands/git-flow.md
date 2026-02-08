@@ -70,10 +70,13 @@ This command orchestrates the full git workflow. **Rule: New work always lands o
    - If existing branch: `git push`.
    - Show branch name, remote, and number of commits pushed.
 
-5. **Check if PR needed** (SMART PR LOGIC)
-   - List PR for current branch: `gh pr list --head <branch-name> --json number,url,title` (if `gh` available).
-   - **If PR exists:** Skip creation; show existing PR URL and note that new commits were added.
-   - **If no PR:** Create PR (if `gh` available): generate description from commits and diff vs main, show to user, then `gh pr create --title "..." --body "..."`. If `gh` not available, show manual PR URL: `https://github.com/<owner>/<repo>/compare/main...<branch-name>`.
+5. **Check if PR needed** (SMART PR LOGIC — prefer `gh`, fallback to manual URL)
+   - **First:** Check if GitHub CLI is available (`gh --version` or `command -v gh`). If **yes**, use `gh` for all PR steps below. If **no**, skip `gh` and go directly to fallback.
+   - **With `gh` available:**
+     - List PR for current branch: `gh pr list --head <branch-name> --json number,url,title`.
+     - **If PR exists:** Skip creation; show existing PR URL and note that new commits were added.
+     - **If no PR:** Generate description from commits and diff vs main, then `gh pr create --title "..." --body "..."`.
+   - **Without `gh` (or if `gh` fails):** Do not fail. Show manual PR URL: `https://github.com/<owner>/<repo>/compare/main...<branch-name>` and suggest installing `gh` for next time.
 
 6. **Show complete summary** (what was staged, commit hash and message, branch, push result, PR link or manual PR URL).
 
@@ -145,4 +148,4 @@ Or run `/git-pr` later.
 - Allow user to cancel at any step; show what was completed and what remains.
 - Show progress clearly (e.g. [1/5] … [5/5]).
 - **Branch naming:** derive from approved commit message; keep type (feat/fix/docs/etc.) and a short slug; user can override if they provide a branch name as input.
-- **PR:** check if PR exists before creating; if `gh` unavailable, provide manual PR URL only (do not fail the workflow).
+- **PR:** Prefer `gh` when available (list existing PR, create if missing). If `gh` is not installed or fails, show manual PR URL only and do not fail the workflow.
