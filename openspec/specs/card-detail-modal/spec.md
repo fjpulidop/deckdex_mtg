@@ -1,95 +1,11 @@
 # Card Detail Modal
 
-Read-only modal that displays a single card's data (from the collection API) and its image (from the card image endpoint) in a Scryfall-style layout: image on one side, structured text on the other. Used when the user clicks a row in the card table.
+Read-only modal: card image (GET /api/cards/{id}/image) + structured data (name, type, mana cost, oracle, P/T, set, rarity, price) in Scryfall-style layout. Opened on table row click (not on Edit/Delete).
 
-### Requirement: Card detail modal SHALL display card image and structured data
+### Requirements (compact)
 
-The system SHALL provide a modal component that shows the selected card's image and metadata in a fixed layout. The image SHALL be loaded from the backend card image endpoint (by card id). The text content SHALL use data from the application's card model (name, type line, mana cost, description/oracle text, power/toughness, set name, set number, rarity, price) in a structured, Scryfall-like presentation (e.g. image left, text right).
-
-#### Scenario: Modal shows card image from image endpoint
-- **WHEN** the modal is open with a card that has an id
-- **THEN** the system requests the card image from the backend (e.g. GET `/api/cards/{id}/image`) and displays it in the modal
-
-#### Scenario: Modal shows loading state while image loads
-- **WHEN** the image request is in progress
-- **THEN** the modal displays a placeholder or skeleton where the image will appear (e.g. loading spinner or gray block)
-
-#### Scenario: Modal shows error state when image unavailable
-- **WHEN** the image endpoint returns an error (e.g. 404 or 5xx)
-- **THEN** the modal displays a fallback (e.g. message or icon) indicating the image is unavailable, and still shows the card's text data
-
-#### Scenario: Modal displays structured card text
-- **WHEN** the modal is open with a card
-- **THEN** the system displays at least: name, type line, mana cost, description (oracle text), power/toughness when present, set name, set number, rarity, and price in a clear layout consistent with a Scryfall-style card view
-
-### Requirement: Card detail modal SHALL render MTG mana symbols with Scryfall-style graphics
-
-Any text that contains MTG mana symbols in curly-brace notation (e.g. `{W}`, `{U}`, `{1}`, `{W/U}`, `{X}`) SHALL be rendered using graphical symbols (colored orbs / SVGs) in the Scryfall style, not as raw literal text. The system SHALL adopt Scryfall’s visual assets (CSS and SVG data URIs) for consistency with the official card look. Mana cost and description (oracle text) in the card detail modal SHALL use this rendering. Symbols SHALL be recognised for the five colours (W, U, B, R, G), generic/colourless (0–20, C), hybrid (e.g. W/U → WU, 2/W → 2W), phyrexian, and other standard symbols (X, S, P, etc.); unknown symbols MAY fall back to a neutral style. The implementation SHALL keep the original symbol text available for accessibility (e.g. `aria-label`, `title`).
-
-#### Scenario: Mana cost and description show graphical mana symbols
-- **WHEN** the card detail modal displays a card with mana cost or oracle text containing mana symbols (e.g. `{U}{R}`, `{2}{W}`, `{X}`)
-- **THEN** those symbols are shown as Scryfall-style graphical icons (colored orbs/SVGs) rather than the literal strings `{U}`, `{R}`, etc.
-
-#### Scenario: Hybrid and special mana symbols render correctly
-- **WHEN** the card text contains hybrid (e.g. `{W/U}`), generic (`{1}`–`{20}`, `{C}`), or other symbols (e.g. `{X}`, phyrexian)
-- **THEN** the system renders them using the corresponding Scryfall asset classes (e.g. `.card-symbol-*`) so that the correct icon is displayed
-
-#### Scenario: Modal can be closed
-- **WHEN** the user closes the modal (e.g. close button or overlay click)
-- **THEN** the modal is dismissed and focus returns to the dashboard; no data is persisted from the modal (read-only)
-
-### Requirement: Card detail modal SHALL offer Update price action when card has id
-
-The system SHALL display an "Update price" action (e.g. button) inside the card detail modal when the displayed card has a non-null id (i.e. the card is persisted in the collection). When the user triggers this action, the system SHALL request a single-card price update from the backend (e.g. POST `/api/prices/update/{card_id}`), SHALL receive a job_id in the response, and SHALL register that job with the global jobs state so it appears in the app-wide jobs bar with a label such as "Update price". The modal MAY remain open; the user SHALL see the job progress and completion in the bottom jobs bar. The action SHALL NOT be shown when the card has no id.
-
-#### Scenario: Update price button visible when card has id
-- **WHEN** the card detail modal is open with a card that has an id
-- **THEN** the modal displays an "Update price" action (e.g. button) that the user can click
-
-#### Scenario: Update price button not shown when card has no id
-- **WHEN** the card detail modal is open with a card that has no id (e.g. null or undefined)
-- **THEN** the modal does not display the "Update price" action
-
-#### Scenario: Triggering Update price starts job and shows it in jobs bar
-- **WHEN** the user clicks the "Update price" action in the modal for a card with an id
-- **THEN** the system sends a request to the backend to start a single-card price update for that card's id, receives a job_id, and adds the job to the global jobs state so it appears in the app-wide jobs bar (e.g. with label "Update price")
-
-### Requirement: System SHALL refresh displayed data when single-card Update price job completes
-
-When the single-card "Update price" job (started from the card detail modal) completes, the system SHALL refresh the following so they reflect the updated price: (1) total value and aggregate stats (e.g. Total Value, Average Price on the dashboard), (2) the price displayed in the card detail modal if the modal is still open for that same card, and (3) the card table rows so the updated price is visible in the list. The refresh SHALL occur when the job completes (e.g. when the job bar reports completion), without requiring the user to close the modal or reload the page.
-
-#### Scenario: Total value and stats refresh when Update price job completes
-- **WHEN** a single-card "Update price" job started from the card detail modal completes successfully
-- **THEN** the dashboard total value (and any other stats derived from the collection) are refreshed so they reflect the updated price
-
-#### Scenario: Modal price updates when job completes and modal still open for that card
-- **WHEN** a single-card "Update price" job completes and the card detail modal is still open for the same card that was updated
-- **THEN** the price shown in the modal is updated to the new value without the user closing or reopening the modal
-
-#### Scenario: Card table rows show updated price after job completes
-- **WHEN** a single-card "Update price" job completes
-- **THEN** the card table (list) is refreshed so the row for that card displays the updated price
-
-### Requirement: Card image SHALL be clickable to open a larger view (lightbox)
-
-The system SHALL make the card image in the card detail modal clickable. When the user clicks the image, the system SHALL open a lightbox overlay that displays the same image at a larger size (e.g. roughly twice the size of the image in the modal). The lightbox SHALL be dismissible by clicking the overlay (backdrop or the large image) or by pressing Escape. When dismissed, the lightbox SHALL close and the user SHALL return to the card detail modal (the modal SHALL remain open). The lightbox SHALL be rendered above the modal (e.g. higher z-index).
-
-#### Scenario: Clicking the card image opens the lightbox
-- **WHEN** the user clicks the card image in the card detail modal
-- **THEN** the system opens a lightbox overlay showing the same image at a larger size
-
-#### Scenario: Clicking the lightbox or pressing Escape closes the lightbox
-- **WHEN** the lightbox is open and the user clicks the overlay (backdrop or large image) or presses Escape
-- **THEN** the lightbox closes and the card detail modal remains visible
-
-### Requirement: Cursor SHALL indicate zoom-in on the modal image and zoom-out on the lightbox
-
-The system SHALL use cursor affordances so that (1) when the user hovers over the card image in the modal, the cursor SHALL indicate "zoom in" (e.g. a magnifying glass with plus, such as the CSS `zoom-in` cursor), and (2) when the user hovers over the large image or clickable area in the lightbox, the cursor SHALL indicate "zoom out" (e.g. a magnifying glass with minus, such as the CSS `zoom-out` cursor) to convey that clicking will return to the modal.
-
-#### Scenario: Modal image shows zoom-in cursor on hover
-- **WHEN** the user hovers over the card image in the card detail modal
-- **THEN** the cursor displays a zoom-in affordance (e.g. magnifying glass with +)
-
-#### Scenario: Lightbox shows zoom-out cursor on hover
-- **WHEN** the lightbox is open and the user hovers over the large image or the overlay area that closes the lightbox on click
-- **THEN** the cursor displays a zoom-out affordance (e.g. magnifying glass with -)
+- **Image + data:** Image from backend; loading placeholder; 404/error → fallback message, text still shown. Text layout: name, type line, mana cost, description, P/T, set, number, rarity, price.
+- **Mana symbols:** {W}, {U}, etc. rendered as Scryfall-style SVGs (cost + oracle); hybrid/generic/special supported; aria-label/title for a11y. Close → dismiss, no persist.
+- **Update price:** Button when card has id; POST /api/prices/update/{card_id} → job in global bar; no button when no id.
+- **Refresh on job complete:** When single-card Update price job completes: refresh dashboard stats, modal price (if same card open), and table row.
+- **Lightbox:** Click image → larger overlay; click overlay or Escape → close, modal stays. Cursor: zoom-in on modal image, zoom-out on lightbox.
