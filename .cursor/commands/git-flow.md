@@ -5,7 +5,7 @@ category: Git
 description: Complete git workflow - add, commit, push, and create PR (always branch from main)
 ---
 
-Execute the complete git workflow: stage changes, create commit (on a branch from main), push, and open a pull request.
+Execute the complete git workflow: stage changes, create commit (on a branch from main), push, and show the link to create a PR in the browser (no `gh`).
 
 **Input**: Optional custom commit message or branch name
 
@@ -23,8 +23,7 @@ This command orchestrates the full git workflow. **Rule: New work always lands o
 2. **Generate commit message** (do not commit yet)
    - Analyze staged diff and recent commit style (`git diff --cached`, `git log -5 --oneline`).
    - Generate message in conventional commits format (feat, fix, docs, refactor, test, chore, perf, style).
-   - Show generated message to user; prompt: **Use this message? [Yes/Edit/Cancel]**.
-   - If Edit: let user provide custom message. Store the **approved message** for the next steps.
+   - **Use the generated message by default.** Only if the user provided a custom message as input, use that instead. Show the chosen message in the summary at the end; do not prompt "Use this message? [Yes/Edit/Cancel]".
 
 3. **Ensure work is on a branch from main** (SMART BRANCH LOGIC)
    
@@ -44,7 +43,7 @@ This command orchestrates the full git workflow. **Rule: New work always lands o
      git checkout main
      git pull
      ```
-   - Derive **branch name** from the approved commit message first line:
+   - Derive **branch name** from the commit message first line:
      - Conventional form `type(scope): subject` or `type: subject` → branch `type/slug`.
      - Slug: lowercase, replace spaces and punctuation with one hyphen, drop redundant words (e.g. "to reduce token usage" → keep "compact-specs" from subject/scope). Prefer scope or first 2–3 meaningful words of subject.
      - Examples: `docs(openspec): compact specs` → `docs/openspec-compact-specs`; `feat: add CLI options` → `feat/add-cli-options`; `fix: dashboard bugs` → `fix/dashboard-bugs`.
@@ -56,42 +55,31 @@ This command orchestrates the full git workflow. **Rule: New work always lands o
      ```bash
      git stash pop
      git add -A
-     git commit -m "<approved message>"
+     git commit -m "<commit message>"
      ```
    - Continue to step 4 (Push).
    
    **c. If current branch is a feature branch (not main):**
-   - Option A — **Use current branch**: Commit with the approved message on this branch, then push. Continue to step 4.
-   - Option B — **Re-branch from main** (when changes clearly belong to a different scope than the current branch name): Offer the user: "Current branch is `<name>`. Create a new branch from main for this work?" If yes, same flow as 3b: stash → checkout main → pull → new branch from message → stash pop → add → commit. Then continue to step 4.
-   - Prefer Option A unless the user previously asked to "always branch from main" or the change set is obviously unrelated (e.g. only `openspec/` changes while on `fix/web-dashboard-bugs`); then offer Option B.
+   - **Default: create a new branch from main** so each change set has its own branch. Do not ask; do: stash → checkout main → pull → derive branch name from commit message → `git checkout -b <branch>` → stash pop → add → commit. Then continue to step 4.
+   - **Exception:** Only commit on the current branch without re-branching when the user explicitly says to use the current branch, or when the staged changes are a direct continuation of the current branch name (e.g. branch `fix/dashboard-bugs` and only dashboard fix files changed).
 
 4. **Push to remote** (`/git-push`)
    - If new branch: `git push -u origin <branch-name>`.
    - If existing branch: `git push`.
    - Show branch name, remote, and number of commits pushed.
 
-5. **Check if PR needed** (SMART PR LOGIC — prefer `gh`, fallback to manual URL)
-   - **First:** Check if GitHub CLI is available (`gh --version` or `command -v gh`). If **yes**, use `gh` for all PR steps below. If **no**, skip `gh` and go directly to fallback.
-   - **With `gh` available:**
-     - List PR for current branch: `gh pr list --head <branch-name> --json number,url,title`.
-     - **If PR exists:** Skip creation; show existing PR URL and note that new commits were added.
-     - **If no PR:** You **must** create the PR **with a description (body)**. Never run `gh pr create` without `--body`.
-       1. **Generate a PR description** (in English) from: commit messages on the branch vs main, and a short summary of what changed (key files/areas). Use this structure:
-          - **Summary** (1–2 sentences: what this PR does and why).
-          - **Changes** (bullet list: main areas or files touched, or list of commit titles).
-       2. Run: `gh pr create --title "<title>" --body "<description>"`. Use the first line of the approved commit message as `<title>`. Use the generated description as `<body>`.
-   - **Without `gh` (or if `gh` fails):** Do not fail. Show manual PR URL: `https://github.com/<owner>/<repo>/compare/main...<branch-name>` and suggest installing `gh` for next time.
+5. **Show PR link**
+   - Do **not** use GitHub CLI (`gh`). Always show the manual compare URL so the user can open the PR in the browser:
+   - `https://github.com/<owner>/<repo>/compare/main...<branch-name>`
+   - Obtain `<owner>/<repo>` from `git remote get-url origin` (e.g. `https://github.com/fjpulidop/deckdex_mtg` → owner `fjpulidop`, repo `deckdex_mtg`).
 
-6. **Show complete summary** (what was staged, commit hash and message, branch, push result, PR link or manual PR URL).
+6. **Show complete summary** (what was staged, commit hash and message, branch, push result, and the compare URL for creating the PR).
 
 **Checkpoints**
 
-At each step, show progress and allow user to:
-- Continue to next step
-- Skip remaining steps
-- Cancel workflow
+Show progress (e.g. [1/5] … [5/5]). Proceed through all steps without pausing for confirmation unless the user interrupts or there is an error. If the user says "stop" or "cancel", show what was completed and what remains.
 
-**Output On Complete Success (PR Created)**
+**Output On Complete Success**
 
 ```
 ## Git Workflow Complete ✅
@@ -110,38 +98,8 @@ At each step, show progress and allow user to:
 - Remote: origin/feat/enhance-cli
 - Commits pushed: 1
 
-### 4. Pull Request Created
-- PR #42: feat: Enhanced CLI with configuration options
-- URL: https://github.com/user/repo/pull/42
-- Status: Ready for review
-
----
-
-**Next steps:** View PR, assign reviewers, wait for CI.
-```
-
-**Output On Complete Success (PR Already Exists)**
-
-```
-## Git Workflow Complete ✅
-
-### 4. Pull Request
-- ℹ️  PR already exists for this branch
-- PR #5: feat: Incremental Price Updates
-- URL: https://github.com/user/repo/pull/5
-- New commits have been added to the existing PR
-```
-
-**Output On Partial Success**
-
-```
-## Git Workflow Partial Complete
-
-✅ Completed: 1. Staged  2. Commit (branch from main)  3. Pushed
-⏸️ Stopped at: 4. Pull Request (user chose to create manually)
-
-Create PR manually: https://github.com/owner/repo/compare/main...feat/branch-name
-Or run `/git-pr` later.
+### 4. Create PR
+- Open in browser: https://github.com/owner/repo/compare/main...feat/enhance-cli
 ```
 
 **Guardrails**
@@ -151,5 +109,6 @@ Or run `/git-pr` later.
 - Stop on any errors and show a clear message.
 - Allow user to cancel at any step; show what was completed and what remains.
 - Show progress clearly (e.g. [1/5] … [5/5]).
-- **Branch naming:** derive from approved commit message; keep type (feat/fix/docs/etc.) and a short slug; user can override if they provide a branch name as input.
-- **PR:** Prefer `gh` when available (list existing PR, create if missing). When creating a PR, **always** pass a generated description via `--body` (in English: Summary + Changes); never create a PR without a body. If `gh` is not installed or fails, show manual PR URL only and do not fail the workflow.
+- **Branch naming:** derive from commit message; keep type (feat/fix/docs/etc.) and a short slug; user can override if they provide a branch name as input.
+- **Fewer prompts:** Use the generated commit message by default; create a new branch from main by default when on a feature branch (unless changes clearly extend that branch). Do not ask "Use this message?" or "Create new branch?" unless the user has explicitly asked to be prompted.
+- **PR:** Do not use `gh`. Always show the GitHub compare URL so the user can create the PR in the browser. Derive owner/repo from `git remote get-url origin`.

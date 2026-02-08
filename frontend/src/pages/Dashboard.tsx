@@ -18,7 +18,7 @@ export function Dashboard() {
   const [setFilter, setSetFilter] = useState('all');
   const [priceMin, setPriceMin] = useState('');
   const [priceMax, setPriceMax] = useState('');
-  const [cardModal, setCardModal] = useState<null | 'add' | { card: Card }>(null);
+  const [cardModal, setCardModal] = useState<null | 'add'>(null);
   const [detailCard, setDetailCard] = useState<Card | null>(null);
 
   // Fetch cards with current filters so list and stats match (API applies filters server-side)
@@ -52,24 +52,11 @@ export function Dashboard() {
   }, [queryClient, detailCard?.id]);
 
   const handleAddCard = useCallback(() => setCardModal('add'), []);
-  const handleEditCard = useCallback((card: Card) => setCardModal({ card }), []);
   const handleRowClick = useCallback((card: Card) => setDetailCard(card), []);
-  const handleDeleteCard = useCallback(async (card: Card) => {
-    if (card.id == null) return;
-    if (!window.confirm(`Delete "${card.name}"?`)) return;
-    try {
-      await api.deleteCard(card.id);
-      invalidateCards();
-    } catch (e) {
-      alert(e instanceof Error ? e.message : 'Delete failed');
-    }
-  }, [invalidateCards]);
 
   const handleCardSubmit = useCallback(async (payload: Partial<Card>) => {
     if (cardModal === 'add') {
       await api.createCard(payload);
-    } else if (cardModal && 'card' in cardModal && cardModal.card.id != null) {
-      await api.updateCard(cardModal.card.id, payload);
     }
     invalidateCards();
   }, [cardModal, invalidateCards]);
@@ -225,17 +212,15 @@ uvicorn api.main:app --reload --port 8000
           cards={displayCards}
           isLoading={isLoading}
           onAdd={handleAddCard}
-          onEdit={handleEditCard}
-          onDelete={handleDeleteCard}
           onRowClick={handleRowClick}
         />
       </div>
 
-      {cardModal && (
+      {cardModal === 'add' && (
         <CardFormModal
-          mode={cardModal === 'add' ? 'add' : 'edit'}
-          title={cardModal === 'add' ? 'Add card' : 'Edit card'}
-          initial={cardModal === 'add' ? undefined : cardModal.card}
+          mode="add"
+          title="Add card"
+          initial={undefined}
           onSubmit={handleCardSubmit}
           onClose={() => setCardModal(null)}
         />
@@ -246,6 +231,14 @@ uvicorn api.main:app --reload --port 8000
           card={detailCard}
           onClose={() => setDetailCard(null)}
           onPriceUpdateJobComplete={refetchAfterPriceUpdate}
+          onCardUpdated={(updated) => {
+            setDetailCard(updated);
+            invalidateCards();
+          }}
+          onCardDeleted={() => {
+            setDetailCard(null);
+            invalidateCards();
+          }}
         />
       )}
     </div>
