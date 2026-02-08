@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useCallback } from 'react';
 import { Link } from 'react-router-dom';
 import { useQueryClient } from '@tanstack/react-query';
 import { useCards } from '../hooks/useApi';
@@ -7,16 +7,8 @@ import { Filters } from '../components/Filters';
 import { CardTable } from '../components/CardTable';
 import { CardFormModal } from '../components/CardFormModal';
 import { CardDetailModal } from '../components/CardDetailModal';
-import { ActionButtons } from '../components/ActionButtons';
-import { ActiveJobs } from '../components/ActiveJobs';
 import { ThemeToggle } from '../components/ThemeToggle';
 import { api, Card } from '../api/client';
-
-interface JobInfo {
-  jobId: string;
-  type: string;
-  startedAt: Date;
-}
 
 export function Dashboard() {
   const queryClient = useQueryClient();
@@ -26,7 +18,6 @@ export function Dashboard() {
   const [setFilter, setSetFilter] = useState('all');
   const [priceMin, setPriceMin] = useState('');
   const [priceMax, setPriceMax] = useState('');
-  const [backgroundJobs, setBackgroundJobs] = useState<JobInfo[]>([]);
   const [cardModal, setCardModal] = useState<null | 'add' | { card: Card }>(null);
   const [detailCard, setDetailCard] = useState<Card | null>(null);
 
@@ -41,48 +32,10 @@ export function Dashboard() {
     limit: 1000,
   });
 
-  // Restore active jobs from backend on mount
-  useEffect(() => {
-    const restoreJobs = async () => {
-      try {
-        const jobs = await api.getJobs();
-        // Only restore jobs that are still running (not complete, error, or cancelled)
-        const activeJobs = jobs.filter(job => 
-          job.status === 'running' || job.status === 'pending'
-        );
-        const restoredJobs = activeJobs.map(job => ({
-          jobId: job.job_id,
-          type: job.job_type,
-          startedAt: job.start_time ? new Date(job.start_time) : new Date(),
-        }));
-        if (restoredJobs.length > 0) {
-          setBackgroundJobs(restoredJobs);
-        }
-      } catch (err) {
-        // Log error but don't block dashboard load
-        console.error('Failed to restore jobs:', err);
-      }
-    };
-    
-    restoreJobs();
-  }, []);
-
   const invalidateCards = useCallback(() => {
     queryClient.invalidateQueries({ queryKey: ['cards'] });
     queryClient.invalidateQueries({ queryKey: ['stats'] });
   }, [queryClient]);
-
-  const handleJobStarted = useCallback((jobId: string, jobType: string) => {
-    setBackgroundJobs(prev => [...prev, {
-      jobId,
-      type: jobType,
-      startedAt: new Date(),
-    }]);
-  }, []);
-
-  const handleJobCompleted = useCallback((jobId: string) => {
-    setBackgroundJobs(prev => prev.filter(j => j.jobId !== jobId));
-  }, []);
 
   const handleAddCard = useCallback(() => setCardModal('add'), []);
   const handleEditCard = useCallback((card: Card) => setCardModal({ card }), []);
@@ -202,17 +155,9 @@ uvicorn api.main:app --reload --port 8000
     );
   }
 
-  // Reserve space at bottom so the fixed jobs bar never covers table or pagination
-  const jobsBarHeight = backgroundJobs.length > 0
-    ? 24 + backgroundJobs.length * 72
-    : 0;
-
   return (
     <div className="min-h-screen bg-gray-100 dark:bg-gray-900">
-      <div
-        className="container mx-auto px-4 py-8"
-        style={jobsBarHeight > 0 ? { paddingBottom: jobsBarHeight } : undefined}
-      >
+      <div className="container mx-auto px-4 py-8">
         {/* Header */}
         <div className="mb-8 flex justify-between items-start">
           <div>
@@ -240,9 +185,6 @@ uvicorn api.main:app --reload --port 8000
             priceMax: priceMax.trim() || undefined,
           }}
         />
-
-        {/* Action Buttons */}
-        <ActionButtons onJobStarted={handleJobStarted} />
 
         {/* Filters */}
         <Filters
@@ -291,12 +233,6 @@ uvicorn api.main:app --reload --port 8000
           onClose={() => setDetailCard(null)}
         />
       )}
-
-      {/* Active Jobs Bar */}
-      <ActiveJobs
-        jobs={backgroundJobs}
-        onJobCompleted={handleJobCompleted}
-      />
     </div>
   );
 }

@@ -1,6 +1,6 @@
 # Web Dashboard UI
 
-React (Vite, port 5173). **Overview:** 2-column grid: Total Cards, Total Value (subtitle Avg: €X.XX); 30s auto-refresh; skeleton loaders. No price chart in MVP (no history DB). **Table:** 50 cards/page; name, type, rarity, price, set; pagination; sort by column. Rows clickable to open card detail modal (image + data); Edit/Delete do not open detail modal. **Filters:** search by name; by rarity, type, set, price range (min/max); active filters as removable chips; result count (e.g. "Showing X cards"); Clear Filters. **Jobs:** On mount GET /api/jobs → restore backgroundJobs. Buttons: Process Cards, Update Prices → POST, open progress modal; disable when running. **Progress modal:** 0% "Connecting…"; WebSocket → update bar and "Processing X/Y"; errors in scrollable list; complete → summary (processed, success, errors, duration); Done → close and refetch. Stop → POST cancel, "Stopping…", orange bar; cancelled → "Process cancelled — progress X/Y (Z%)". Minimize + Stop side by side; elapsed timer in header (12s / 2m 34s / 1h 5m). On reopen: GET /api/jobs/{id} for initial state (no 0% flash); if already complete → show result without WebSocket. **WebSocket:** Reconnect up to 3× backoff; "Reconnecting…"; failure → "Connection lost" + Refresh (REST). **Styling:** Tailwind v4 (@tailwindcss/postcss, @import "tailwindcss"); bg-black/50 not bg-opacity-*; responsive grid. **Data:** TanStack Query (cache, isLoading, error + retry). **Errors:** Toast on API failure (5s); process errors → count + CSV link. **Access:** localhost:5173; backend down → friendly error + retry; ErrorBoundary for render errors. **Bottom bar:** Fixed bottom when jobs exist; list jobs vertically; completed → show 5s then remove; cancelled → orange + "Cancelled"; poll GET /api/jobs/{id} every 2s. Modern browsers.
+React (Vite, port 5173). **Overview:** 2-column grid: Total Cards, Total Value (subtitle Avg: €X.XX); 30s auto-refresh; skeleton loaders. No price chart in MVP (no history DB). **Table:** 50 cards/page; name, type, rarity, price, set; pagination; sort by column. Rows clickable to open card detail modal (image + data); Edit/Delete do not open detail modal. **Filters:** search by name; by rarity, type, set, price range (min/max); active filters as removable chips; result count (e.g. "Showing X cards"); Clear Filters. **Jobs:** App restores jobs on load (GET /api/jobs); Process Cards and Update Prices are in Settings → Deck Actions. POST to start; disable when running. **Progress modal:** 0% "Connecting…"; WebSocket → update bar and "Processing X/Y"; errors in scrollable list; complete → summary (processed, success, errors, duration); Done → close and refetch. Stop → POST cancel, "Stopping…", orange bar; cancelled → "Process cancelled — progress X/Y (Z%)". Minimize + Stop side by side; elapsed timer in header (12s / 2m 34s / 1h 5m). On reopen: GET /api/jobs/{id} for initial state (no 0% flash); if already complete → show result without WebSocket. **WebSocket:** Reconnect up to 3× backoff; "Reconnecting…"; failure → "Connection lost" + Refresh (REST). **Styling:** Tailwind v4 (@tailwindcss/postcss, @import "tailwindcss"); bg-black/50 not bg-opacity-*; responsive grid. **Data:** TanStack Query (cache, isLoading, error + retry). **Errors:** Toast on API failure (5s); process errors → count + CSV link. **Access:** localhost:5173; backend down → friendly error + retry; ErrorBoundary for render errors. **Bottom bar:** Fixed bottom when jobs exist; list jobs vertically; completed → show 5s then remove; cancelled → orange + "Cancelled"; poll GET /api/jobs/{id} every 2s. Modern browsers.
 
 ### Requirement: Dashboard SHALL display collection overview
 
@@ -32,59 +32,27 @@ The system SHALL provide a dashboard page that visualizes collection statistics 
 
 ### Requirement: Dashboard SHALL restore active jobs on page load
 
-The system SHALL restore visibility of background jobs that were running before page refresh by fetching job state from the backend.
+The application SHALL restore visibility of background jobs once at app (or global provider) mount, not when the Dashboard mounts. Dashboard SHALL NOT perform its own GET `/api/jobs` for job restore; job restore SHALL be the responsibility of the global jobs UI (see global-jobs-ui spec).
 
-#### Scenario: Fetch active jobs from backend on mount
+#### Scenario: No job restore on Dashboard mount
 - **WHEN** Dashboard component mounts
-- **THEN** system sends GET request to `/api/jobs` to retrieve all active and recently completed jobs
+- **THEN** Dashboard does NOT send GET `/api/jobs` for the purpose of restoring jobs; restore is done at app level
 
-#### Scenario: Populate background jobs list from backend response
-- **WHEN** `/api/jobs` returns list of jobs
-- **THEN** system populates backgroundJobs state with job_id, job_type, and start_time for each job
-
-#### Scenario: Skip job restoration if backend returns empty list
-- **WHEN** `/api/jobs` returns empty array
-- **THEN** system does not display any jobs panel (no jobs to restore)
-
-#### Scenario: Handle job restoration API errors gracefully
-- **WHEN** `/api/jobs` request fails
-- **THEN** system logs error but continues loading dashboard without blocking UI
+#### Scenario: Jobs visible on Dashboard from global state
+- **WHEN** user is on Dashboard and global job list has one or more jobs
+- **THEN** those jobs are displayed in the app-wide bottom bar (provided by global jobs UI)
 
 ### Requirement: Dashboard SHALL display active background jobs in fixed bottom bar
 
-The system SHALL show a fixed bottom bar (not floating pills) when background jobs exist, improving visual alignment with action buttons.
+The application SHALL show the fixed bottom jobs bar when background jobs exist, at app (or layout) level, so it is visible on Dashboard and Settings. The Dashboard SHALL NOT render its own instance of the jobs bar; the bar SHALL be rendered once by the global jobs UI. Behavior of the bar (position, vertical list, click to open modal, auto-remove completed, cancelled state, polling) SHALL be unchanged and SHALL apply to the single app-wide bar.
 
-#### Scenario: Show fixed bottom bar for background jobs
-- **WHEN** one or more jobs are in backgroundJobs list
-- **THEN** system displays a fixed bar anchored to bottom of viewport spanning full width
+#### Scenario: Bar shown at app level when jobs exist
+- **WHEN** one or more jobs are in the global job list
+- **THEN** the application displays a single fixed bar at the bottom of the viewport, visible on whichever route is active (Dashboard or Settings)
 
-#### Scenario: Position bottom bar above viewport floor
-- **WHEN** bottom bar is visible
-- **THEN** system positions it with `fixed bottom-0 left-0 right-0` styling with white background and top border shadow
-
-#### Scenario: Multiple background jobs displayed vertically
-- **WHEN** multiple jobs are running
-- **THEN** system stacks job entries vertically in the bottom bar (not side-by-side)
-
-#### Scenario: Click to re-open progress modal
-- **WHEN** user clicks a job entry in the bottom bar
-- **THEN** system re-opens the progress modal for that job with current progress state
-
-#### Scenario: Auto-remove completed jobs
-- **WHEN** a background job completes (success, error, or cancelled)
-- **THEN** system shows completion status briefly (5 seconds) then removes it from the bottom bar
-
-#### Scenario: Display cancelled job in bottom bar
-- **WHEN** a background job is cancelled
-- **THEN** system shows orange background with cancel icon and "Cancelled" label
-
-#### Scenario: Job progress via polling
-- **WHEN** a job is displayed in the bottom bar
-- **THEN** system polls GET `/api/jobs/{id}` every 2 seconds to update progress percentage and status
-
-#### Scenario: Hide bottom bar when no jobs exist
-- **WHEN** backgroundJobs list is empty
-- **THEN** system does not render the bottom bar (conditional rendering)
+#### Scenario: Dashboard does not render a separate jobs bar
+- **WHEN** Dashboard is rendered
+- **THEN** Dashboard does NOT render its own ActiveJobs (or equivalent) component; the bar is rendered by the global jobs layer
 
 ### Requirement: Dashboard SHALL provide card filtering by all table dimensions
 
@@ -128,19 +96,35 @@ The system SHALL allow users to filter the card table by name (search), rarity, 
 
 ### Requirement: Main content SHALL not be covered by the jobs bar
 
-When one or more background jobs are shown in the fixed bottom jobs bar, the main content area (stats, filters, card table, and pagination controls) SHALL be adjusted so that the jobs bar does not overlap it. The user SHALL always be able to see the bottom of the card table and the pagination controls (e.g. next/previous) without them being covered by the bar, whether one job or multiple jobs are displayed.
+When one or more background jobs are shown in the fixed bottom jobs bar, the main content area on **every** view (Dashboard and Settings) SHALL reserve bottom space so the jobs bar does not overlap content. Dashboard content (stats, filters, card table, pagination) and Settings content (all sections) SHALL remain fully visible above the bar.
 
-#### Scenario: Table and pagination visible with one job
-- **WHEN** at least one job is active and the jobs bar is visible at the bottom
-- **THEN** the main content has sufficient bottom spacing (or equivalent layout) so that the end of the card table and the pagination controls remain visible above the bar
+#### Scenario: Table and pagination visible with one job (Dashboard)
+- **WHEN** at least one job is active and the user is on Dashboard
+- **THEN** the main content has sufficient bottom spacing so that the end of the card table and pagination controls remain visible above the bar
 
-#### Scenario: Table and pagination visible with multiple jobs
-- **WHEN** two or more jobs are active and the jobs bar grows in height
-- **THEN** the main content adjusts so that the card table end and pagination controls remain visible and are not covered by the bar
+#### Scenario: Settings sections visible with jobs bar
+- **WHEN** at least one job is active and the user is on Settings
+- **THEN** the main content has sufficient bottom spacing so that all Settings sections (including Deck Actions) remain visible above the bar
 
-#### Scenario: No overlap when scrolling to bottom
-- **WHEN** the user scrolls to the bottom of the dashboard while jobs are active
-- **THEN** the last row of the table and the pagination controls are fully visible and not obscured by the jobs bar
+#### Scenario: No overlap when scrolling to bottom (any view)
+- **WHEN** the user scrolls to the bottom of Dashboard or Settings while jobs are active
+- **THEN** the content is fully visible and not obscured by the jobs bar
+
+### Requirement: Settings SHALL provide a Deck Actions section
+
+The Settings page SHALL include a section titled "Deck Actions" that SHALL be the last section on the page (after Scryfall API credentials and Import from file). The section SHALL use the same card style as other Settings sections (e.g. white/dark card with rounded corners and shadow). Inside the section, the system SHALL provide: (1) Process Cards control with scope choice (e.g. new added cards only, or all cards) and (2) Update Prices control. Triggering either action SHALL POST to the existing backend endpoints and SHALL register the started job with the global job state so the job appears in the app-wide jobs bar. Buttons SHALL be disabled while a start request is in progress.
+
+#### Scenario: Deck Actions is last section with same card style
+- **WHEN** user opens Settings
+- **THEN** a section "Deck Actions" is present after Scryfall credentials and Import from file, with the same section/card styling as the other two sections
+
+#### Scenario: Process Cards and Update Prices available in Deck Actions
+- **WHEN** user is on Settings
+- **THEN** Process Cards (with scope dropdown) and Update Prices controls are available inside the Deck Actions section
+
+#### Scenario: Starting a job from Settings shows it in global jobs bar
+- **WHEN** user starts Process Cards or Update Prices from Settings
+- **THEN** the new job appears in the fixed bottom jobs bar and remains visible when user navigates to Dashboard or stays on Settings
 
 ### Requirement: Each job SHALL offer a way to view progress and log in a modal
 
