@@ -18,9 +18,9 @@ export const Hero = ({ onDemoClick }: { onDemoClick: () => void }) => {
             className="space-y-6"
           >
             {/* Badge */}
-            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-accent-500/20 border border-accent-500/50 text-accent-300 text-sm font-semibold mb-4">
-              <span>✨</span>
-              <span>Open Source MTG Collection Tool</span>
+            <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-gradient-to-r from-accent-500/10 to-primary-500/10 text-slate-300 text-sm font-medium mb-6">
+              <span className="text-lg">✨</span>
+              <span>100% Open Source • Community-Driven</span>
             </div>
 
             {/* Main Headline */}
