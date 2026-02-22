@@ -7,7 +7,6 @@ import {
 } from 'recharts';
 import { api } from '../api/client';
 import { useStats } from '../hooks/useApi';
-import { ThemeToggle } from '../components/ThemeToggle';
 import { useTheme } from '../contexts/ThemeContext';
 
 // ---------------------------------------------------------------------------
@@ -208,31 +207,28 @@ export function Analytics() {
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900 transition-colors">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* Header */}
-        <div className="mb-8 flex justify-between items-start">
-          <div>
-            <h1 className="text-4xl font-bold text-gray-900 dark:text-white mb-2">
-              Analytics
-              <span className="ml-3 text-sm font-medium bg-indigo-100 dark:bg-indigo-900 text-indigo-700 dark:text-indigo-300 px-2.5 py-0.5 rounded-full align-middle">
-                beta
-              </span>
-            </h1>
-            <p className="text-gray-600 dark:text-gray-400">
-              Insights about your Magic: The Gathering collection
-            </p>
-          </div>
-          <div className="flex items-center gap-3">
-            <button
-              onClick={clearFilters}
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700 border border-gray-200 dark:border-gray-600 transition-colors"
-              title="Reset all chart filters and restore original view"
-            >
-              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" /></svg>
-              Reset Charts
-            </button>
-            <ThemeToggle />
-            <Link to="/" className="text-blue-600 hover:underline dark:text-blue-400">Dashboard</Link>
-            <Link to="/settings" className="text-blue-600 hover:underline dark:text-blue-400">Settings</Link>
-          </div>
+        <div className="mb-8">
+          <h1 className="text-4xl font-bold text-gray-900 dark:text-white mb-2">
+            Analytics
+            <span className="ml-3 text-sm font-medium bg-indigo-100 dark:bg-indigo-900 text-indigo-700 dark:text-indigo-300 px-2.5 py-0.5 rounded-full align-middle">
+              beta
+            </span>
+          </h1>
+          <p className="text-gray-600 dark:text-gray-400">
+            Insights about your Magic: The Gathering collection
+          </p>
+        </div>
+
+        {/* Reset charts button */}
+        <div className="mb-6">
+          <button
+            onClick={clearFilters}
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700 border border-gray-200 dark:border-gray-600 transition-colors"
+            title="Reset all chart filters and restore original view"
+          >
+            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" /></svg>
+            Reset Charts
+          </button>
         </div>
 
         {/* Active drill-down chips */}

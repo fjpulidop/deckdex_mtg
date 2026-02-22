@@ -1,5 +1,4 @@
 import { useState, useCallback } from 'react';
-import { Link } from 'react-router-dom';
 import { useQueryClient } from '@tanstack/react-query';
 import { useCards } from '../hooks/useApi';
 import { StatsCards } from '../components/StatsCards';
@@ -7,7 +6,6 @@ import { Filters } from '../components/Filters';
 import { CardTable } from '../components/CardTable';
 import { CardFormModal } from '../components/CardFormModal';
 import { CardDetailModal } from '../components/CardDetailModal';
-import { ThemeToggle } from '../components/ThemeToggle';
 import { api, Card } from '../api/client';
 
 export function Dashboard() {
@@ -163,27 +161,13 @@ uvicorn api.main:app --reload --port 8000
     <div className="min-h-screen bg-gray-100 dark:bg-gray-900">
       <div className="container mx-auto px-4 py-8">
         {/* Header */}
-        <div className="mb-8 flex justify-between items-start">
-          <div>
-            <h1 className="text-4xl font-bold text-gray-900 dark:text-white mb-2">
-              DeckDex MTG
-            </h1>
-            <p className="text-gray-600 dark:text-gray-400">
-              Manage your Magic: The Gathering collection
-            </p>
-          </div>
-          <div className="flex items-center gap-3">
-            <ThemeToggle />
-            <Link to="/analytics" className="inline-flex items-center gap-1 text-indigo-600 hover:underline dark:text-indigo-400">
-              Analytics
-              <span className="text-xs bg-indigo-100 dark:bg-indigo-900 text-indigo-700 dark:text-indigo-300 px-1.5 py-0.5 rounded-full">beta</span>
-            </Link>
-            <Link to="/decks" className="inline-flex items-center gap-1 text-indigo-600 hover:underline dark:text-indigo-400">
-              Decks
-              <span className="text-xs bg-amber-100 dark:bg-amber-900 text-amber-700 dark:text-amber-300 px-1.5 py-0.5 rounded-full">alpha</span>
-            </Link>
-            <Link to="/settings" className="text-blue-600 hover:underline dark:text-blue-400">Settings</Link>
-          </div>
+        <div className="mb-8">
+          <h1 className="text-4xl font-bold text-gray-900 dark:text-white mb-2">
+            DeckDex MTG
+          </h1>
+          <p className="text-gray-600 dark:text-gray-400">
+            Manage your Magic: The Gathering collection
+          </p>
         </div>
 
         {/* Stats Cards: pass current filters so totals reflect the filtered set */}

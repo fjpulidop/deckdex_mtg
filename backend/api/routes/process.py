@@ -5,12 +5,12 @@ Endpoints for triggering and monitoring background processes
 import os
 import uuid
 from typing import Dict, List, Optional
-from fastapi import APIRouter, HTTPException, BackgroundTasks
+from fastapi import APIRouter, HTTPException, BackgroundTasks, Depends, Request
 from pydantic import BaseModel
 from loguru import logger
 
 from ..services.processor_service import ProcessorService
-from ..dependencies import clear_collection_cache, get_collection_repo
+from ..dependencies import clear_collection_cache, get_collection_repo, get_current_user_id
 from ..routes.stats import clear_stats_cache
 from ..websockets.progress import manager as ws_manager
 
@@ -89,8 +89,10 @@ async def list_jobs():
 
 @router.post("/process", response_model=JobResponse)
 async def trigger_process(
+    request: Request,
     background_tasks: BackgroundTasks,
     body: Optional[ProcessRequest] = None,
+    user_id: int = Depends(get_current_user_id)
 ):
     """
     Trigger card processing job.
@@ -103,7 +105,7 @@ async def trigger_process(
     scope = (req.scope or "all").strip().lower() if req.scope else "all"
     if scope not in ("all", "new_only"):
         scope = "all"
-    logger.info(f"POST /api/process - limit={limit}, scope={scope}")
+    logger.info(f"POST /api/process - limit={limit}, scope={scope}, user={user_id}")
     
     # Check if another job of the same type is already running
     for job_id, service in _active_jobs.items():

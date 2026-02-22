@@ -3,7 +3,7 @@ Shared utilities and dependencies for API routes
 """
 import os
 import sys
-from typing import Optional
+from typing import Optional, Dict, Any
 from functools import lru_cache
 from datetime import datetime, timedelta
 
@@ -15,6 +15,8 @@ if project_root not in sys.path:
 from dotenv import load_dotenv
 load_dotenv()
 
+from fastapi import Request, HTTPException, status, Depends
+from jose import JWTError
 from deckdex.spreadsheet_client import SpreadsheetClient
 from deckdex.config_loader import load_config
 from deckdex.config import ProcessorConfig
@@ -77,12 +79,13 @@ def get_spreadsheet_client() -> SpreadsheetClient:
         config=config.google_sheets,
     )
 
-def get_cached_collection(force_refresh: bool = False):
+def get_cached_collection(user_id: Optional[int] = None, force_refresh: bool = False):
     """
     Get collection data. When DATABASE_URL is set, reads from Postgres (with optional TTL cache).
     Otherwise reads from Google Sheets with 30-second TTL cache.
 
     Args:
+        user_id: If provided, filter cards by user (Postgres only)
         force_refresh: If True, bypass cache and fetch fresh data
 
     Returns:
@@ -99,7 +102,7 @@ def get_cached_collection(force_refresh: bool = False):
                 logger.debug(f"Returning cached collection data from Postgres (age: {age:.1f}s)")
                 return _collection_cache['data']
         logger.info("Fetching fresh collection data from Postgres")
-        collection_data = repo.get_all_cards()
+        collection_data = repo.get_all_cards(user_id=user_id)
         _collection_cache['data'] = collection_data
         _collection_cache['timestamp'] = now
         logger.info(f"Cached {len(collection_data)} cards from Postgres")
@@ -224,3 +227,77 @@ def clear_collection_cache():
     _collection_cache['data'] = None
     _collection_cache['timestamp'] = None
     logger.info("Collection cache cleared")
+
+
+def decode_jwt_token(token: str) -> Dict[str, Any]:
+    """
+    Decode and validate JWT token.
+    Imported here to avoid circular imports with auth.py.
+    
+    Args:
+        token: JWT token to decode
+        
+    Returns:
+        Decoded token payload
+    """
+    from jose import jwt
+    
+    JWT_SECRET_KEY = os.getenv("JWT_SECRET_KEY", "")
+    JWT_ALGORITHM = "HS256"
+    
+    if not JWT_SECRET_KEY:
+        raise ValueError("JWT_SECRET_KEY environment variable not set")
+    
+    return jwt.decode(token, JWT_SECRET_KEY, algorithms=[JWT_ALGORITHM])
+
+
+async def get_current_user(request: Request) -> Dict[str, Any]:
+    """
+    Extract and validate JWT from cookie.
+    Returns decoded user payload or raises 401.
+    
+    Use this as a FastAPI dependency: `user = Depends(get_current_user)`
+    
+    Args:
+        request: FastAPI Request object
+        
+    Returns:
+        User payload dict with 'sub' (user id), 'email', 'display_name', 'picture'
+    """
+    token = request.cookies.get("access_token")
+    if not token:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Not authenticated"
+        )
+    
+    try:
+        payload = decode_jwt_token(token)
+        return payload
+    except JWTError:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid or expired token"
+        )
+
+
+async def get_current_user_id(request: Request) -> int:
+    """
+    Extract current user ID from JWT cookie.
+    
+    Use this as a FastAPI dependency: `user_id = Depends(get_current_user_id)`
+    
+    Args:
+        request: FastAPI Request object
+        
+    Returns:
+        User ID as integer
+    """
+    user = await get_current_user(request)
+    try:
+        return int(user.get("sub", 0))
+    except (ValueError, TypeError):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid user ID"
+        )

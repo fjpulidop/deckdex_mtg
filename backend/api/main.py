@@ -101,9 +101,10 @@ async def health_check():
     }
 
 # Import and include routers
-from .routes import cards, stats, process, import_routes, settings_routes, analytics, decks
+from .routes import cards, stats, process, import_routes, settings_routes, analytics, decks, auth
 from .websockets import progress
 
+app.include_router(auth.router)
 app.include_router(cards.router)
 app.include_router(stats.router)
 app.include_router(process.router)

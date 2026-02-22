@@ -1,8 +1,6 @@
 import { useState, useEffect } from 'react';
-import { Link } from 'react-router-dom';
 import { api } from '../api/client';
 import { ActionButtons } from '../components/ActionButtons';
-import { ThemeToggle } from '../components/ThemeToggle';
 import { useActiveJobs } from '../contexts/ActiveJobsContext';
 
 export function Settings() {
@@ -80,11 +78,6 @@ export function Settings() {
 
   return (
     <div className="min-h-screen bg-gray-100 dark:bg-gray-900">
-      <nav className="bg-white dark:bg-gray-800 shadow flex gap-4 p-4 items-center">
-        <Link to="/" className="text-blue-600 dark:text-blue-400 hover:underline">Dashboard</Link>
-        <span className="text-gray-600 dark:text-gray-400">Settings</span>
-        <ThemeToggle />
-      </nav>
       <div className="max-w-2xl mx-auto p-6 space-y-8">
         <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Settings</h1>
         {error && (

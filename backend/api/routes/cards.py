@@ -3,12 +3,12 @@ Cards API routes
 Endpoints for accessing card collection data
 """
 from typing import Optional, List, Dict, Any
-from fastapi import APIRouter, Query, HTTPException
+from fastapi import APIRouter, Query, HTTPException, Depends, Request
 from fastapi.responses import Response
 from pydantic import BaseModel
 from loguru import logger
 
-from ..dependencies import get_cached_collection, get_collection_repo, clear_collection_cache
+from ..dependencies import get_cached_collection, get_collection_repo, clear_collection_cache, get_current_user_id
 from ..filters import filter_collection
 from .stats import clear_stats_cache
 from ..services.card_image_service import get_card_image as resolve_card_image
@@ -47,6 +47,7 @@ class Card(BaseModel):
 
 @router.get("/", response_model=List[Card])
 async def list_cards(
+    request: Request,
     limit: int = Query(default=100, ge=1, le=10000),
     offset: int = Query(default=0, ge=0),
     search: Optional[str] = Query(default=None),
@@ -56,6 +57,7 @@ async def list_cards(
     set_name: Optional[str] = Query(default=None),
     price_min: Optional[str] = Query(default=None),
     price_max: Optional[str] = Query(default=None),
+    user_id: int = Depends(get_current_user_id),
 ):
     """
     List cards from collection with optional pagination and filters.
@@ -64,11 +66,11 @@ async def list_cards(
     color_identity: comma-separated WUBRG (e.g. "W,U"); card must contain all listed colors.
     """
     logger.info(
-        "GET /api/cards - limit=%s, offset=%s, search=%s, type=%s, color_identity=%s, set_name=%s",
-        limit, offset, search, type_filter, color_identity, set_name,
+        "GET /api/cards - limit=%s, offset=%s, search=%s, type=%s, color_identity=%s, set_name=%s, user=%s",
+        limit, offset, search, type_filter, color_identity, set_name, user_id,
     )
     try:
-        collection = get_cached_collection()
+        collection = get_cached_collection(user_id=user_id)
         search_param = search if search and search != "undefined" else None
         filtered = filter_collection(
             collection,
@@ -111,7 +113,10 @@ async def suggest_cards(q: Optional[str] = Query(default=None)):
 
 
 @router.get("/resolve", response_model=Card)
-async def resolve_card(name: Optional[str] = Query(default=None, alias="name")):
+async def resolve_card(
+    name: Optional[str] = Query(default=None, alias="name"),
+    user_id: int = Depends(get_current_user_id)
+):
     """
     Resolve a card by name: return full card payload (type, rarity, set_name, price, ...)
     from Scryfall (or from collection if already present) for use in POST create.
@@ -120,7 +125,7 @@ async def resolve_card(name: Optional[str] = Query(default=None, alias="name")):
     if not name or not name.strip():
         raise HTTPException(status_code=400, detail="Query param 'name' is required")
     try:
-        collection = get_cached_collection()
+        collection = get_cached_collection(user_id=user_id)
         name_lower = name.strip().lower()
         from_coll = next((c for c in collection if (c.get("name") or "").lower() == name_lower), None)
         payload = resolve_card_by_name(name.strip(), from_collection=from_coll)
@@ -130,12 +135,21 @@ async def resolve_card(name: Optional[str] = Query(default=None, alias="name")):
 
 
 @router.get("/{id}/image")
-async def get_card_image(id: int):
+async def get_card_image(
+    id: int,
+    user_id: int = Depends(get_current_user_id)
+):
     """
     Return the card's image by surrogate id. If not stored, fetch from Scryfall, store, then return.
     Returns 404 if card not found or image unavailable.
     """
     try:
+        repo = get_collection_repo()
+        if repo is not None:
+            # Verify card belongs to user
+            card = repo.get_card_by_id(id, user_id=user_id)
+            if card is None:
+                raise HTTPException(status_code=404, detail="Card not found")
         data, media_type = resolve_card_image(id)
         return Response(content=data, media_type=media_type)
     except FileNotFoundError:
@@ -143,7 +157,10 @@ async def get_card_image(id: int):
 
 
 @router.get("/{card_id_or_name}", response_model=Card)
-async def get_card(card_id_or_name: str):
+async def get_card(
+    card_id_or_name: str,
+    user_id: int = Depends(get_current_user_id)
+):
     """
     Get details for a specific card by surrogate id (integer) or by name (string).
 
@@ -156,7 +173,7 @@ async def get_card(card_id_or_name: str):
     Raises:
         HTTPException: 404 if card not found
     """
-    logger.info(f"GET /api/cards/{card_id_or_name}")
+    logger.info(f"GET /api/cards/{card_id_or_name} - user={user_id}")
 
     try:
         repo = get_collection_repo()
@@ -164,13 +181,13 @@ async def get_card(card_id_or_name: str):
             # Try as id first (numeric path segment)
             try:
                 card_id = int(card_id_or_name)
-                card = repo.get_card_by_id(card_id)
+                card = repo.get_card_by_id(card_id, user_id=user_id)
                 if card is not None:
                     return card
             except ValueError:
                 pass
             # Fall back to get by name
-            collection = get_cached_collection()
+            collection = get_cached_collection(user_id=user_id)
             card_name_lower = card_id_or_name.lower()
             for card in collection:
                 if card.get("name") and card["name"].lower() == card_name_lower:
@@ -178,7 +195,7 @@ async def get_card(card_id_or_name: str):
             raise HTTPException(status_code=404, detail=f"Card '{card_id_or_name}' not found")
 
         # No repo: use collection (Sheets)
-        collection = get_cached_collection()
+        collection = get_cached_collection(user_id=user_id)
         card_name_lower = card_id_or_name.lower()
         for card in collection:
             if card.get("name") and card["name"].lower() == card_name_lower:
@@ -199,7 +216,10 @@ async def get_card(card_id_or_name: str):
 
 
 @router.post("/", response_model=Card, status_code=201)
-async def create_card(card: Card):
+async def create_card(
+    card: Card,
+    user_id: int = Depends(get_current_user_id)
+):
     """
     Create a new card. Requires Postgres (DATABASE_URL set).
     """
@@ -211,7 +231,7 @@ async def create_card(card: Card):
         )
     try:
         payload = card.model_dump(exclude_unset=True, exclude={"id"})
-        created = repo.create(payload)
+        created = repo.create(payload, user_id=user_id)
         clear_collection_cache()
         clear_stats_cache()
         return created
@@ -221,7 +241,11 @@ async def create_card(card: Card):
 
 
 @router.put("/{id}", response_model=Card)
-async def update_card(id: int, card: Card):
+async def update_card(
+    id: int,
+    card: Card,
+    user_id: int = Depends(get_current_user_id)
+):
     """
     Update a card by surrogate id. Requires Postgres.
     """
@@ -233,7 +257,7 @@ async def update_card(id: int, card: Card):
         )
     try:
         payload = card.model_dump(exclude_unset=True, exclude={"id"})
-        updated = repo.update(id, payload)
+        updated = repo.update(id, payload, user_id=user_id)
         if updated is None:
             raise HTTPException(status_code=404, detail=f"Card id {id} not found")
         clear_collection_cache()
@@ -247,7 +271,10 @@ async def update_card(id: int, card: Card):
 
 
 @router.delete("/{id}", status_code=204)
-async def delete_card(id: int):
+async def delete_card(
+    id: int,
+    user_id: int = Depends(get_current_user_id)
+):
     """
     Delete a card by surrogate id. Requires Postgres.
     """
@@ -257,7 +284,7 @@ async def delete_card(id: int):
             status_code=501,
             detail="Card delete requires PostgreSQL. Set DATABASE_URL.",
         )
-    deleted = repo.delete(id)
+    deleted = repo.delete(id, user_id=user_id)
     if not deleted:
         raise HTTPException(status_code=404, detail=f"Card id {id} not found")
     clear_collection_cache()

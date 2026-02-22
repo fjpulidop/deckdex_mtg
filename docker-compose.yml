@@ -30,6 +30,9 @@ services:
       - OPENAI_API_KEY=${OPENAI_API_KEY}
       - DECKDEX_PROFILE=${DECKDEX_PROFILE:-default}
       - DATABASE_URL=postgresql://deckdex:deckdex@db:5432/deckdex
+      - GOOGLE_OAUTH_CLIENT_ID=${GOOGLE_OAUTH_CLIENT_ID}
+      - GOOGLE_OAUTH_CLIENT_SECRET=${GOOGLE_OAUTH_CLIENT_SECRET}
+      - JWT_SECRET_KEY=${JWT_SECRET_KEY}
     volumes:
       - ./backend:/app/backend:ro
       - ./deckdex:/app/deckdex:ro

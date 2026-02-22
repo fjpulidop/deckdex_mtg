@@ -99,45 +99,45 @@ class CollectionRepository(ABC):
     """Abstract interface for card collection storage."""
 
     @abstractmethod
-    def get_all_cards(self) -> List[Dict[str, Any]]:
-        """Return all cards as list of dicts (API shape, including id)."""
+    def get_all_cards(self, user_id: Optional[int] = None) -> List[Dict[str, Any]]:
+        """Return all cards as list of dicts (API shape, including id). If user_id provided, filter by that user."""
         pass
 
-    def get_cards_for_process(self, only_incomplete: bool = False) -> List[Dict[str, Any]]:
+    def get_cards_for_process(self, user_id: Optional[int] = None, only_incomplete: bool = False) -> List[Dict[str, Any]]:
         """Return cards to process. If only_incomplete=True, only cards that have e.g. only name (no type_line)."""
-        cards = self.get_all_cards()
+        cards = self.get_all_cards(user_id=user_id)
         if not only_incomplete:
             return cards
         return [c for c in cards if c.get("id") is not None and _is_incomplete_card(c)]
 
     @abstractmethod
-    def get_cards_for_price_update(self) -> List[tuple]:
-        """Return list of (card_id, name_for_scryfall, current_price_str). name_for_scryfall should be english_name when set, else name, for reliable Scryfall API lookup."""
+    def get_cards_for_price_update(self, user_id: Optional[int] = None) -> List[tuple]:
+        """Return list of (card_id, name_for_scryfall, current_price_str). If user_id provided, filter by that user."""
         pass
 
     @abstractmethod
-    def get_card_by_id(self, id: int) -> Optional[Dict[str, Any]]:
-        """Return one card by surrogate id or None."""
+    def get_card_by_id(self, id: int, user_id: Optional[int] = None) -> Optional[Dict[str, Any]]:
+        """Return one card by surrogate id or None. If user_id provided, verify ownership."""
         pass
 
     @abstractmethod
-    def create(self, card: Dict[str, Any]) -> Dict[str, Any]:
-        """Insert a card; return the same card dict with id set."""
+    def create(self, card: Dict[str, Any], user_id: Optional[int] = None) -> Dict[str, Any]:
+        """Insert a card; return the same card dict with id set. If user_id provided, associate with user."""
         pass
 
     @abstractmethod
-    def update(self, id: int, fields: Dict[str, Any]) -> Optional[Dict[str, Any]]:
-        """Update card by id; return updated card or None if not found."""
+    def update(self, id: int, fields: Dict[str, Any], user_id: Optional[int] = None) -> Optional[Dict[str, Any]]:
+        """Update card by id; return updated card or None if not found. If user_id provided, verify ownership."""
         pass
 
     @abstractmethod
-    def delete(self, id: int) -> bool:
-        """Delete card by id; return True if deleted, False if not found."""
+    def delete(self, id: int, user_id: Optional[int] = None) -> bool:
+        """Delete card by id; return True if deleted, False if not found. If user_id provided, verify ownership."""
         pass
 
     @abstractmethod
-    def replace_all(self, cards: List[Dict[str, Any]]) -> int:
-        """Replace entire collection with given cards (delete all, insert all). Return count inserted."""
+    def replace_all(self, cards: List[Dict[str, Any]], user_id: Optional[int] = None) -> int:
+        """Replace entire collection with given cards (delete all, insert all). Return count inserted. If user_id provided, replace only user's cards."""
         pass
 
     def get_card_image(self, card_id: int) -> Optional[Tuple[bytes, str]]:
@@ -146,6 +146,26 @@ class CollectionRepository(ABC):
 
     def save_card_image(self, card_id: int, content_type: str, data: bytes) -> None:
         """Store image for the card. No-op for repositories that do not store images."""
+        pass
+
+    def get_user_by_google_id(self, google_id: str) -> Optional[Dict[str, Any]]:
+        """Get user by Google ID. Returns user dict or None."""
+        pass
+
+    def get_user_by_email(self, email: str) -> Optional[Dict[str, Any]]:
+        """Get user by email. Returns user dict or None."""
+        pass
+
+    def create_user(self, google_id: str, email: str, display_name: Optional[str] = None, avatar_url: Optional[str] = None) -> Dict[str, Any]:
+        """Create a new user. Returns user dict with id."""
+        pass
+
+    def update_user_google_id(self, user_id: int, google_id: str) -> bool:
+        """Update user's google_id. Returns True if successful."""
+        pass
+
+    def update_user_last_login(self, user_id: int) -> bool:
+        """Update user's last_login timestamp. Returns True if successful."""
         pass
 
 
@@ -164,57 +184,89 @@ class PostgresCollectionRepository(CollectionRepository):
             self._eng = create_engine(self._url, pool_pre_ping=True)
         return self._eng
 
-    def get_all_cards(self) -> List[Dict[str, Any]]:
+    def get_all_cards(self, user_id: Optional[int] = None) -> List[Dict[str, Any]]:
         from sqlalchemy import text
         engine = self._get_engine()
         with engine.connect() as conn:
-            rows = conn.execute(text("SELECT * FROM cards ORDER BY created_at DESC NULLS LAST, id DESC")).mappings().fetchall()
+            if user_id is not None:
+                rows = conn.execute(
+                    text("SELECT * FROM cards WHERE user_id = :user_id ORDER BY created_at DESC NULLS LAST, id DESC"),
+                    {"user_id": user_id}
+                ).mappings().fetchall()
+            else:
+                rows = conn.execute(text("SELECT * FROM cards ORDER BY created_at DESC NULLS LAST, id DESC")).mappings().fetchall()
             return [_row_to_card(dict(r)) for r in rows]
 
-    def get_cards_for_process(self, only_incomplete: bool = False) -> List[Dict[str, Any]]:
+    def get_cards_for_process(self, user_id: Optional[int] = None, only_incomplete: bool = False) -> List[Dict[str, Any]]:
         from sqlalchemy import text
         engine = self._get_engine()
         with engine.connect() as conn:
             if only_incomplete:
-                rows = conn.execute(text("""
-                    SELECT * FROM cards
+                where_clause = """
                     WHERE name IS NOT NULL AND name != ''
                     AND (type_line IS NULL OR TRIM(type_line) = '')
+                """
+                if user_id is not None:
+                    where_clause += " AND user_id = :user_id"
+                rows = conn.execute(text(f"""
+                    SELECT * FROM cards
+                    {where_clause}
                     ORDER BY id
-                """)).mappings().fetchall()
+                """), {"user_id": user_id} if user_id is not None else {}).mappings().fetchall()
             else:
-                rows = conn.execute(text("SELECT * FROM cards ORDER BY id")).mappings().fetchall()
+                where_clause = ""
+                if user_id is not None:
+                    where_clause = "WHERE user_id = :user_id"
+                rows = conn.execute(
+                    text(f"SELECT * FROM cards {where_clause} ORDER BY id"),
+                    {"user_id": user_id} if user_id is not None else {}
+                ).mappings().fetchall()
             return [_row_to_card(dict(r)) for r in rows]
 
-    def get_cards_for_price_update(self) -> List[tuple]:
+    def get_cards_for_price_update(self, user_id: Optional[int] = None) -> List[tuple]:
         """Return (card_id, name_for_scryfall, current_price_str). Uses english_name for Scryfall when set, else name."""
         from sqlalchemy import text
         engine = self._get_engine()
         with engine.connect() as conn:
+            where_clause = "WHERE name IS NOT NULL AND name != ''"
+            if user_id is not None:
+                where_clause += " AND user_id = :user_id"
             rows = conn.execute(
-                text("SELECT id, name, english_name, price_eur FROM cards WHERE name IS NOT NULL AND name != ''")
+                text(f"SELECT id, name, english_name, price_eur FROM cards {where_clause}"),
+                {"user_id": user_id} if user_id is not None else {}
             ).fetchall()
             return [(r[0], (r[2] or r[1]) or "", r[3] or "") for r in rows]
 
-    def get_card_by_id(self, id: int) -> Optional[Dict[str, Any]]:
+    def get_card_by_id(self, id: int, user_id: Optional[int] = None) -> Optional[Dict[str, Any]]:
         from sqlalchemy import text
         engine = self._get_engine()
         with engine.connect() as conn:
-            row = conn.execute(text("SELECT * FROM cards WHERE id = :id"), {"id": id}).mappings().fetchone()
+            if user_id is not None:
+                row = conn.execute(
+                    text("SELECT * FROM cards WHERE id = :id AND user_id = :user_id"),
+                    {"id": id, "user_id": user_id}
+                ).mappings().fetchone()
+            else:
+                row = conn.execute(text("SELECT * FROM cards WHERE id = :id"), {"id": id}).mappings().fetchone()
             return _row_to_card(dict(row)) if row else None
 
-    def create(self, card: Dict[str, Any]) -> Dict[str, Any]:
+    def create(self, card: Dict[str, Any], user_id: Optional[int] = None) -> Dict[str, Any]:
         from sqlalchemy import text
         row = _card_to_row(card)
         cols = [k for k, v in row.items() if v is not None]
-        vals = [row[k] for k in cols]
+        if user_id is not None:
+            cols.append("user_id")
+        vals = [row[k] for k in cols[:-1]] + ([user_id] if user_id is not None else [])
         placeholders = ", ".join(f":{k}" for k in cols)
         names = ", ".join(cols)
         engine = self._get_engine()
         with engine.connect() as conn:
+            params = {k: row[k] for k in cols if k in row}
+            if user_id is not None:
+                params["user_id"] = user_id
             result = conn.execute(
                 text(f"INSERT INTO cards ({names}) VALUES ({placeholders}) RETURNING id"),
-                {k: row[k] for k in cols}
+                params
             )
             conn.commit()
             new_id = result.scalar()
@@ -222,7 +274,7 @@ class PostgresCollectionRepository(CollectionRepository):
         out["id"] = new_id
         return out
 
-    def update(self, id: int, fields: Dict[str, Any]) -> Optional[Dict[str, Any]]:
+    def update(self, id: int, fields: Dict[str, Any], user_id: Optional[int] = None) -> Optional[Dict[str, Any]]:
         from sqlalchemy import text
         # Map API field names to DB columns
         col_map = {"type": "type_line", "number": "set_number", "price": "price_eur"}
@@ -239,42 +291,61 @@ class PostgresCollectionRepository(CollectionRepository):
                     v = _safe_cmc(v)
                 updates[col] = v
         if not updates:
-            return self.get_card_by_id(id)
+            return self.get_card_by_id(id, user_id=user_id)
         set_clause = ", ".join(f"{c} = :{c}" for c in updates)
         updates["id"] = id
+        if user_id is not None:
+            updates["user_id"] = user_id
         engine = self._get_engine()
         with engine.connect() as conn:
+            where_clause = "WHERE id = :id"
+            if user_id is not None:
+                where_clause += " AND user_id = :user_id"
             result = conn.execute(
-                text(f"UPDATE cards SET {set_clause}, updated_at = NOW() AT TIME ZONE 'utc' WHERE id = :id RETURNING id"),
+                text(f"UPDATE cards SET {set_clause}, updated_at = NOW() AT TIME ZONE 'utc' {where_clause} RETURNING id"),
                 updates
             )
             conn.commit()
             if result.fetchone() is None:
                 return None
-        return self.get_card_by_id(id)
+        return self.get_card_by_id(id, user_id=user_id)
 
-    def delete(self, id: int) -> bool:
+    def delete(self, id: int, user_id: Optional[int] = None) -> bool:
         from sqlalchemy import text
         engine = self._get_engine()
         with engine.connect() as conn:
-            result = conn.execute(text("DELETE FROM cards WHERE id = :id"), {"id": id})
+            if user_id is not None:
+                result = conn.execute(
+                    text("DELETE FROM cards WHERE id = :id AND user_id = :user_id"),
+                    {"id": id, "user_id": user_id}
+                )
+            else:
+                result = conn.execute(text("DELETE FROM cards WHERE id = :id"), {"id": id})
             conn.commit()
             return result.rowcount > 0
 
-    def replace_all(self, cards: List[Dict[str, Any]]) -> int:
+    def replace_all(self, cards: List[Dict[str, Any]], user_id: Optional[int] = None) -> int:
         from sqlalchemy import text
         engine = self._get_engine()
         with engine.connect() as conn:
-            conn.execute(text("DELETE FROM cards"))
+            if user_id is not None:
+                conn.execute(text("DELETE FROM cards WHERE user_id = :user_id"), {"user_id": user_id})
+            else:
+                conn.execute(text("DELETE FROM cards"))
             count = 0
             for card in cards:
                 row = _card_to_row(card)
                 row["name"] = row["name"] or ""
                 cols = [k for k, v in row.items() if v is not None]
-                vals = [row[k] for k in cols]
+                if user_id is not None:
+                    cols.append("user_id")
+                vals = [row[k] for k in cols[:-1]] + ([user_id] if user_id is not None else [])
                 placeholders = ", ".join(f":{k}" for k in cols)
                 names = ", ".join(cols)
-                conn.execute(text(f"INSERT INTO cards ({names}) VALUES ({placeholders})"), {k: row[k] for k in cols})
+                params = {k: row[k] for k in cols if k in row}
+                if user_id is not None:
+                    params["user_id"] = user_id
+                conn.execute(text(f"INSERT INTO cards ({names}) VALUES ({placeholders})"), params)
                 count += 1
             conn.commit()
         logger.info(f"Replaced collection with {count} cards")
@@ -305,3 +376,69 @@ class PostgresCollectionRepository(CollectionRepository):
                 {"card_id": card_id, "content_type": content_type, "data": data}
             )
             conn.commit()
+
+    def get_user_by_google_id(self, google_id: str) -> Optional[Dict[str, Any]]:
+        from sqlalchemy import text
+        engine = self._get_engine()
+        with engine.connect() as conn:
+            row = conn.execute(
+                text("SELECT id, google_id, email, display_name, avatar_url, created_at, last_login FROM users WHERE google_id = :google_id"),
+                {"google_id": google_id}
+            ).mappings().fetchone()
+            if row is None:
+                return None
+            return dict(row)
+
+    def get_user_by_email(self, email: str) -> Optional[Dict[str, Any]]:
+        from sqlalchemy import text
+        engine = self._get_engine()
+        with engine.connect() as conn:
+            row = conn.execute(
+                text("SELECT id, google_id, email, display_name, avatar_url, created_at, last_login FROM users WHERE email = :email"),
+                {"email": email}
+            ).mappings().fetchone()
+            if row is None:
+                return None
+            return dict(row)
+
+    def create_user(self, google_id: str, email: str, display_name: Optional[str] = None, avatar_url: Optional[str] = None) -> Dict[str, Any]:
+        from sqlalchemy import text
+        engine = self._get_engine()
+        with engine.connect() as conn:
+            result = conn.execute(
+                text("""
+                    INSERT INTO users (google_id, email, display_name, avatar_url, created_at, last_login)
+                    VALUES (:google_id, :email, :display_name, :avatar_url, NOW() AT TIME ZONE 'utc', NOW() AT TIME ZONE 'utc')
+                    RETURNING id, google_id, email, display_name, avatar_url, created_at, last_login
+                """),
+                {
+                    "google_id": google_id,
+                    "email": email,
+                    "display_name": display_name,
+                    "avatar_url": avatar_url
+                }
+            ).mappings().fetchone()
+            conn.commit()
+            return dict(result) if result else None
+
+    def update_user_google_id(self, user_id: int, google_id: str) -> bool:
+        from sqlalchemy import text
+        engine = self._get_engine()
+        with engine.connect() as conn:
+            result = conn.execute(
+                text("UPDATE users SET google_id = :google_id WHERE id = :id"),
+                {"google_id": google_id, "id": user_id}
+            )
+            conn.commit()
+            return result.rowcount > 0
+
+    def update_user_last_login(self, user_id: int) -> bool:
+        from sqlalchemy import text
+        engine = self._get_engine()
+        with engine.connect() as conn:
+            result = conn.execute(
+                text("UPDATE users SET last_login = NOW() AT TIME ZONE 'utc' WHERE id = :id"),
+                {"id": user_id}
+            )
+            conn.commit()
+            return result.rowcount > 0
