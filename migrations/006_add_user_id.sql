@@ -5,12 +5,12 @@ ALTER TABLE decks ADD COLUMN IF NOT EXISTS user_id BIGINT REFERENCES users(id);
 -- Phase 2: Create seed user for existing data
 -- The google_id '__seed_pending__' will be updated on first real OAuth login
 INSERT INTO users (google_id, email, display_name, avatar_url, created_at, last_login)
-VALUES ('__seed_pending__', 'fj.pulidop@gmail.com', 'Seed User', NULL, NOW() AT TIME ZONE 'utc', NOW() AT TIME ZONE 'utc')
+VALUES ('__seed_pending__', 'admin@deckdex.local', 'Seed User', NULL, NOW() AT TIME ZONE 'utc', NOW() AT TIME ZONE 'utc')
 ON CONFLICT (email) DO NOTHING;
 
 -- Phase 3: Backfill existing rows with seed user ID
-UPDATE cards SET user_id = (SELECT id FROM users WHERE email = 'fj.pulidop@gmail.com') WHERE user_id IS NULL;
-UPDATE decks SET user_id = (SELECT id FROM users WHERE email = 'fj.pulidop@gmail.com') WHERE user_id IS NULL;
+UPDATE cards SET user_id = (SELECT id FROM users WHERE email = 'admin@deckdex.local') WHERE user_id IS NULL;
+UPDATE decks SET user_id = (SELECT id FROM users WHERE email = 'admin@deckdex.local') WHERE user_id IS NULL;
 
 -- Phase 4: Add NOT NULL constraint
 ALTER TABLE cards ALTER COLUMN user_id SET NOT NULL;

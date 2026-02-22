@@ -3,7 +3,7 @@
 ## 1. Database Migrations
 
 - [x] 1.1 Create migration `005_users_table.sql`: `users` table with `id`, `google_id` (unique), `email` (unique), `display_name`, `avatar_url`, `created_at`, `last_login`
-- [x] 1.2 Create migration `006_add_user_id.sql`: add nullable `user_id` column to `cards` and `decks` tables with FK to `users.id`; insert seed user (`fj.pulidop@gmail.com`, `google_id='__seed_pending__'`); backfill all existing rows; add NOT NULL constraint; add indexes on `user_id`
+- [x] 1.2 Create migration `006_add_user_id.sql`: add nullable `user_id` column to `cards` and `decks` tables with FK to `users.id`; insert seed user (`admin@deckdex.local`, `google_id='__seed_pending__'`); backfill all existing rows; add NOT NULL constraint; add indexes on `user_id`
 
 ## 2. Backend Dependencies and Configuration
 
@@ -14,7 +14,7 @@
 
 - [x] 3.1 Create `backend/api/routes/auth.py` with endpoints: `GET /api/auth/google` (redirect to Google consent), `GET /api/auth/callback` (exchange code, upsert user, set JWT cookie, redirect to frontend), `GET /api/auth/me` (return current user), `POST /api/auth/logout` (clear cookie)
 - [x] 3.2 Implement JWT helper functions: `create_jwt(user)` and `decode_jwt(token)` using `python-jose` with `JWT_SECRET_KEY`, 1h expiry, HS256 algorithm
-- [x] 3.3 Implement seed user google_id update: when OAuth callback matches email `fj.pulidop@gmail.com` and existing user has `google_id='__seed_pending__'`, update to the real Google `sub`
+- [x] 3.3 Implement seed user google_id update: when OAuth callback matches email `admin@deckdex.local` and existing user has `google_id='__seed_pending__'`, update to the real Google `sub`
 - [x] 3.4 Add `get_current_user` and `get_current_user_id` FastAPI dependencies in `dependencies.py` that read JWT from cookie, validate, and return user payload or raise 401
 - [x] 3.5 Register auth router in `backend/api/main.py`
 

@@ -4,7 +4,7 @@
 
 DeckDex is a single-user MTG card collection manager backed by PostgreSQL. The backend is FastAPI (port 8000) with REST + WebSocket; the frontend is React/Vite (port 5173) with TanStack Query. There is no authentication — every request hits the API anonymously and all data is shared. Tables `cards`, `decks`, `deck_cards`, and `card_images` exist with no ownership column. A `sessions` table was created during an earlier OAuth-for-Sheets-import change but is unused for user auth. The frontend uses `credentials: 'include'` on all fetch calls already, which means cookies will be sent automatically once set.
 
-Existing data (cards, decks) belongs to the project owner (`fj.pulidop@gmail.com`) and must be preserved during migration.
+Existing data (cards, decks) belongs to the project owner (`admin@deckdex.local`) and must be preserved during migration.
 
 ## Goals / Non-Goals
 
@@ -13,7 +13,7 @@ Existing data (cards, decks) belongs to the project owner (`fj.pulidop@gmail.com
 - Google OAuth 2.0 as the sole login method; backend handles the full OAuth code exchange — frontend never touches tokens.
 - JWT stored in an HTTP-only, secure, SameSite cookie — stateless auth with no server-side session lookup per request.
 - User-scoped data isolation: each user sees only their own cards, decks, and images.
-- Seed migration: assign all existing cards and decks to `fj.pulidop@gmail.com`.
+- Seed migration: assign all existing cards and decks to `admin@deckdex.local`.
 - Clean login page with "Continue with Google" button; protected routes redirect to `/login`.
 - User info (avatar, name) and logout in the navbar.
 
@@ -91,7 +91,7 @@ No password column. `google_id` is the stable identifier from Google (`sub` clai
 
 ### 7. Seed user migration strategy
 
-**Decision:** Migration `005_users_table.sql` creates the `users` table. Migration `006_add_user_id.sql` adds `user_id` (nullable) to `cards` and `decks`, inserts a seed user for `fj.pulidop@gmail.com` with `google_id = '__seed_pending__'`, backfills all existing rows, then sets the column to NOT NULL. On first real Google login with that email, the backend updates `google_id` from `'__seed_pending__'` to the real Google sub.
+**Decision:** Migration `005_users_table.sql` creates the `users` table. Migration `006_add_user_id.sql` adds `user_id` (nullable) to `cards` and `decks`, inserts a seed user for `admin@deckdex.local` with `google_id = '__seed_pending__'`, backfills all existing rows, then sets the column to NOT NULL. On first real Google login with that email, the backend updates `google_id` from `'__seed_pending__'` to the real Google sub.
 
 **Rationale:** Two-phase migration (nullable → backfill → NOT NULL) avoids downtime. The seed approach preserves existing data without requiring the owner to log in first. The `__seed_pending__` sentinel is replaced transparently on first login.
 

@@ -16,7 +16,7 @@ The system SHALL authenticate users via Google OAuth 2.0. The backend SHALL hand
 - **THEN** the backend SHALL update `last_login` (and `display_name`/`avatar_url` if changed), sign a JWT, set it as an HTTP-only cookie, and redirect the browser to the frontend root (`/`)
 
 #### Scenario: Seed user first login
-- **WHEN** Google redirects with a valid code for email `fj.pulidop@gmail.com` and a seed user with `google_id = '__seed_pending__'` exists for that email
+- **WHEN** Google redirects with a valid code for email `admin@deckdex.local` and a seed user with `google_id = '__seed_pending__'` exists for that email
 - **THEN** the backend SHALL update the seed user's `google_id` to the real Google `sub` value, update `last_login`, sign a JWT, and redirect as normal
 
 #### Scenario: OAuth error

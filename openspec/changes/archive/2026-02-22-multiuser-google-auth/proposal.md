@@ -12,7 +12,7 @@ DeckDex is currently single-user by default — there is no concept of user acco
 - **User-scoped data**: `cards` and `decks` tables gain a `user_id` foreign key. All queries filter by the authenticated user. Each user sees only their own collection and decks.
 - **Login page** in the frontend with a "Continue with Google" button. Protected routes redirect unauthenticated users to login.
 - **User info in navbar**: avatar, display name, and logout button replace the current anonymous layout.
-- **Data migration**: existing cards and decks are assigned to the seed user (`fj.pulidop@gmail.com`) so no data is lost. The seed user's `google_id` is updated on first real Google login.
+- **Data migration**: existing cards and decks are assigned to the seed user (`admin@deckdex.local`) so no data is lost. The seed user's `google_id` is updated on first real Google login.
 - **New users start with an empty collection** — no automatic import or onboarding flow.
 
 ## Capabilities

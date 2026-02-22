@@ -33,11 +33,11 @@ Each deck in the `decks` table SHALL be associated with a user via a `user_id` f
 - **THEN** the deck SHALL have a non-null `user_id` referencing the creating user
 
 ### Requirement: Seed migration for existing data
-The migration SHALL create a seed user for `fj.pulidop@gmail.com` and assign all existing cards and decks to that user.
+The migration SHALL create a seed user for `admin@deckdex.local` and assign all existing cards and decks to that user.
 
 #### Scenario: Seed user created
 - **WHEN** migration 005 runs
-- **THEN** a user row SHALL be created with `email = 'fj.pulidop@gmail.com'` and `google_id = '__seed_pending__'`
+- **THEN** a user row SHALL be created with `email = 'admin@deckdex.local'` and `google_id = '__seed_pending__'`
 
 #### Scenario: Existing data assigned to seed user
 - **WHEN** migration 006 runs
