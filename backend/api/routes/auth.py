@@ -239,9 +239,9 @@ async def oauth_callback(code: str = None, error: str = None):
             "picture": user.get("avatar_url")
         })
         
-        # Redirect to frontend with JWT cookie set
+        # Redirect to frontend dashboard with JWT cookie set
         from fastapi.responses import RedirectResponse
-        response = RedirectResponse(url="http://localhost:5173/")
+        response = RedirectResponse(url="http://localhost:5173/dashboard")
         response.set_cookie(
             key="access_token",
             value=jwt_token,
