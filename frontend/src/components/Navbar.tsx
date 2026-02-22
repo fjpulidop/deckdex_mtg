@@ -47,7 +47,7 @@ export function Navbar() {
   }, [mobileMenuOpen, userMenuOpen]);
 
   const navLinks = [
-    { path: '/', label: 'Dashboard' },
+    { path: '/dashboard', label: 'Dashboard' },
     { path: '/decks', label: 'Decks', badge: 'alpha' },
     { path: '/analytics', label: 'Analytics', badge: 'beta' },
     { path: '/settings', label: 'Settings' },
@@ -87,7 +87,7 @@ export function Navbar() {
           <div className="flex items-center justify-between">
             {/* Logo */}
             <Link
-              to="/"
+              to="/dashboard"
               className="text-2xl font-bold text-indigo-600 dark:text-indigo-400 hover:text-indigo-700 dark:hover:text-indigo-300 transition-colors"
             >
               DeckDex

@@ -1,8 +1,10 @@
 import './index.css'
 import { BrowserRouter, Routes, Route, useLocation } from 'react-router-dom'
+import { lazy, Suspense } from 'react'
 import { ActiveJobsProvider } from './contexts/ActiveJobsContext'
 import { AuthProvider } from './contexts/AuthContext'
 import { Navbar } from './components/Navbar'
+import { LandingNavbar } from './components/landing/LandingNavbar'
 import { Dashboard } from './pages/Dashboard'
 import { Settings } from './pages/Settings'
 import { Analytics } from './pages/Analytics'
@@ -10,17 +12,29 @@ import { DeckBuilder } from './pages/DeckBuilder'
 import Login from './pages/Login'
 import ProtectedRoute from './components/ProtectedRoute'
 
+const Landing = lazy(() => import('./pages/Landing').then(m => ({ default: m.Landing })))
+
 function AppContent() {
   const location = useLocation();
   const isLoginPage = location.pathname === '/login';
+  const isLandingPage = location.pathname === '/';
 
   return (
     <>
-      {!isLoginPage && <Navbar />}
+      {isLandingPage && <LandingNavbar />}
+      {!isLandingPage && !isLoginPage && <Navbar />}
       <Routes>
-        <Route path="/login" element={<Login />} />
         <Route
           path="/"
+          element={
+            <Suspense fallback={<div className="flex items-center justify-center min-h-screen">Loading...</div>}>
+              <Landing />
+            </Suspense>
+          }
+        />
+        <Route path="/login" element={<Login />} />
+        <Route
+          path="/dashboard"
           element={
             <ProtectedRoute>
               <Dashboard />
