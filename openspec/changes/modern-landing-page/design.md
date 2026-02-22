@@ -84,9 +84,23 @@ frontend/src/
 **Decision:** Create separate `LandingNavbar` component, conditionally render in `App.tsx`.
 
 **Rationale:**
-- Landing navbar (logo, features, docs, login/signup top-right) differs significantly from dashboard navbar (logo, nav links, user menu)
+- Landing navbar (logo, features, source code, sign in) differs significantly from dashboard navbar (logo, nav links, user menu)
 - Simpler logic than complex conditional props in single component
 - Landing navbar is sticky with backdrop blur on scroll; dashboard navbar is always visible
+
+**Landing Navbar Structure:**
+- Logo (clickable, smooth scroll to top)
+- Features link (with Sparkles icon, smooth scroll to features section)
+- Source Code link (with GitHub icon, opens modal showing GitHub repo)
+- Sign in button (only visible when unauthenticated, uses Google OAuth)
+- Go to Dashboard button (only visible when authenticated)
+
+**GitHub Modal Design:**
+- Elegant dark themed modal with backdrop blur
+- Shows GitHub logo and project name
+- Encourages contributions and community involvement
+- "Open GitHub Repository" button that opens in new tab
+- Can be dismissed by clicking backdrop or X button
 
 **Implementation:**
 ```tsx
@@ -108,6 +122,7 @@ function AppContent() {
 **Alternatives considered:**
 - **Single Navbar with `variant` prop**: More complex conditionals, harder to maintain
 - **No navbar on landing**: Against best practices, users expect navigation
+- **External GitHub link**: External link breaks user engagement; modal keeps users on page
 
 ### 4. Bento Grid Layout: CSS Grid vs. Manual Positioning
 
@@ -277,9 +292,10 @@ theme: {
 3. Add custom colors to `tailwind.config.js`
 
 **Phase 2: Build landing components (no user impact)**
-1. Create `LandingNavbar`, `Hero`, `BentoGrid`, `BentoCard`, `InteractiveDemo`, `FinalCTA`, `Footer`
+1. Create `LandingNavbar` (with GitHub modal), `Hero`, `BentoGrid`, `BentoCard`, `InteractiveDemo`, `FinalCTA`
 2. Create `Landing.tsx` page importing all components
 3. Test in isolation (no routing changes yet)
+4. Note: Footer removed from final implementation (MVP focus)
 
 **Phase 3: Update routing (user-facing change)**
 1. Update `App.tsx`:
@@ -303,24 +319,39 @@ theme: {
 - All changes are frontend-only, no database migrations
 
 **Testing checklist:**
-- [ ] Unauthenticated user visits `/` → sees landing page
-- [ ] User clicks "Get Started" → redirects to `/login`
-- [ ] User logs in → redirects to `/dashboard`
-- [ ] Authenticated user visits `/` → redirects to `/dashboard` (or sees landing, depending on decision)
-- [ ] Dashboard links work at `/dashboard` route
-- [ ] Interactive demo search and filters work
-- [ ] Mobile responsive (test Bento Grid collapse to 1 column)
+- [x] Unauthenticated user visits `/` → sees landing page
+- [x] User clicks "Sign in" → redirects to Google OAuth
+- [x] User logs in → redirects to `/dashboard`
+- [x] Authenticated user visits `/` → can see landing page with "Go to Dashboard" button
+- [x] Dashboard links work at `/dashboard` route
+- [x] Interactive demo search and filters work
+- [x] GitHub "Source Code" link opens in modal (not new tab)
+- [x] Demo section clearly labeled as "Collection Library" preview
+- [x] Mobile responsive (test Bento Grid collapse to 1 column)
+- [x] All buttons consolidated to single CTA per section
 
-## Open Questions
+## Decisions Made (Closed Questions)
 
 **Q: Should authenticated users see landing page at `/` or auto-redirect to `/dashboard`?**
-- **Option A (redirect)**: Authenticated users never see landing (faster to dashboard)
-- **Option B (show landing)**: Authenticated users can revisit landing (useful for sharing)
-- **Recommendation**: Redirect to `/dashboard` (cleaner UX, matches industry standard)
+- **Decision**: Show landing page to authenticated users (Option B)
+- **Rationale**: Allows authenticated users to revisit landing and share with others; simpler implementation than redirect
+- **Implementation**: Shows "Go to Dashboard" button in navbar when authenticated
 
 **Q: What screenshot sizes and content for Bento Grid cards?**
-- **Answered in proposal**: 1200x800 (hero), 600x500 (collection, deck-builder), 600x400 (ai-insights), 500x400 (realtime)
-- **Content documented in exploration notes**: Specific UI states to capture
+- **Decision**: Use gradient placeholders with clear labels (MVP approach)
+- **Sizes**: 1200x800 (hero), 600x500 (collection, deck-builder), 600x400 (ai-insights), 500x400 (realtime), 600x400 (pricing analytics)
+- **Labels**: Cards show placeholder text indicating screenshot dimensions and content
+- **Future**: Real screenshots can be replaced without code changes
 
 **Q: Should landing page have dark mode toggle?**
-- **Recommendation**: Default to dark theme (matches dashboard), no toggle on landing (simpler, single brand aesthetic)
+- **Decision**: Dark theme only (no toggle)
+- **Rationale**: Matches dashboard aesthetic, simplifies MVP, single cohesive brand experience
+
+**Q: Footer necessary for MVP?**
+- **Decision**: No footer for MVP (removed from final implementation)
+- **Rationale**: Not essential for conversion, reduces complexity, can be added in future phase
+
+**Q: How many CTA buttons per section?**
+- **Decision**: Maximum one primary CTA per section
+- **Rationale**: Reduces decision fatigue, clearer user intent, improved conversion
+- **Layout**: Hero (Sign in + Try Demo), Demo (no CTA), Final CTA (Sign in Free)

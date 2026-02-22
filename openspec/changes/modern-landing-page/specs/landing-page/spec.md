@@ -19,21 +19,22 @@ The landing page hero section SHALL prominently display the product name, taglin
 #### Scenario: Hero content is visible above fold
 - **WHEN** landing page loads on desktop (>=1024px)
 - **THEN** the hero section SHALL occupy at least 80vh of viewport height
-- **THEN** headline "Your MTG Collection, Supercharged" SHALL be displayed with gradient text effect
-- **THEN** subheadline explaining core value SHALL be visible below headline
-- **THEN** two CTA buttons ("Get Started" primary, "Watch Demo" secondary) SHALL be centered below text
+- **THEN** open source badge "100% Open Source • Community-Driven" SHALL be displayed
+- **THEN** headline "Your MTG Collection, Supercharged" SHALL be displayed with purple-to-pink gradient text effect
+- **THEN** subheadline explaining core value ("Community-driven, always evolving") SHALL be visible below headline
+- **THEN** two CTA buttons ("Sign in" primary with Google icon, "Try Demo" secondary) SHALL be centered below text
 
 #### Scenario: Hero dashboard preview displays
 - **WHEN** hero section renders
-- **THEN** a placeholder or screenshot (1200x800px, aspect ratio 3:2) SHALL display below CTAs
+- **THEN** a placeholder or screenshot (1200x800px, aspect ratio 3:2) SHALL display below CTAs on desktop
 - **THEN** placeholder SHALL have gradient background and descriptive label if real screenshot not available
 - **THEN** preview SHALL be horizontally centered and max-width constrained
 
 #### Scenario: Hero CTAs are functional
-- **WHEN** user clicks "Get Started" button
-- **THEN** application SHALL navigate to `/login` route
-- **WHEN** user clicks "Watch Demo" button
-- **THEN** application SHALL scroll to interactive demo section (smooth scroll behavior)
+- **WHEN** user clicks "Sign in" button
+- **THEN** application SHALL redirect to Google OAuth endpoint (`http://localhost:8000/api/auth/google`)
+- **WHEN** user clicks "Try Demo" button
+- **THEN** application SHALL smoothly scroll to interactive demo section (smooth scroll behavior)
 
 ### Requirement: Bento Grid showcases key features
 The landing page SHALL display a Bento Grid layout showcasing 3-4 key product features with visual previews.
@@ -41,10 +42,13 @@ The landing page SHALL display a Bento Grid layout showcasing 3-4 key product fe
 #### Scenario: Bento Grid renders with proper layout on desktop
 - **WHEN** landing page loads on desktop (>=1024px)
 - **THEN** Bento Grid SHALL display in 2-3 column layout
-- **THEN** Collection Management card SHALL be visible (large size, 600x500px)
-- **THEN** Deck Builder card SHALL be visible (large size, 600x500px)
-- **THEN** AI Insights card SHALL be visible (medium size, 600x400px)
-- **THEN** Real-time Progress card SHALL be visible (small size, 500x400px) or omitted if space constrained
+- **THEN** Collection Management card SHALL be visible (large size, 600x500px, blue gradient)
+- **THEN** Deck Builder card SHALL be visible (large size, 600x500px with "ALPHA" badge, purple gradient)
+- **THEN** AI Insights card SHALL be visible (medium size, 600x400px, pink gradient)
+- **THEN** Real-time Updates card SHALL be visible (small size, 500x400px, amber gradient)
+- **THEN** Price Tracking & Analytics card SHALL be visible (medium size, 600x400px, green gradient)
+- **THEN** Features section SHALL include message: "Missing a feature? Fork us or submit a Pull Request"
+- **THEN** All feature cards SHALL have white icons and gradient backgrounds
 
 #### Scenario: Bento Grid is responsive on tablet
 - **WHEN** landing page loads on tablet (768px-1023px)
@@ -73,16 +77,18 @@ The landing page SHALL display a Bento Grid layout showcasing 3-4 key product fe
 The landing page SHALL include an interactive demo section allowing users to search and filter sample MTG cards without signup.
 
 #### Scenario: Demo section is visible
-- **WHEN** user scrolls to demo section
-- **THEN** section header "Try DeckDex Right Now" SHALL be visible
-- **THEN** subtitle "No signup required" SHALL be displayed
+- **WHEN** user scrolls to demo section (id="demo")
+- **THEN** section header "Try Collection Library" SHALL be visible
+- **THEN** subtitle "Preview our interactive collection management tool — no signup required" SHALL be displayed
+- **THEN** prominent box SHALL explain "This is just one of many features. Once you sign in, unlock Deck Builder, AI Insights, Price Tracking, and more! 🚀"
 - **THEN** embedded demo component SHALL render below header
+- **THEN** NO sign in button SHALL appear at bottom of demo section
 
 #### Scenario: Demo data is pre-loaded
 - **WHEN** demo component initializes
-- **THEN** 10-15 hardcoded MTG cards SHALL be loaded (e.g., Lightning Bolt, Black Lotus, Serra Angel)
+- **THEN** 15 hardcoded realistic MTG cards SHALL be loaded (Lightning Bolt, Black Lotus, Serra Angel, Counterspell, Mox Jet, etc.)
 - **THEN** cards SHALL display realistic data (name, set, rarity, price)
-- **THEN** disclaimer "Demo data" SHALL be visible
+- **THEN** disclaimer "Demo data — actual prices vary" SHALL be visible in results footer
 
 #### Scenario: Demo search is functional
 - **WHEN** user types "Lightning" in demo search input
@@ -110,26 +116,17 @@ The landing page SHALL include a final call-to-action section before the footer 
 - **THEN** primary CTA button "Get Started Free" SHALL be centered
 
 #### Scenario: Final CTA button navigates to signup
-- **WHEN** user clicks "Get Started Free" button
-- **THEN** application SHALL navigate to `/login` route
+- **WHEN** user clicks "Sign in Free" button
+- **THEN** application SHALL redirect to Google OAuth endpoint (`http://localhost:8000/api/auth/google`)
 
-### Requirement: Footer provides navigation and information
-The landing page SHALL include a footer with product links, company information, and social links.
+### Requirement: Footer provision - REMOVED FOR MVP
+The footer was initially planned but removed from the MVP implementation to focus on core conversion features. Footer can be added in a future phase if needed.
 
-#### Scenario: Footer sections are organized
-- **WHEN** footer renders
-- **THEN** footer SHALL display 4 columns: Product, Company, Resources, Legal
-- **THEN** each column SHALL have a header and 3-4 links
-- **THEN** copyright notice SHALL be displayed at bottom
-
-#### Scenario: Footer links are functional
-- **WHEN** user clicks a footer link (e.g., "Docs")
-- **THEN** application SHALL navigate to appropriate route or external URL
-
-#### Scenario: Footer is responsive on mobile
-- **WHEN** footer renders on mobile (<768px)
-- **THEN** columns SHALL stack vertically (1 column layout)
-- **THEN** spacing SHALL adjust for touch targets
+**Rationale for removal:**
+- Not essential for MVP landing page conversion goals
+- Reduces complexity and page size
+- Simplifies maintenance
+- Can be added as a separate enhancement when marketing content grows
 
 ### Requirement: Landing page supports dark mode
 The landing page SHALL adapt its appearance based on the active theme (light or dark mode).
@@ -169,21 +166,28 @@ The landing page SHALL load quickly and be responsive to user interactions.
 - **THEN** placeholders SHALL have same aspect ratio as final images
 
 ### Requirement: Landing navbar differs from dashboard navbar
-The landing page SHALL use a specialized navbar variant optimized for conversion.
+The landing page SHALL use a specialized navbar variant optimized for conversion with GitHub integration.
 
-#### Scenario: Landing navbar shows login/signup buttons
+#### Scenario: Landing navbar structure
 - **WHEN** landing page renders for unauthenticated user
-- **THEN** navbar SHALL display login button (top-right, ghost style)
-- **THEN** navbar SHALL display signup button (top-right, primary style)
+- **THEN** navbar SHALL display: Logo | Features (✨) | Source Code (🔗) | Sign in button
 - **THEN** navbar SHALL NOT display dashboard navigation links
+- **WHEN** landing page renders for authenticated user
+- **THEN** navbar SHALL display: Logo | Features (✨) | Source Code (🔗) | Go to Dashboard button
 
 #### Scenario: Landing navbar is sticky with backdrop blur
 - **WHEN** user scrolls down landing page
 - **THEN** navbar SHALL remain fixed at top of viewport
-- **THEN** navbar background SHALL transition to solid with backdrop-filter blur
-- **THEN** transition SHALL be smooth (300ms)
+- **THEN** navbar background SHALL transition from transparent to dark solid with backdrop-filter blur (300ms)
+- **THEN** border bottom shall appear on scroll
 
-#### Scenario: Landing navbar logo links to top
+#### Scenario: Landing navbar navigation items
+- **WHEN** user clicks "Features" link
+- **THEN** page SHALL smoothly scroll to features section (id="features")
+- **WHEN** user clicks "Source Code" link
+- **THEN** elegant modal SHALL open showing GitHub information
+- **THEN** modal SHALL NOT open new tab or navigate away
+- **WHEN** user clicks GitHub repository button in modal
+- **THEN** new tab SHALL open to `https://github.com/fjpulidop/deckdex_mtg`
 - **WHEN** user clicks logo/title in landing navbar
-- **THEN** page SHALL scroll smoothly to top of landing page
-- **THEN** no navigation/route change SHALL occur
+- **THEN** page SHALL scroll smoothly to top of landing page (no route change)
