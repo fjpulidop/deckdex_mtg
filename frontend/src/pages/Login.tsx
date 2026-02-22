@@ -8,9 +8,9 @@ const Login: React.FC = () => {
   const [searchParams] = useSearchParams();
 
   useEffect(() => {
-    // Redirect to home if already authenticated
+    // Redirect to dashboard if already authenticated
     if (isAuthenticated && !isLoading) {
-      navigate('/');
+      navigate('/dashboard');
     }
   }, [isAuthenticated, isLoading, navigate]);
 
@@ -37,8 +37,7 @@ const Login: React.FC = () => {
       <div className="bg-white rounded-lg shadow-2xl p-8 max-w-md w-full">
         {/* Logo/Header */}
         <div className="text-center mb-8">
-          <h1 className="text-3xl font-bold text-gray-800">DeckDex MTG</h1>
-          <p className="text-gray-600 mt-2">Your Magic: The Gathering Collection Manager</p>
+          <h1 className="text-3xl font-bold text-gray-800">DeckDex</h1>
         </div>
 
         {/* Error Message */}
