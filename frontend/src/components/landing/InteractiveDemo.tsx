@@ -56,14 +56,14 @@ export const InteractiveDemo = () => {
         <div className="text-center mb-12 md:mb-16">
           <h2 className="text-4xl md:text-5xl font-bold mb-4">
             <span className="bg-gradient-to-r from-purple-300 to-pink-400 bg-clip-text text-transparent">
-              Try DeckDex Right Now
+              Try Collection Library
             </span>
           </h2>
-          <p className="text-slate-400 text-lg mb-2">
-            Explore our interactive demo — no signup required
+          <p className="text-slate-400 text-lg mb-3">
+            Preview our interactive collection management tool — no signup required
           </p>
-          <p className="text-slate-500 text-sm">
-            Built with TypeScript, React, and love for the MTG community 💜
+          <p className="text-slate-500 text-sm px-4 py-2 bg-slate-800/50 rounded-lg inline-block">
+            This is just one of many features. Once you sign in, unlock Deck Builder, AI Insights, Price Tracking, and more! 🚀
           </p>
         </div>
 

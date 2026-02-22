@@ -5,6 +5,7 @@ import { useAuth } from '@/contexts/AuthContext';
 export const LandingNavbar = () => {
   const [isOpen, setIsOpen] = useState(false);
   const [hasScrolled, setHasScrolled] = useState(false);
+  const [showGithubModal, setShowGithubModal] = useState(false);
   const { isAuthenticated } = useAuth();
 
   useEffect(() => {
@@ -61,15 +62,13 @@ export const LandingNavbar = () => {
               <Sparkles className="h-5 w-5" />
               <span>Features</span>
             </button>
-            <a
-              href="https://github.com/fjpulidop/deckdex_mtg"
-              target="_blank"
-              rel="noopener noreferrer"
+            <button
+              onClick={() => setShowGithubModal(true)}
               className="text-slate-100 hover:text-white transition-colors flex items-center gap-2"
             >
               <Github className="h-5 w-5" />
               <span>Source Code</span>
-            </a>
+            </button>
           </div>
 
           {/* Auth Button - Desktop */}
@@ -111,15 +110,16 @@ export const LandingNavbar = () => {
               <Sparkles className="h-5 w-5" />
               <span>Features</span>
             </button>
-            <a
-              href="https://github.com/fjpulidop/deckdex_mtg"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="block px-3 py-2 rounded-md text-slate-100 hover:text-white hover:bg-slate-700 transition-colors flex items-center gap-2"
+            <button
+              onClick={() => {
+                setShowGithubModal(true);
+                setIsOpen(false);
+              }}
+              className="block w-full text-left px-3 py-2 rounded-md text-slate-100 hover:text-white hover:bg-slate-700 transition-colors flex items-center gap-2"
             >
               <Github className="h-5 w-5" />
               <span>Source Code</span>
-            </a>
+            </button>
             <hr className="border-slate-700 my-2" />
             {isAuthenticated ? (
               <a
@@ -129,6 +129,41 @@ export const LandingNavbar = () => {
                 Go to Dashboard
               </a>
             ) : null}
+          </div>
+        </div>
+      )}
+
+      {/* GitHub Modal */}
+      {showGithubModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div
+            className="absolute inset-0 bg-black/50 backdrop-blur-sm"
+            onClick={() => setShowGithubModal(false)}
+          />
+          <div className="relative bg-slate-900 rounded-lg border border-slate-700 p-8 max-w-md w-full shadow-xl">
+            <button
+              onClick={() => setShowGithubModal(false)}
+              className="absolute top-4 right-4 text-slate-400 hover:text-white"
+            >
+              <X className="h-6 w-6" />
+            </button>
+            <div className="flex items-center gap-3 mb-4">
+              <Github className="h-8 w-8 text-white" />
+              <h3 className="text-2xl font-bold text-white">DeckDex MTG</h3>
+            </div>
+            <p className="text-slate-300 mb-6">
+              Check out the source code on GitHub. We welcome contributions, forks, and community improvements!
+            </p>
+            <a
+              href="https://github.com/fjpulidop/deckdex_mtg"
+              target="_blank"
+              rel="noopener noreferrer"
+              onClick={() => setShowGithubModal(false)}
+              className="inline-flex items-center justify-center w-full px-6 py-3 rounded-lg bg-gradient-to-r from-primary-500 to-accent-500 text-white font-semibold hover:shadow-lg hover:shadow-primary-500/50 transition-all duration-300 hover:scale-105"
+            >
+              <Github className="h-5 w-5 mr-2" />
+              Open GitHub Repository
+            </a>
           </div>
         </div>
       )}
