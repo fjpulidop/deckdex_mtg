@@ -43,7 +43,7 @@ export const LandingNavbar = () => {
     >
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex items-center justify-between h-16">
-          {/* Logo */}
+          {/* Logo - Left */}
           <div className="flex-shrink-0">
             <button
               onClick={handleLogoClick}
@@ -53,8 +53,8 @@ export const LandingNavbar = () => {
             </button>
           </div>
 
-          {/* Desktop Navigation */}
-          <div className="hidden md:flex items-center gap-8">
+          {/* Desktop Navigation - Center */}
+          <div className="hidden md:flex items-center gap-8 flex-1 justify-center">
             <button
               onClick={() => handleSmoothScroll('features')}
               className="text-slate-100 hover:text-white transition-colors flex items-center gap-2"
@@ -62,6 +62,10 @@ export const LandingNavbar = () => {
               <Sparkles className="h-5 w-5" />
               <span>Features</span>
             </button>
+          </div>
+
+          {/* Source Code - Right */}
+          <div className="hidden md:flex items-center gap-4">
             <button
               onClick={() => setShowGithubModal(true)}
               className="text-slate-100 hover:text-white transition-colors flex items-center gap-2"
@@ -70,9 +74,6 @@ export const LandingNavbar = () => {
               <span>Source Code</span>
             </button>
           </div>
-
-          {/* Auth Button - Desktop */}
-          {/* Removed Go to Dashboard button - redundant with Hero and Final CTA sections */}
 
           {/* Mobile Menu Button */}
           <div className="md:hidden">
