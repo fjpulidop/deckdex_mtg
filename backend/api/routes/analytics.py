@@ -6,11 +6,11 @@ import re
 from typing import Optional, Any
 from collections import Counter
 from datetime import datetime
-from fastapi import APIRouter, HTTPException, Query
+from fastapi import APIRouter, HTTPException, Query, Depends, Request
 from pydantic import BaseModel
 from loguru import logger
 
-from ..dependencies import get_cached_collection
+from ..dependencies import get_cached_collection, get_current_user_id
 from ..filters import filter_collection, parse_price
 
 router = APIRouter(prefix="/api/analytics", tags=["analytics"])
@@ -52,9 +52,9 @@ def _set_cached(key: tuple, data: Any) -> None:
     _analytics_cache[key] = {"data": data, "timestamp": datetime.now()}
 
 
-def _filtered_collection(search, rarity, type_, set_name, price_min, price_max):
+def _filtered_collection(search, rarity, type_, set_name, price_min, price_max, user_id: Optional[int] = None):
     """Return the filtered collection list."""
-    collection = get_cached_collection()
+    collection = get_cached_collection(user_id=user_id)
     return filter_collection(collection, search, rarity, type_, set_name, price_min, price_max)
 
 
@@ -172,12 +172,14 @@ def _filter_params():
 # ---------------------------------------------------------------------------
 @router.get("/rarity", response_model=list[RarityCount])
 async def analytics_rarity(
+    request: Request,
     search: Optional[str] = Query(default=None),
     rarity: Optional[str] = Query(default=None),
     type_filter: Optional[str] = Query(default=None, alias="type"),
     set_name: Optional[str] = Query(default=None),
     price_min: Optional[str] = Query(default=None),
     price_max: Optional[str] = Query(default=None),
+    user_id: int = Depends(get_current_user_id)
 ):
     """Count of cards per rarity for the filtered collection."""
     key = _cache_key("rarity", search, rarity, type_filter, set_name, price_min, price_max)
@@ -186,7 +188,7 @@ async def analytics_rarity(
         return cached
 
     try:
-        cards = _filtered_collection(search, rarity, type_filter, set_name, price_min, price_max)
+        cards = _filtered_collection(search, rarity, type_filter, set_name, price_min, price_max, user_id=user_id)
         counter: Counter = Counter()
         for c in cards:
             r = (c.get("rarity") or "Unknown").strip()
@@ -209,12 +211,14 @@ async def analytics_rarity(
 # ---------------------------------------------------------------------------
 @router.get("/color-identity", response_model=list[ColorIdentityCount])
 async def analytics_color_identity(
+    request: Request,
     search: Optional[str] = Query(default=None),
     rarity: Optional[str] = Query(default=None),
     type_filter: Optional[str] = Query(default=None, alias="type"),
     set_name: Optional[str] = Query(default=None),
     price_min: Optional[str] = Query(default=None),
     price_max: Optional[str] = Query(default=None),
+    user_id: int = Depends(get_current_user_id)
 ):
     """Count of cards per color identity for the filtered collection."""
     key = _cache_key("color-identity", search, rarity, type_filter, set_name, price_min, price_max)
@@ -223,7 +227,7 @@ async def analytics_color_identity(
         return cached
 
     try:
-        cards = _filtered_collection(search, rarity, type_filter, set_name, price_min, price_max)
+        cards = _filtered_collection(search, rarity, type_filter, set_name, price_min, price_max, user_id=user_id)
         counter: Counter = Counter()
         for c in cards:
             identity = _normalize_color_identity(c.get("color_identity") or c.get("identity") or "")
@@ -245,12 +249,14 @@ async def analytics_color_identity(
 # ---------------------------------------------------------------------------
 @router.get("/cmc", response_model=list[CmcCount])
 async def analytics_cmc(
+    request: Request,
     search: Optional[str] = Query(default=None),
     rarity: Optional[str] = Query(default=None),
     type_filter: Optional[str] = Query(default=None, alias="type"),
     set_name: Optional[str] = Query(default=None),
     price_min: Optional[str] = Query(default=None),
     price_max: Optional[str] = Query(default=None),
+    user_id: int = Depends(get_current_user_id)
 ):
     """Count of cards per CMC bucket for the filtered collection. 7+ grouped."""
     key = _cache_key("cmc", search, rarity, type_filter, set_name, price_min, price_max)
@@ -259,7 +265,7 @@ async def analytics_cmc(
         return cached
 
     try:
-        cards = _filtered_collection(search, rarity, type_filter, set_name, price_min, price_max)
+        cards = _filtered_collection(search, rarity, type_filter, set_name, price_min, price_max, user_id=user_id)
         counter: Counter = Counter()
         for c in cards:
             raw_cmc = c.get("cmc")
@@ -301,6 +307,7 @@ async def analytics_cmc(
 # ---------------------------------------------------------------------------
 @router.get("/sets", response_model=list[SetCount])
 async def analytics_sets(
+    request: Request,
     search: Optional[str] = Query(default=None),
     rarity: Optional[str] = Query(default=None),
     type_filter: Optional[str] = Query(default=None, alias="type"),
@@ -308,6 +315,7 @@ async def analytics_sets(
     price_min: Optional[str] = Query(default=None),
     price_max: Optional[str] = Query(default=None),
     limit: int = Query(default=10, ge=1, le=50),
+    user_id: int = Depends(get_current_user_id)
 ):
     """Top N sets by card count for the filtered collection."""
     key = _cache_key("sets", search, rarity, type_filter, set_name, price_min, price_max, extra=str(limit))
@@ -316,7 +324,7 @@ async def analytics_sets(
         return cached
 
     try:
-        cards = _filtered_collection(search, rarity, type_filter, set_name, price_min, price_max)
+        cards = _filtered_collection(search, rarity, type_filter, set_name, price_min, price_max, user_id=user_id)
         counter: Counter = Counter()
         for c in cards:
             s = (c.get("set_name") or "Unknown").strip()

@@ -6,9 +6,9 @@ import io
 import json
 from typing import List, Optional
 
-from fastapi import APIRouter, HTTPException, UploadFile, File
+from fastapi import APIRouter, HTTPException, UploadFile, File, Depends
 
-from ..dependencies import get_collection_repo, clear_collection_cache
+from ..dependencies import get_collection_repo, clear_collection_cache, get_current_user_id
 
 router_import = APIRouter(prefix="/api/import", tags=["import"])
 
@@ -16,6 +16,7 @@ router_import = APIRouter(prefix="/api/import", tags=["import"])
 @router_import.post("/file")
 async def import_from_file(
     file: Optional[UploadFile] = File(None),
+    user_id: int = Depends(get_current_user_id)
 ):
     """
     Accept CSV or JSON file upload; parse and replace collection in Postgres.
@@ -84,6 +85,6 @@ async def import_from_file(
 
     if not cards:
         raise HTTPException(status_code=400, detail="No valid cards in file.")
-    count = repo.replace_all(cards)
+    count = repo.replace_all(cards, user_id=user_id)
     clear_collection_cache()
     return {"imported": count}

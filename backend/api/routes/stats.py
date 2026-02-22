@@ -4,11 +4,11 @@ Endpoints for collection statistics and aggregations
 """
 from typing import Optional, Any
 from datetime import datetime
-from fastapi import APIRouter, HTTPException, Query
+from fastapi import APIRouter, HTTPException, Query, Depends, Request
 from pydantic import BaseModel
 from loguru import logger
 
-from ..dependencies import get_cached_collection
+from ..dependencies import get_cached_collection, get_current_user_id
 from ..filters import filter_collection, parse_price
 
 router = APIRouter(prefix="/api/stats", tags=["stats"])
@@ -80,12 +80,14 @@ def calculate_stats(collection: list) -> dict:
 
 @router.get("/", response_model=Stats)
 async def get_stats(
+    request: Request,
     search: Optional[str] = Query(default=None),
     rarity: Optional[str] = Query(default=None),
     type_filter: Optional[str] = Query(default=None, alias="type"),
     set_name: Optional[str] = Query(default=None),
     price_min: Optional[str] = Query(default=None),
     price_max: Optional[str] = Query(default=None),
+    user_id: int = Depends(get_current_user_id)
 ):
     """
     Get collection statistics, optionally filtered by query params.
@@ -94,7 +96,7 @@ async def get_stats(
     Returns statistics with 30-second cache per filter combination.
     """
     key = _cache_key(search, rarity, type_filter, set_name, price_min, price_max)
-    logger.info("GET /api/stats %s", key)
+    logger.info("GET /api/stats %s - user=%s", key, user_id)
 
     try:
         now = datetime.now()
@@ -105,7 +107,7 @@ async def get_stats(
                 logger.debug("Returning cached stats (key=%s, age=%.1fs)", key, age)
                 return entry["data"]
 
-        collection = get_cached_collection()
+        collection = get_cached_collection(user_id=user_id)
         filtered = filter_collection(
             collection, search, rarity, type_filter, set_name, price_min, price_max
         )

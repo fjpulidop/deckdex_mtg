@@ -1,12 +1,16 @@
 import { useRef, useEffect, useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { Menu, X } from 'lucide-react';
+import { Menu, X, LogOut, User } from 'lucide-react';
 import { ThemeToggle } from './ThemeToggle';
+import { useAuth } from '../contexts/AuthContext';
 
 export function Navbar() {
   const location = useLocation();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [userMenuOpen, setUserMenuOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
+  const userMenuRef = useRef<HTMLDivElement>(null);
+  const { user, logout } = useAuth();
 
   const isActive = (path: string) => location.pathname === path;
 
@@ -16,27 +20,31 @@ export function Navbar() {
       if (menuRef.current && !menuRef.current.contains(event.target as Node)) {
         setMobileMenuOpen(false);
       }
+      if (userMenuRef.current && !userMenuRef.current.contains(event.target as Node)) {
+        setUserMenuOpen(false);
+      }
     }
 
-    if (mobileMenuOpen) {
+    if (mobileMenuOpen || userMenuOpen) {
       document.addEventListener('mousedown', handleClickOutside);
       return () => document.removeEventListener('mousedown', handleClickOutside);
     }
-  }, [mobileMenuOpen]);
+  }, [mobileMenuOpen, userMenuOpen]);
 
   // Close mobile menu on ESC key
   useEffect(() => {
     function handleEscKey(event: KeyboardEvent) {
       if (event.key === 'Escape') {
         setMobileMenuOpen(false);
+        setUserMenuOpen(false);
       }
     }
 
-    if (mobileMenuOpen) {
+    if (mobileMenuOpen || userMenuOpen) {
       document.addEventListener('keydown', handleEscKey);
       return () => document.removeEventListener('keydown', handleEscKey);
     }
-  }, [mobileMenuOpen]);
+  }, [mobileMenuOpen, userMenuOpen]);
 
   const navLinks = [
     { path: '/', label: 'Dashboard' },
@@ -92,9 +100,44 @@ export function Navbar() {
               ))}
             </div>
 
-            {/* Right side: Theme toggle and mobile menu button */}
+            {/* Right side: Theme toggle, user menu and mobile menu button */}
             <div className="flex items-center gap-4">
               <ThemeToggle />
+              
+              {/* User Menu (Desktop) */}
+              {user && (
+                <div className="hidden md:flex items-center gap-3">
+                  <div className="text-right">
+                    <p className="text-sm font-medium text-gray-900 dark:text-white">
+                      {user.display_name || user.email}
+                    </p>
+                  </div>
+                  <div className="relative" ref={userMenuRef}>
+                    <button
+                      onClick={() => setUserMenuOpen(!userMenuOpen)}
+                      className="flex items-center justify-center w-10 h-10 rounded-full overflow-hidden bg-indigo-100 dark:bg-indigo-900 border border-indigo-300 dark:border-indigo-700 hover:border-indigo-500 dark:hover:border-indigo-400 transition-colors"
+                      aria-label="User menu"
+                    >
+                      {user.picture ? (
+                        <img src={user.picture} alt={user.display_name || 'User'} className="w-full h-full object-cover" />
+                      ) : (
+                        <User className="w-5 h-5 text-indigo-600 dark:text-indigo-400" />
+                      )}
+                    </button>
+                    {userMenuOpen && (
+                      <div className="absolute right-0 mt-2 w-48 bg-white dark:bg-gray-700 rounded-lg shadow-lg border border-gray-200 dark:border-gray-600 py-1 z-50">
+                        <button
+                          onClick={logout}
+                          className="w-full text-left px-4 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-600 flex items-center gap-2"
+                        >
+                          <LogOut className="w-4 h-4" />
+                          Logout
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
               
               {/* Mobile Menu Button */}
               <button
@@ -120,6 +163,32 @@ export function Navbar() {
                     <LinkItem path={link.path} label={link.label} badge={link.badge} />
                   </div>
                 ))}
+                {user && (
+                  <div className="py-2 border-t border-gray-200 dark:border-gray-700 mt-2 pt-2">
+                    <div className="flex items-center gap-2 px-1 mb-2">
+                      {user.picture ? (
+                        <img src={user.picture} alt={user.display_name || 'User'} className="w-8 h-8 rounded-full" />
+                      ) : (
+                        <div className="w-8 h-8 rounded-full bg-indigo-100 dark:bg-indigo-900 flex items-center justify-center">
+                          <User className="w-4 h-4 text-indigo-600 dark:text-indigo-400" />
+                        </div>
+                      )}
+                      <span className="text-sm font-medium text-gray-700 dark:text-gray-200">
+                        {user.display_name || user.email}
+                      </span>
+                    </div>
+                    <button
+                      onClick={() => {
+                        logout();
+                        setMobileMenuOpen(false);
+                      }}
+                      className="w-full text-left px-1 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-600 rounded flex items-center gap-2"
+                    >
+                      <LogOut className="w-4 h-4" />
+                      Logout
+                    </button>
+                  </div>
+                )}
               </div>
             </div>
           )}

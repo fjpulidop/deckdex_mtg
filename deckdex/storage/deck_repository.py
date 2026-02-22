@@ -39,34 +39,51 @@ class DeckRepository:
             self._eng = create_engine(self._url, pool_pre_ping=True)
         return self._eng
 
-    def create(self, name: str) -> Dict[str, Any]:
+    def create(self, name: str, user_id: Optional[int] = None) -> Dict[str, Any]:
         from sqlalchemy import text
         engine = self._get_engine()
         with engine.connect() as conn:
-            r = conn.execute(
-                text("""
-                    INSERT INTO decks (name)
-                    VALUES (:name)
-                    RETURNING id, name, created_at, updated_at
-                """),
-                {"name": name or "Unnamed Deck"}
-            )
+            if user_id is not None:
+                r = conn.execute(
+                    text("""
+                        INSERT INTO decks (name, user_id)
+                        VALUES (:name, :user_id)
+                        RETURNING id, name, created_at, updated_at
+                    """),
+                    {"name": name or "Unnamed Deck", "user_id": user_id}
+                )
+            else:
+                r = conn.execute(
+                    text("""
+                        INSERT INTO decks (name)
+                        VALUES (:name)
+                        RETURNING id, name, created_at, updated_at
+                    """),
+                    {"name": name or "Unnamed Deck"}
+                )
             row = r.mappings().fetchone()
             conn.commit()
         return _row_to_deck(dict(row))
 
-    def list_all(self) -> List[Dict[str, Any]]:
+    def list_all(self, user_id: Optional[int] = None) -> List[Dict[str, Any]]:
         from sqlalchemy import text
         engine = self._get_engine()
         with engine.connect() as conn:
+            where_clause = ""
+            params = {}
+            if user_id is not None:
+                where_clause = "WHERE d.user_id = :user_id"
+                params["user_id"] = user_id
             rows = conn.execute(
-                text("""
+                text(f"""
                     SELECT d.id, d.name, d.created_at, d.updated_at,
                            (SELECT COUNT(*) FROM deck_cards WHERE deck_id = d.id) AS card_count,
                            (SELECT card_id FROM deck_cards WHERE deck_id = d.id AND is_commander = true LIMIT 1) AS commander_card_id
                     FROM decks d
+                    {where_clause}
                     ORDER BY d.updated_at DESC NULLS LAST, d.id DESC
-                """)
+                """),
+                params
             ).mappings().fetchall()
         out = [_row_to_deck(dict(r)) for r in rows]
         for i, r in enumerate(rows):
@@ -74,23 +91,33 @@ class DeckRepository:
             out[i]["commander_card_id"] = r["commander_card_id"]
         return out
 
-    def get_by_id(self, deck_id: int) -> Optional[Dict[str, Any]]:
+    def get_by_id(self, deck_id: int, user_id: Optional[int] = None) -> Optional[Dict[str, Any]]:
         from sqlalchemy import text
         engine = self._get_engine()
         with engine.connect() as conn:
+            where_clause = "id = :id"
+            params = {"id": deck_id}
+            if user_id is not None:
+                where_clause += " AND user_id = :user_id"
+                params["user_id"] = user_id
             row = conn.execute(
-                text("SELECT id, name, created_at, updated_at FROM decks WHERE id = :id"),
-                {"id": deck_id}
+                text(f"SELECT id, name, created_at, updated_at FROM decks WHERE {where_clause}"),
+                params
             ).mappings().fetchone()
         return _row_to_deck(dict(row)) if row else None
 
-    def get_deck_with_cards(self, deck_id: int) -> Optional[Dict[str, Any]]:
+    def get_deck_with_cards(self, deck_id: int, user_id: Optional[int] = None) -> Optional[Dict[str, Any]]:
         from sqlalchemy import text
         engine = self._get_engine()
         with engine.connect() as conn:
+            where_clause = "id = :id"
+            params = {"id": deck_id}
+            if user_id is not None:
+                where_clause += " AND user_id = :user_id"
+                params["user_id"] = user_id
             deck_row = conn.execute(
-                text("SELECT id, name, created_at, updated_at FROM decks WHERE id = :id"),
-                {"id": deck_id}
+                text(f"SELECT id, name, created_at, updated_at FROM decks WHERE {where_clause}"),
+                params
             ).mappings().fetchone()
             if not deck_row:
                 return None
@@ -120,37 +147,55 @@ class DeckRepository:
             deck["cards"] = cards
             return deck
 
-    def update_name(self, deck_id: int, name: str) -> Optional[Dict[str, Any]]:
+    def update_name(self, deck_id: int, name: str, user_id: Optional[int] = None) -> Optional[Dict[str, Any]]:
         from sqlalchemy import text
         engine = self._get_engine()
         with engine.connect() as conn:
+            where_clause = "id = :id"
+            params = {"id": deck_id, "name": name}
+            if user_id is not None:
+                where_clause += " AND user_id = :user_id"
+                params["user_id"] = user_id
             result = conn.execute(
-                text("""
+                text(f"""
                     UPDATE decks SET name = :name, updated_at = NOW() AT TIME ZONE 'utc'
-                    WHERE id = :id RETURNING id, name, created_at, updated_at
+                    WHERE {where_clause} RETURNING id, name, created_at, updated_at
                 """),
-                {"id": deck_id, "name": name}
+                params
             )
             row = result.mappings().fetchone()
             conn.commit()
         return _row_to_deck(dict(row)) if row else None
 
-    def delete(self, deck_id: int) -> bool:
+    def delete(self, deck_id: int, user_id: Optional[int] = None) -> bool:
         from sqlalchemy import text
         engine = self._get_engine()
         with engine.connect() as conn:
-            result = conn.execute(text("DELETE FROM decks WHERE id = :id"), {"id": deck_id})
+            where_clause = "id = :id"
+            params = {"id": deck_id}
+            if user_id is not None:
+                where_clause += " AND user_id = :user_id"
+                params["user_id"] = user_id
+            result = conn.execute(
+                text(f"DELETE FROM decks WHERE {where_clause}"),
+                params
+            )
             conn.commit()
             return result.rowcount > 0
 
-    def add_card(self, deck_id: int, card_id: int, quantity: int = 1, is_commander: bool = False) -> bool:
+    def add_card(self, deck_id: int, card_id: int, quantity: int = 1, is_commander: bool = False, user_id: Optional[int] = None) -> bool:
         from sqlalchemy import text
         engine = self._get_engine()
         with engine.connect() as conn:
-            # Check card exists in collection
+            # Check card exists in collection and belongs to user if user_id provided
+            card_where = "id = :card_id"
+            card_params = {"card_id": card_id}
+            if user_id is not None:
+                card_where += " AND user_id = :user_id"
+                card_params["user_id"] = user_id
             card_exists = conn.execute(
-                text("SELECT 1 FROM cards WHERE id = :card_id"),
-                {"card_id": card_id}
+                text(f"SELECT 1 FROM cards WHERE {card_where}"),
+                card_params
             ).fetchone()
             if not card_exists:
                 return False
@@ -167,10 +212,18 @@ class DeckRepository:
             conn.commit()
         return True
 
-    def remove_card(self, deck_id: int, card_id: int) -> bool:
+    def remove_card(self, deck_id: int, card_id: int, user_id: Optional[int] = None) -> bool:
         from sqlalchemy import text
         engine = self._get_engine()
         with engine.connect() as conn:
+            # Verify deck ownership if user_id provided
+            if user_id is not None:
+                deck_check = conn.execute(
+                    text("SELECT 1 FROM decks WHERE id = :deck_id AND user_id = :user_id"),
+                    {"deck_id": deck_id, "user_id": user_id}
+                ).fetchone()
+                if not deck_check:
+                    return False
             result = conn.execute(
                 text("DELETE FROM deck_cards WHERE deck_id = :deck_id AND card_id = :card_id"),
                 {"deck_id": deck_id, "card_id": card_id}
@@ -178,11 +231,19 @@ class DeckRepository:
             conn.commit()
             return result.rowcount > 0
 
-    def set_commander(self, deck_id: int, card_id: int) -> bool:
+    def set_commander(self, deck_id: int, card_id: int, user_id: Optional[int] = None) -> bool:
         """Set one card as commander; unset any other commander in this deck. Card must be in deck."""
         from sqlalchemy import text
         engine = self._get_engine()
         with engine.connect() as conn:
+            # Verify deck ownership if user_id provided
+            if user_id is not None:
+                deck_check = conn.execute(
+                    text("SELECT 1 FROM decks WHERE id = :deck_id AND user_id = :user_id"),
+                    {"deck_id": deck_id, "user_id": user_id}
+                ).fetchone()
+                if not deck_check:
+                    return False
             # Ensure card is in deck
             in_deck = conn.execute(
                 text("SELECT 1 FROM deck_cards WHERE deck_id = :deck_id AND card_id = :card_id"),
