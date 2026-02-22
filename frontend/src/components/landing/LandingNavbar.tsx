@@ -72,16 +72,7 @@ export const LandingNavbar = () => {
           </div>
 
           {/* Auth Button - Desktop */}
-          <div className="hidden md:flex items-center gap-4">
-            {isAuthenticated ? (
-              <a
-                href="/dashboard"
-                className="px-4 py-2 rounded-lg bg-gradient-to-r from-primary-500 to-accent-500 text-white font-medium hover:shadow-lg hover:shadow-primary-500/50 transition-shadow"
-              >
-                Go to Dashboard
-              </a>
-            ) : null}
-          </div>
+          {/* Removed Go to Dashboard button - redundant with Hero and Final CTA sections */}
 
           {/* Mobile Menu Button */}
           <div className="md:hidden">
@@ -120,15 +111,6 @@ export const LandingNavbar = () => {
               <Github className="h-5 w-5" />
               <span>Source Code</span>
             </button>
-            <hr className="border-slate-700 my-2" />
-            {isAuthenticated ? (
-              <a
-                href="/dashboard"
-                className="block px-3 py-2 rounded-md bg-gradient-to-r from-primary-500 to-accent-500 text-white font-medium"
-              >
-                Go to Dashboard
-              </a>
-            ) : null}
           </div>
         </div>
       )}
