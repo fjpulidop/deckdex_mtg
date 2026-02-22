@@ -49,7 +49,7 @@ export const BentoCard = ({
         {/* Icon and Badge */}
         <div className="flex items-start justify-between mb-4">
           {icon && (
-            <div className="w-12 h-12 rounded-lg bg-gradient-to-br from-primary-500/20 to-accent-500/20 flex items-center justify-center text-primary-400">
+            <div className="w-12 h-12 rounded-lg bg-gradient-to-br from-primary-500/20 to-accent-500/20 flex items-center justify-center text-white">
               {icon}
             </div>
           )}
