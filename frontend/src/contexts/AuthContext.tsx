@@ -65,8 +65,8 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         credentials: 'include',
       });
       setUser(null);
-      // Redirect to login
-      window.location.href = '/login';
+      // Redirect to landing page
+      window.location.href = '/';
     } catch (error) {
       console.error('Error during logout:', error);
     }
