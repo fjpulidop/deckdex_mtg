@@ -17,6 +17,12 @@ export const Hero = ({ onDemoClick }: { onDemoClick: () => void }) => {
             transition={{ duration: 0.8, ease: 'easeOut' }}
             className="space-y-6"
           >
+            {/* Badge */}
+            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-accent-500/20 border border-accent-500/50 text-accent-300 text-sm font-semibold mb-4">
+              <span>✨</span>
+              <span>Open Source MTG Collection Tool</span>
+            </div>
+
             {/* Main Headline */}
             <h1 className="text-5xl md:text-6xl font-bold leading-tight">
               <span className="bg-gradient-to-r from-purple-300 via-purple-400 to-pink-500 bg-clip-text text-transparent">
@@ -26,7 +32,7 @@ export const Hero = ({ onDemoClick }: { onDemoClick: () => void }) => {
 
             {/* Subheadline */}
             <p className="text-xl text-slate-300 leading-relaxed max-w-xl">
-              Track prices in real-time, build competitive decks with AI insights, and manage your collection with ease. All in one powerful platform.
+              Track prices in real-time, build competitive decks with AI insights, and manage your collection with ease. Community-driven, always evolving.
             </p>
 
             {/* CTA Buttons */}

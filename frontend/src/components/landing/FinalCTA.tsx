@@ -22,7 +22,11 @@ export const FinalCTA = () => {
           </h2>
 
           <p className="text-lg text-slate-300 max-w-2xl mx-auto">
-            Join thousands of Magic players using DeckDex to organize, analyze, and optimize their collections. Start free today.
+            Join the community of Magic players using DeckDex to organize, analyze, and optimize their collections. Free, open source, and community-driven.
+          </p>
+
+          <p className="text-slate-400 text-sm max-w-2xl mx-auto">
+            Have ideas for improvements? <a href="https://github.com/yourusername/deckdex-mtg" target="_blank" rel="noopener noreferrer" className="text-accent-400 hover:text-accent-300 transition-colors font-semibold">Contribute on GitHub</a> and help shape the future of DeckDex!
           </p>
 
           <div className="pt-4">

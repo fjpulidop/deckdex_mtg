@@ -35,8 +35,11 @@ export const BentoGrid = () => {
               Powerful Features
             </span>
           </h2>
-          <p className="text-slate-400 text-lg max-w-2xl mx-auto">
+          <p className="text-slate-400 text-lg max-w-2xl mx-auto mb-6">
             Everything you need to manage, analyze, and optimize your Magic: The Gathering collection.
+          </p>
+          <p className="text-slate-500 text-sm max-w-2xl mx-auto">
+            🤝 Missing a feature? <a href="https://github.com/yourusername/deckdex-mtg/fork" target="_blank" rel="noopener noreferrer" className="text-accent-400 hover:text-accent-300 transition-colors">Fork us</a> or submit a <a href="https://github.com/yourusername/deckdex-mtg/pulls" target="_blank" rel="noopener noreferrer" className="text-accent-400 hover:text-accent-300 transition-colors">Pull Request</a> to help us improve!
           </p>
         </div>
 

@@ -59,8 +59,11 @@ export const InteractiveDemo = () => {
               Try DeckDex Right Now
             </span>
           </h2>
-          <p className="text-slate-400 text-lg">
+          <p className="text-slate-400 text-lg mb-2">
             Explore our interactive demo — no signup required
+          </p>
+          <p className="text-slate-500 text-sm">
+            Built with TypeScript, React, and love for the MTG community 💜
           </p>
         </div>
 

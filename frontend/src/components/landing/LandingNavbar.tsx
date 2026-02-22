@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Menu, X } from 'lucide-react';
+import { Menu, X, Github } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 
 export const LandingNavbar = () => {
@@ -60,12 +60,15 @@ export const LandingNavbar = () => {
             >
               Features
             </button>
-            <button
-              onClick={() => handleSmoothScroll('demo')}
-              className="text-slate-100 hover:text-white transition-colors"
+            <a
+              href="https://github.com/yourusername/deckdex-mtg"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-slate-100 hover:text-white transition-colors flex items-center gap-2"
             >
-              Try Demo
-            </button>
+              <Github className="h-5 w-5" />
+              <span>Source Code</span>
+            </a>
           </div>
 
           {/* Auth Button - Desktop */}
@@ -123,12 +126,15 @@ export const LandingNavbar = () => {
             >
               Features
             </button>
-            <button
-              onClick={() => handleSmoothScroll('demo')}
-              className="block w-full text-left px-3 py-2 rounded-md text-slate-100 hover:text-white hover:bg-slate-700 transition-colors"
+            <a
+              href="https://github.com/yourusername/deckdex-mtg"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="block px-3 py-2 rounded-md text-slate-100 hover:text-white hover:bg-slate-700 transition-colors flex items-center gap-2"
             >
-              Try Demo
-            </button>
+              <Github className="h-5 w-5" />
+              <span>Source Code</span>
+            </a>
             <hr className="border-slate-700 my-2" />
             {isAuthenticated ? (
               <a
