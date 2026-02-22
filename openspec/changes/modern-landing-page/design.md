@@ -88,12 +88,11 @@ frontend/src/
 - Simpler logic than complex conditional props in single component
 - Landing navbar is sticky with backdrop blur on scroll; dashboard navbar is always visible
 
-**Landing Navbar Structure:**
-- Logo (clickable, smooth scroll to top)
-- Features link (with Sparkles icon, smooth scroll to features section)
-- Source Code link (with GitHub icon, opens modal showing GitHub repo)
-- Sign in button (only visible when unauthenticated, uses Google OAuth)
-- Go to Dashboard button (only visible when authenticated)
+**Landing Navbar Structure (following UX best practices):**
+- Logo (left): DeckDex branding, clickable to smooth scroll to top
+- Features link (center): With Sparkles icon, smooth scroll to features section
+- Source Code link (right): With GitHub icon, opens modal showing GitHub repo
+- Mobile: Hamburger menu with Features and Source Code links
 
 **GitHub Modal Design:**
 - Elegant dark themed modal with backdrop blur
@@ -352,6 +351,19 @@ theme: {
 - **Rationale**: Not essential for conversion, reduces complexity, can be added in future phase
 
 **Q: How many CTA buttons per section?**
-- **Decision**: Maximum one primary CTA per section
+- **Decision**: Maximum one primary CTA per section (with secondary actions where needed)
 - **Rationale**: Reduces decision fatigue, clearer user intent, improved conversion
-- **Layout**: Hero (Sign in + Try Demo), Demo (no CTA), Final CTA (Sign in Free)
+- **Layout**: 
+  - Hero: "Sign in" (primary, changes to "Go to Dashboard" when authenticated) + "Try Demo" (secondary)
+  - Demo: No CTA (users explore freely)
+  - Final CTA: "Sign in Free" (primary, changes to "Go to Dashboard" when authenticated)
+
+**Q: What happens after successful OAuth login?**
+- **Decision**: Redirect directly to `/dashboard`
+- **Implementation**: Backend OAuth callback (line 244 in backend/api/routes/auth.py) redirects to `/dashboard`
+- **Benefit**: Seamless post-login experience, no extra steps
+
+**Q: Navbar layout and positioning?**
+- **Decision**: Logo (left) | Features (center) | Source Code (right)
+- **Rationale**: Follows standard UX patterns (Stripe, GitHub conventions), better visual hierarchy, clear separation
+- **Mobile**: Hamburger menu with both navigation links

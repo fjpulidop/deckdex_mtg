@@ -8,7 +8,7 @@ DeckDex MTG currently sends unauthenticated users directly to a login page with 
 - Hero section with gradient text, open source badge, dual CTAs ("Sign in" primary + "Try Demo" secondary), and large dashboard preview placeholder
 - Bento Grid layout showcasing 5 key features with visual previews (Collection Management, Deck Builder, AI Insights, Real-time Updates, Price Tracking)
 - Interactive Collection Library demo component allowing users to search and filter sample MTG cards without signup
-- Landing navbar with: Logo | Features | Source Code (opens GitHub in modal) | Sign in (only for unauthenticated users)
+- Landing navbar with: Logo (left) | Features (center) | Source Code (right, opens GitHub in modal)
 - Final CTA section with conversion messaging
 - GitHub modal for accessing source code without leaving the landing page
 - Move current authenticated dashboard from `/` to `/dashboard` route

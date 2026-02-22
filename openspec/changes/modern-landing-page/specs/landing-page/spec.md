@@ -181,6 +181,15 @@ The landing page SHALL use a specialized navbar variant optimized for conversion
 - **THEN** navbar background SHALL transition from transparent to dark solid with backdrop-filter blur (300ms)
 - **THEN** border bottom shall appear on scroll
 
+#### Scenario: Landing navbar structure and positioning
+- **WHEN** landing page renders
+- **THEN** navbar SHALL display in three sections:
+  - Left: DeckDex logo
+  - Center: Features link with Sparkles icon
+  - Right: Source Code link with GitHub icon
+- **THEN** navbar SHALL be sticky and remain at top when scrolling
+- **THEN** on scroll, background SHALL transition to dark with backdrop blur
+
 #### Scenario: Landing navbar navigation items
 - **WHEN** user clicks "Features" link
 - **THEN** page SHALL smoothly scroll to features section (id="features")
@@ -191,3 +200,25 @@ The landing page SHALL use a specialized navbar variant optimized for conversion
 - **THEN** new tab SHALL open to `https://github.com/fjpulidop/deckdex_mtg`
 - **WHEN** user clicks logo/title in landing navbar
 - **THEN** page SHALL scroll smoothly to top of landing page (no route change)
+
+#### Scenario: Dynamic CTA buttons based on auth state
+- **WHEN** unauthenticated user visits landing page
+- **THEN** Hero "Sign in" button SHALL show with Google icon
+- **THEN** Final CTA "Sign in Free" button SHALL show with Google icon
+- **WHEN** authenticated user visits landing page
+- **THEN** Hero button SHALL change to "Go to Dashboard"
+- **THEN** Final CTA button SHALL change to "Go to Dashboard"
+
+#### Scenario: Post-login redirect
+- **WHEN** user clicks "Sign in" button
+- **THEN** application SHALL redirect to Google OAuth (`http://localhost:8000/api/auth/google`)
+- **WHEN** user completes OAuth authentication
+- **THEN** backend SHALL set JWT cookie
+- **THEN** backend SHALL redirect to `http://localhost:5173/dashboard` (NOT landing page)
+- **THEN** user SHALL see dashboard immediately
+
+#### Scenario: Logout flow
+- **WHEN** authenticated user logs out from dashboard
+- **THEN** application SHALL clear JWT cookie
+- **THEN** application SHALL redirect to `/` (landing page)
+- **THEN** user SHALL see landing page with unauthenticated state
