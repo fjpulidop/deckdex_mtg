@@ -4,7 +4,6 @@ import { Hero } from '@/components/landing/Hero';
 import { BentoGrid } from '@/components/landing/BentoGrid';
 import { InteractiveDemo } from '@/components/landing/InteractiveDemo';
 import { FinalCTA } from '@/components/landing/FinalCTA';
-import { Footer } from '@/components/landing/Footer';
 
 export const Landing = () => {
   const demoRef = useRef<HTMLDivElement>(null);
@@ -22,7 +21,6 @@ export const Landing = () => {
         <InteractiveDemo />
       </div>
       <FinalCTA />
-      <Footer />
     </div>
   );
 };
