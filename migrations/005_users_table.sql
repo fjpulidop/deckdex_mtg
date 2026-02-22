@@ -1,7 +1,3 @@
--- DeckDex MTG: users table (PostgreSQL)
--- Run with: psql $DATABASE_URL -f migrations/005_users_table.sql
--- Stores user identity from Google OAuth; google_id is the stable identifier.
-
 CREATE TABLE IF NOT EXISTS users (
     id BIGSERIAL PRIMARY KEY,
     google_id TEXT NOT NULL UNIQUE,

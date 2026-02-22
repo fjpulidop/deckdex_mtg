@@ -1,7 +1,3 @@
--- DeckDex MTG: add user_id to cards and decks (PostgreSQL)
--- Run with: psql $DATABASE_URL -f migrations/006_add_user_id.sql
--- Three-phase migration: add nullable, seed user, backfill, set NOT NULL, add indexes
-
 -- Phase 1: Add nullable user_id columns with FK to users table
 ALTER TABLE cards ADD COLUMN IF NOT EXISTS user_id BIGINT REFERENCES users(id);
 ALTER TABLE decks ADD COLUMN IF NOT EXISTS user_id BIGINT REFERENCES users(id);
