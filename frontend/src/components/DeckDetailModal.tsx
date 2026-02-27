@@ -4,6 +4,7 @@ import { BarChart, Bar, XAxis, YAxis, ResponsiveContainer, Cell } from 'recharts
 import { api, DeckCard } from '../api/client';
 import { DeckCardPickerModal } from './DeckCardPickerModal';
 import { CardDetailModal } from './CardDetailModal';
+import { ConfirmModal } from './ConfirmModal';
 import { ManaText } from './ManaText';
 
 function parsePrice(price: string | undefined): number {
@@ -73,6 +74,7 @@ interface DeckDetailModalProps {
 export function DeckDetailModal({ deckId, onClose, onDeleted }: DeckDetailModalProps) {
   const queryClient = useQueryClient();
   const [pickerOpen, setPickerOpen] = useState(false);
+  const [deleteDeckConfirmOpen, setDeleteDeckConfirmOpen] = useState(false);
   const [hoverCardId, setHoverCardId] = useState<number | null>(null);
   const [detailCard, setDetailCard] = useState<DeckCard | null>(null);
   const [nameEdit, setNameEdit] = useState<string | null>(null);
@@ -130,8 +132,12 @@ export function DeckDetailModal({ deckId, onClose, onDeleted }: DeckDetailModalP
     ? (previewCard.price != null && previewCard.price !== 'N/A' ? `€${previewCard.price}` : 'N/A')
     : null;
 
-  const handleDelete = useCallback(async () => {
-    if (!confirm('Delete this deck? This cannot be undone.')) return;
+  const handleDelete = useCallback(() => {
+    setDeleteDeckConfirmOpen(true);
+  }, []);
+
+  const handleDeleteDeckConfirmed = useCallback(async () => {
+    setDeleteDeckConfirmOpen(false);
     try {
       await api.deleteDeck(deckId);
       onDeleted();
@@ -468,6 +474,16 @@ export function DeckDetailModal({ deckId, onClose, onDeleted }: DeckDetailModalP
           onCardDeleted={handleCardDetailClose}
         />
       )}
+
+      <ConfirmModal
+        isOpen={deleteDeckConfirmOpen}
+        title="Delete deck"
+        message="Delete this deck? This cannot be undone."
+        confirmLabel="Delete"
+        destructive
+        onConfirm={handleDeleteDeckConfirmed}
+        onCancel={() => setDeleteDeckConfirmOpen(false)}
+      />
     </>
   );
 }

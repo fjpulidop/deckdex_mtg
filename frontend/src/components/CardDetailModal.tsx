@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { Card, api } from '../api/client';
 import { useActiveJobs } from '../contexts/ActiveJobsContext';
 import { ManaText } from './ManaText';
+import { ConfirmModal } from './ConfirmModal';
 
 interface CardDetailModalProps {
   card: Card;
@@ -54,6 +55,7 @@ export function CardDetailModal({
   const [savePending, setSavePending] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
   const [deletePending, setDeletePending] = useState(false);
+  const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
   const [imageLightboxOpen, setImageLightboxOpen] = useState(false);
   const { addJob } = useActiveJobs();
 
@@ -118,9 +120,14 @@ export function CardDetailModal({
     setIsEditing(false);
   };
 
-  const handleDelete = async () => {
+  const handleDelete = () => {
     if (card.id == null) return;
-    if (!window.confirm('Are you sure you want to delete this card?')) return;
+    setDeleteConfirmOpen(true);
+  };
+
+  const handleDeleteConfirmed = async () => {
+    if (card.id == null) return;
+    setDeleteConfirmOpen(false);
     setDeletePending(true);
     try {
       await api.deleteCard(card.id);
@@ -395,6 +402,16 @@ export function CardDetailModal({
           )}
         </div>
       </div>
+
+      <ConfirmModal
+        isOpen={deleteConfirmOpen}
+        title="Delete card"
+        message="Are you sure you want to delete this card? This cannot be undone."
+        confirmLabel="Delete"
+        destructive
+        onConfirm={handleDeleteConfirmed}
+        onCancel={() => setDeleteConfirmOpen(false)}
+      />
 
       {/* Lightbox: larger image, click or Escape to close */}
       {imageLightboxOpen && imageUrl && (
