@@ -140,16 +140,11 @@ async def get_card_image(
     user_id: int = Depends(get_current_user_id)
 ):
     """
-    Return the card's image by surrogate id. If not stored, fetch from Scryfall, store, then return.
+    Return the card's image by surrogate id. If not cached, fetch from Scryfall and store globally.
+    Any authenticated user may request any card image — ownership is not required.
     Returns 404 if card not found or image unavailable.
     """
     try:
-        repo = get_collection_repo()
-        if repo is not None:
-            # Verify card belongs to user
-            card = repo.get_card_by_id(id, user_id=user_id)
-            if card is None:
-                raise HTTPException(status_code=404, detail="Card not found")
         data, media_type = resolve_card_image(id)
         return Response(content=data, media_type=media_type)
     except FileNotFoundError:

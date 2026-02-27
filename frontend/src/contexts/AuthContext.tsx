@@ -4,7 +4,7 @@ interface User {
   id: number;
   email: string;
   display_name?: string;
-  picture?: string;
+  avatar_url?: string;
 }
 
 interface AuthContextType {
@@ -12,6 +12,7 @@ interface AuthContextType {
   isAuthenticated: boolean;
   isLoading: boolean;
   logout: () => Promise<void>;
+  refreshUser: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType>({
@@ -19,6 +20,7 @@ const AuthContext = createContext<AuthContextType>({
   isAuthenticated: false,
   isLoading: true,
   logout: async () => {},
+  refreshUser: async () => {},
 });
 
 export const useAuth = () => {
@@ -33,30 +35,42 @@ interface AuthProviderProps {
   children: React.ReactNode;
 }
 
+async function fetchMe(): Promise<User | null> {
+  try {
+    const response = await fetch('http://localhost:8000/api/auth/me', {
+      credentials: 'include',
+    });
+    if (response.ok) {
+      const data = await response.json();
+      // Backend returns { id, email, display_name, picture } — map picture → avatar_url
+      return {
+        id: data.id,
+        email: data.email,
+        display_name: data.display_name,
+        avatar_url: data.picture ?? data.avatar_url,
+      };
+    }
+    return null;
+  } catch {
+    return null;
+  }
+}
+
 export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    // Check if user is logged in by calling /api/auth/me
-    const checkAuth = async () => {
-      try {
-        const response = await fetch('http://localhost:8000/api/auth/me', {
-          credentials: 'include',
-        });
-        if (response.ok) {
-          const userData = await response.json();
-          setUser(userData);
-        }
-      } catch (error) {
-        console.error('Error checking auth:', error);
-      } finally {
-        setIsLoading(false);
-      }
-    };
-
-    checkAuth();
+    fetchMe().then((u) => {
+      setUser(u);
+      setIsLoading(false);
+    });
   }, []);
+
+  const refreshUser = async () => {
+    const u = await fetchMe();
+    setUser(u);
+  };
 
   const logout = async () => {
     try {
@@ -65,7 +79,6 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         credentials: 'include',
       });
       setUser(null);
-      // Redirect to landing page
       window.location.href = '/';
     } catch (error) {
       console.error('Error during logout:', error);
@@ -77,6 +90,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     isAuthenticated: user !== null,
     isLoading,
     logout,
+    refreshUser,
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

@@ -10,6 +10,10 @@ from fastapi.testclient import TestClient
 
 # Import app after potential path setup; run tests from repo root
 from backend.api.main import app
+from backend.api.dependencies import get_current_user_id
+
+# Override auth for all tests — no real JWT needed
+app.dependency_overrides[get_current_user_id] = lambda: 1
 
 client = TestClient(app)
 
