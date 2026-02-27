@@ -12,6 +12,7 @@ export interface CardsParams {
   set?: string;
   priceMin?: string;
   priceMax?: string;
+  colorIdentity?: string;
 }
 
 // Hook for fetching cards; pass current dashboard filters so list and stats match
@@ -27,6 +28,7 @@ export function useCards(params?: CardsParams) {
           set_name: params.set,
           price_min: params.priceMin,
           price_max: params.priceMax,
+          color_identity: params.colorIdentity,
         }
       : undefined;
   return useQuery({
@@ -52,6 +54,7 @@ export interface StatsFilters {
   set?: string;
   priceMin?: string;
   priceMax?: string;
+  colorIdentity?: string;
 }
 
 // Hook for fetching stats; pass current dashboard filters so stats reflect filtered set
@@ -63,7 +66,8 @@ export function useStats(filters?: StatsFilters) {
       filters.type ||
       filters.set ||
       filters.priceMin ||
-      filters.priceMax)
+      filters.priceMax ||
+      filters.colorIdentity)
       ? {
           search: filters.search || undefined,
           rarity: filters.rarity || undefined,
@@ -71,6 +75,7 @@ export function useStats(filters?: StatsFilters) {
           set_name: filters.set || undefined,
           price_min: filters.priceMin || undefined,
           price_max: filters.priceMax || undefined,
+          color_identity: filters.colorIdentity || undefined,
         }
       : undefined;
 

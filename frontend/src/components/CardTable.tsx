@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { Card } from '../api/client';
 
 interface CardTableProps {
@@ -14,6 +14,15 @@ export function CardTable({ cards, isLoading, onAdd, onRowClick }: CardTableProp
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc');
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 50;
+
+  // Scroll-to-top on page change
+  const containerRef = useRef<HTMLDivElement>(null);
+
+  // Keyboard navigation
+  const [focusedIndex, setFocusedIndex] = useState<number>(-1);
+  const rowRefs = useRef<(HTMLTableRowElement | null)[]>([]);
+  // 'first' | 'last' | null — which row to focus after a keyboard-triggered page change
+  const pendingFocus = useRef<'first' | 'last' | null>(null);
 
   if (isLoading) {
     return (
@@ -74,8 +83,54 @@ export function CardTable({ cards, isLoading, onAdd, onRowClick }: CardTableProp
   const startIndex = (currentPage - 1) * itemsPerPage;
   const paginatedCards = sortedCards.slice(startIndex, startIndex + itemsPerPage);
 
+  // Scroll-to-top when page changes
+  useEffect(() => {
+    containerRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }, [currentPage]);
+
+  // Resolve pending focus after a keyboard-triggered page change
+  useEffect(() => {
+    if (pendingFocus.current === 'first') {
+      rowRefs.current[0]?.focus();
+      setFocusedIndex(0);
+    } else if (pendingFocus.current === 'last') {
+      const last = paginatedCards.length - 1;
+      rowRefs.current[last]?.focus();
+      setFocusedIndex(last);
+    }
+    pendingFocus.current = null;
+  // paginatedCards.length and currentPage are the right triggers; exhaustive-deps would add more
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentPage]);
+
+  const handleTbodyKeyDown = (e: React.KeyboardEvent<HTMLTableSectionElement>) => {
+    if (e.key === 'ArrowDown') {
+      e.preventDefault();
+      if (focusedIndex < paginatedCards.length - 1) {
+        const next = focusedIndex + 1;
+        rowRefs.current[next]?.focus();
+        setFocusedIndex(next);
+      } else if (currentPage < totalPages) {
+        pendingFocus.current = 'first';
+        setCurrentPage(p => p + 1);
+      }
+    } else if (e.key === 'ArrowUp') {
+      e.preventDefault();
+      if (focusedIndex > 0) {
+        const prev = focusedIndex - 1;
+        rowRefs.current[prev]?.focus();
+        setFocusedIndex(prev);
+      } else if (currentPage > 1) {
+        pendingFocus.current = 'last';
+        setCurrentPage(p => p - 1);
+      }
+    } else if (e.key === 'Enter' && focusedIndex >= 0) {
+      onRowClick?.(paginatedCards[focusedIndex]);
+    }
+  };
+
   return (
-    <div className="bg-white dark:bg-gray-800 rounded-lg shadow overflow-hidden">
+    <div ref={containerRef} className="bg-white dark:bg-gray-800 rounded-lg shadow overflow-hidden">
       {onAdd && hasIds && (
         <div className="px-6 py-3 border-b border-gray-200 dark:border-gray-600">
           <button
@@ -127,11 +182,17 @@ export function CardTable({ cards, isLoading, onAdd, onRowClick }: CardTableProp
               </th>
             </tr>
           </thead>
-          <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-600">
+          <tbody
+            className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-600"
+            onKeyDown={handleTbodyKeyDown}
+          >
             {paginatedCards.map((card, index) => (
               <tr
                 key={card.id ?? index}
-                className={`hover:bg-gray-50 dark:hover:bg-gray-700/50 ${onRowClick ? 'cursor-pointer' : ''}`}
+                ref={el => { rowRefs.current[index] = el; }}
+                tabIndex={0}
+                onFocus={() => setFocusedIndex(index)}
+                className={`hover:bg-gray-50 dark:hover:bg-gray-700/50 focus:outline-none focus:ring-2 focus:ring-inset focus:ring-blue-400 ${onRowClick ? 'cursor-pointer' : ''}`}
                 onClick={() => onRowClick?.(card)}
               >
                 <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">

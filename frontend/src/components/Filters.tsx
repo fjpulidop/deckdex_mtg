@@ -20,6 +20,8 @@ interface FiltersProps {
   priceMin: string;
   priceMax: string;
   onPriceRangeChange: (min: string, max: string) => void;
+  colors: string[];
+  onColorsChange: (colors: string[]) => void;
   activeChips: ActiveFilterChip[];
   resultCount: number;
   onClearFilters: () => void;
@@ -27,6 +29,34 @@ interface FiltersProps {
 
 const inputClass =
   'w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400';
+
+const MTG_COLORS = [
+  {
+    symbol: 'W',
+    label: 'White',
+    activeClass: 'bg-yellow-100 text-yellow-800 border-yellow-400 dark:bg-yellow-900/40 dark:text-yellow-200 dark:border-yellow-600',
+  },
+  {
+    symbol: 'U',
+    label: 'Blue',
+    activeClass: 'bg-blue-100 text-blue-800 border-blue-400 dark:bg-blue-900/40 dark:text-blue-200 dark:border-blue-600',
+  },
+  {
+    symbol: 'B',
+    label: 'Black',
+    activeClass: 'bg-gray-800 text-gray-100 border-gray-500 dark:bg-gray-900 dark:text-gray-100 dark:border-gray-400',
+  },
+  {
+    symbol: 'R',
+    label: 'Red',
+    activeClass: 'bg-red-100 text-red-800 border-red-400 dark:bg-red-900/40 dark:text-red-200 dark:border-red-600',
+  },
+  {
+    symbol: 'G',
+    label: 'Green',
+    activeClass: 'bg-green-100 text-green-800 border-green-400 dark:bg-green-900/40 dark:text-green-200 dark:border-green-600',
+  },
+] as const;
 
 export function Filters({
   search,
@@ -42,6 +72,8 @@ export function Filters({
   priceMin,
   priceMax,
   onPriceRangeChange,
+  colors,
+  onColorsChange,
   activeChips,
   resultCount,
   onClearFilters,
@@ -59,6 +91,14 @@ export function Filters({
 
   const handlePriceMinChange = (value: string) => onPriceRangeChange(value, priceMax);
   const handlePriceMaxChange = (value: string) => onPriceRangeChange(priceMin, value);
+
+  const toggleColor = (symbol: string) => {
+    if (colors.includes(symbol)) {
+      onColorsChange(colors.filter(c => c !== symbol));
+    } else {
+      onColorsChange([...colors, symbol]);
+    }
+  };
 
   return (
     <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-4 mb-6 transition-opacity duration-150">
@@ -138,7 +178,33 @@ export function Filters({
         </button>
       </div>
 
-      {/* Row 2: Active chips + result count */}
+      {/* Row 2: Color toggle bar */}
+      <div className="flex flex-wrap items-center gap-2 mt-3 pt-3 border-t border-gray-100 dark:border-gray-700">
+        <span className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider mr-1">
+          Color
+        </span>
+        {MTG_COLORS.map(({ symbol, label, activeClass }) => {
+          const isActive = colors.includes(symbol);
+          return (
+            <button
+              key={symbol}
+              type="button"
+              onClick={() => toggleColor(symbol)}
+              title={label}
+              aria-pressed={isActive}
+              className={`w-8 h-8 rounded-full border-2 font-bold text-sm transition-all focus:outline-none focus:ring-2 focus:ring-offset-1 focus:ring-blue-400 ${
+                isActive
+                  ? activeClass
+                  : 'bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400 border-gray-300 dark:border-gray-600 hover:bg-gray-200 dark:hover:bg-gray-600'
+              }`}
+            >
+              {symbol}
+            </button>
+          );
+        })}
+      </div>
+
+      {/* Row 3: Active chips + result count */}
       <div className="flex flex-wrap items-center gap-2 mt-3 pt-3 border-t border-gray-100 dark:border-gray-700">
         {activeChips.map((chip) => (
           <span

@@ -24,6 +24,8 @@ export function Dashboard() {
   const setFilter = searchParams.get('set')      ?? 'all';
   const priceMin  = searchParams.get('priceMin') ?? '';
   const priceMax  = searchParams.get('priceMax') ?? '';
+  // Color identity filter (local state — not in URL for simplicity)
+  const [colors, setColors] = useState<string[]>([]);
 
   // Fetch filtered cards for the table
   const { data: cards, isLoading, error } = useCards({
@@ -33,6 +35,7 @@ export function Dashboard() {
     set: setFilter === 'all' ? undefined : setFilter,
     priceMin: priceMin.trim() || undefined,
     priceMax: priceMax.trim() || undefined,
+    colorIdentity: colors.length ? colors.join(',') : undefined,
     limit: 10000,
   });
 
@@ -114,6 +117,7 @@ export function Dashboard() {
 
   const handleClearFilters = useCallback(() => {
     setSearchParams({}, { replace: true });
+    setColors([]);
   }, [setSearchParams]);
 
   // Derive type and set options from API response (filtered result)
@@ -155,6 +159,13 @@ export function Dashboard() {
       id: 'price',
       label: minStr && maxStr ? `${minStr} – ${maxStr}` : minStr || maxStr,
       onRemove: () => handlePriceRangeChange('', ''),
+    });
+  }
+  for (const c of colors) {
+    activeChips.push({
+      id: `color-${c}`,
+      label: `Color: ${c}`,
+      onRemove: () => setColors(prev => prev.filter(x => x !== c)),
     });
   }
 
@@ -210,6 +221,7 @@ uvicorn api.main:app --reload --port 8000
             set: setFilter === 'all' ? undefined : setFilter,
             priceMin: priceMin.trim() || undefined,
             priceMax: priceMax.trim() || undefined,
+            colorIdentity: colors.length ? colors.join(',') : undefined,
           }}
         />
 
@@ -234,6 +246,8 @@ uvicorn api.main:app --reload --port 8000
           priceMin={priceMin}
           priceMax={priceMax}
           onPriceRangeChange={handlePriceRangeChange}
+          colors={colors}
+          onColorsChange={setColors}
           activeChips={activeChips}
           resultCount={displayCards.length}
           onClearFilters={handleClearFilters}

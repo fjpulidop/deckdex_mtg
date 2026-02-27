@@ -2,11 +2,13 @@ import { useState, useCallback } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { api, DeckListItem } from '../api/client';
 import { DeckDetailModal } from '../components/DeckDetailModal';
+import { ConfirmModal } from '../components/ConfirmModal';
 
 export function DeckBuilder() {
   const queryClient = useQueryClient();
   const [selectedDeckId, setSelectedDeckId] = useState<number | null>(null);
   const [createError, setCreateError] = useState<string | null>(null);
+  const [newDeckModalOpen, setNewDeckModalOpen] = useState(false);
 
   const {
     data: decks,
@@ -23,11 +25,16 @@ export function DeckBuilder() {
     decksError instanceof Error && decksError.message.includes('Postgres');
   const list: DeckListItem[] = decks ?? [];
 
-  const handleAddDeck = useCallback(async () => {
+  const handleAddDeck = useCallback(() => {
     setCreateError(null);
-    const name = window.prompt('Deck name', 'Unnamed Deck') ?? 'Unnamed Deck';
+    setNewDeckModalOpen(true);
+  }, []);
+
+  const handleCreateDeck = useCallback(async (name?: string) => {
+    setNewDeckModalOpen(false);
+    const deckName = name?.trim() || 'Unnamed Deck';
     try {
-      const deck = await api.createDeck(name);
+      const deck = await api.createDeck(deckName);
       await queryClient.invalidateQueries({ queryKey: ['decks'] });
       setSelectedDeckId(deck.id);
     } catch (e) {
@@ -139,6 +146,17 @@ export function DeckBuilder() {
           onDeleted={handleCloseModal}
         />
       )}
+
+      <ConfirmModal
+        isOpen={newDeckModalOpen}
+        title="New Deck"
+        message="Enter a name for your new deck."
+        promptLabel="Deck name"
+        promptDefault="Unnamed Deck"
+        confirmLabel="Create"
+        onConfirm={handleCreateDeck}
+        onCancel={() => setNewDeckModalOpen(false)}
+      />
     </div>
   );
 }
