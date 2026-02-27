@@ -1,4 +1,5 @@
-import { useState, useCallback } from 'react';
+import { useCallback } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { useQueryClient } from '@tanstack/react-query';
 import { useCards } from '../hooks/useApi';
 import { StatsCards } from '../components/StatsCards';
@@ -6,20 +7,25 @@ import { Filters } from '../components/Filters';
 import { CardTable } from '../components/CardTable';
 import { CardFormModal } from '../components/CardFormModal';
 import { CardDetailModal } from '../components/CardDetailModal';
+import { TopValueCards } from '../components/TopValueCards';
 import { api, Card } from '../api/client';
+import { useState } from 'react';
 
 export function Dashboard() {
   const queryClient = useQueryClient();
-  const [search, setSearch] = useState('');
-  const [rarity, setRarity] = useState('all');
-  const [type, setType] = useState('all');
-  const [setFilter, setSetFilter] = useState('all');
-  const [priceMin, setPriceMin] = useState('');
-  const [priceMax, setPriceMax] = useState('');
+  const [searchParams, setSearchParams] = useSearchParams();
   const [cardModal, setCardModal] = useState<null | 'add'>(null);
   const [detailCard, setDetailCard] = useState<Card | null>(null);
 
-  // Fetch cards with current filters so list and stats match (API applies filters server-side)
+  // Filter state owned by URL params
+  const search    = searchParams.get('q')        ?? '';
+  const rarity    = searchParams.get('rarity')   ?? 'all';
+  const type      = searchParams.get('type')     ?? 'all';
+  const setFilter = searchParams.get('set')      ?? 'all';
+  const priceMin  = searchParams.get('priceMin') ?? '';
+  const priceMax  = searchParams.get('priceMax') ?? '';
+
+  // Fetch filtered cards for the table
   const { data: cards, isLoading, error } = useCards({
     search: search || undefined,
     rarity: rarity === 'all' ? undefined : rarity,
@@ -29,6 +35,9 @@ export function Dashboard() {
     priceMax: priceMax.trim() || undefined,
     limit: 10000,
   });
+
+  // Unfiltered cards for the TopValueCards widget (always full collection)
+  const { data: allCardsData } = useCards({ limit: 10000 });
 
   const invalidateCards = useCallback(() => {
     queryClient.invalidateQueries({ queryKey: ['cards'] });
@@ -57,10 +66,55 @@ export function Dashboard() {
       await api.createCard(payload);
     }
     invalidateCards();
-    // Refetch so Total Cards and Total Value are updated when the modal closes
     await queryClient.refetchQueries({ queryKey: ['cards'] });
     await queryClient.refetchQueries({ queryKey: ['stats'] });
   }, [cardModal, invalidateCards, queryClient]);
+
+  // Filter handlers — write to URL, replace history entry
+  const handleSearchChange = useCallback((value: string) => {
+    setSearchParams(prev => {
+      const next = new URLSearchParams(prev);
+      if (value) next.set('q', value); else next.delete('q');
+      return next;
+    }, { replace: true });
+  }, [setSearchParams]);
+
+  const handleRarityChange = useCallback((value: string) => {
+    setSearchParams(prev => {
+      const next = new URLSearchParams(prev);
+      if (value !== 'all') next.set('rarity', value); else next.delete('rarity');
+      return next;
+    }, { replace: true });
+  }, [setSearchParams]);
+
+  const handleTypeChange = useCallback((value: string) => {
+    setSearchParams(prev => {
+      const next = new URLSearchParams(prev);
+      if (value !== 'all') next.set('type', value); else next.delete('type');
+      return next;
+    }, { replace: true });
+  }, [setSearchParams]);
+
+  const handleSetChange = useCallback((value: string) => {
+    setSearchParams(prev => {
+      const next = new URLSearchParams(prev);
+      if (value !== 'all') next.set('set', value); else next.delete('set');
+      return next;
+    }, { replace: true });
+  }, [setSearchParams]);
+
+  const handlePriceRangeChange = useCallback((min: string, max: string) => {
+    setSearchParams(prev => {
+      const next = new URLSearchParams(prev);
+      if (min.trim()) next.set('priceMin', min); else next.delete('priceMin');
+      if (max.trim()) next.set('priceMax', max); else next.delete('priceMax');
+      return next;
+    }, { replace: true });
+  }, [setSearchParams]);
+
+  const handleClearFilters = useCallback(() => {
+    setSearchParams({}, { replace: true });
+  }, [setSearchParams]);
 
   // Derive type and set options from API response (filtered result)
   const typeOptions = Array.from(
@@ -70,26 +124,7 @@ export function Dashboard() {
     new Set((cards || []).map(c => c.set_name).filter(Boolean) as string[])
   ).sort((a, b) => a.localeCompare(b));
 
-  // List is the API response (filters applied server-side); no client-side filter
   const displayCards = cards ?? [];
-
-  const handleSearchChange = (value: string) => setSearch(value);
-  const handleRarityChange = (value: string) => setRarity(value);
-  const handleTypeChange = (value: string) => setType(value);
-  const handleSetChange = (value: string) => setSetFilter(value);
-  const handlePriceRangeChange = (min: string, max: string) => {
-    setPriceMin(min);
-    setPriceMax(max);
-  };
-
-  const handleClearFilters = () => {
-    setSearch('');
-    setRarity('all');
-    setType('all');
-    setSetFilter('all');
-    setPriceMin('');
-    setPriceMax('');
-  };
 
   const hasPriceRange =
     (priceMin.trim() !== '' && Number.isFinite(parseFloat(priceMin.replace(',', '.')))) ||
@@ -100,17 +135,17 @@ export function Dashboard() {
     activeChips.push({
       id: 'rarity',
       label: rarity.charAt(0).toUpperCase() + rarity.slice(1),
-      onRemove: () => setRarity('all'),
+      onRemove: () => handleRarityChange('all'),
     });
   }
   if (type !== 'all') {
-    activeChips.push({ id: 'type', label: type, onRemove: () => setType('all') });
+    activeChips.push({ id: 'type', label: type, onRemove: () => handleTypeChange('all') });
   }
   if (setFilter !== 'all') {
     activeChips.push({
       id: 'set',
       label: `Set: ${setFilter}`,
-      onRemove: () => setSetFilter('all'),
+      onRemove: () => handleSetChange('all'),
     });
   }
   if (hasPriceRange) {
@@ -119,14 +154,10 @@ export function Dashboard() {
     activeChips.push({
       id: 'price',
       label: minStr && maxStr ? `${minStr} – ${maxStr}` : minStr || maxStr,
-      onRemove: () => {
-        setPriceMin('');
-        setPriceMax('');
-      },
+      onRemove: () => handlePriceRangeChange('', ''),
     });
   }
 
-  // Show error if backend is not accessible (after all hooks)
   if (error) {
     return (
       <div className="min-h-screen bg-gray-100 dark:bg-gray-900 flex items-center justify-center">
@@ -180,6 +211,12 @@ uvicorn api.main:app --reload --port 8000
             priceMin: priceMin.trim() || undefined,
             priceMax: priceMax.trim() || undefined,
           }}
+        />
+
+        {/* Top 5 most valuable cards (always full unfiltered collection) */}
+        <TopValueCards
+          cards={allCardsData ?? []}
+          onCardClick={handleRowClick}
         />
 
         {/* Filters */}
