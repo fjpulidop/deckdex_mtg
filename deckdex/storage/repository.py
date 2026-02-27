@@ -140,12 +140,16 @@ class CollectionRepository(ABC):
         """Replace entire collection with given cards (delete all, insert all). Return count inserted. If user_id provided, replace only user's cards."""
         pass
 
-    def get_card_image(self, card_id: int) -> Optional[Tuple[bytes, str]]:
-        """Return (image_bytes, content_type) for the card if stored, else None. Optional for repositories that do not store images."""
+    def get_card_image_by_scryfall_id(self, scryfall_id: str) -> Optional[Tuple[bytes, str]]:
+        """Return (image_bytes, content_type) from the global cache if stored, else None."""
         return None
 
-    def save_card_image(self, card_id: int, content_type: str, data: bytes) -> None:
-        """Store image for the card. No-op for repositories that do not store images."""
+    def save_card_image_to_global_cache(self, scryfall_id: str, content_type: str, data: bytes) -> None:
+        """Upsert image into the global card_image_cache. No-op for repositories that do not store images."""
+        pass
+
+    def update_card_scryfall_id(self, card_id: int, scryfall_id: str) -> None:
+        """Persist the scryfall_id on the cards row (lazy population). No-op if not supported."""
         pass
 
     def get_user_by_google_id(self, google_id: str) -> Optional[Dict[str, Any]]:
@@ -166,6 +170,10 @@ class CollectionRepository(ABC):
 
     def update_user_last_login(self, user_id: int) -> bool:
         """Update user's last_login timestamp. Returns True if successful."""
+        pass
+
+    def update_user_profile(self, user_id: int, display_name: Optional[str] = None, avatar_url: Optional[str] = None) -> Optional[Dict[str, Any]]:
+        """Update user's display_name and/or avatar_url. Only updates provided (non-None) fields. Returns updated user dict or None if not found."""
         pass
 
 
@@ -351,29 +359,39 @@ class PostgresCollectionRepository(CollectionRepository):
         logger.info(f"Replaced collection with {count} cards")
         return count
 
-    def get_card_image(self, card_id: int) -> Optional[Tuple[bytes, str]]:
+    def get_card_image_by_scryfall_id(self, scryfall_id: str) -> Optional[Tuple[bytes, str]]:
         from sqlalchemy import text
         engine = self._get_engine()
         with engine.connect() as conn:
             row = conn.execute(
-                text("SELECT content_type, data FROM card_images WHERE card_id = :card_id"),
-                {"card_id": card_id}
+                text("SELECT content_type, data FROM card_image_cache WHERE scryfall_id = :scryfall_id"),
+                {"scryfall_id": scryfall_id}
             ).fetchone()
             if row is None:
                 return None
             return (bytes(row[1]), row[0] or "image/jpeg")
 
-    def save_card_image(self, card_id: int, content_type: str, data: bytes) -> None:
+    def save_card_image_to_global_cache(self, scryfall_id: str, content_type: str, data: bytes) -> None:
         from sqlalchemy import text
         engine = self._get_engine()
         with engine.connect() as conn:
             conn.execute(
                 text("""
-                    INSERT INTO card_images (card_id, content_type, data)
-                    VALUES (:card_id, :content_type, :data)
-                    ON CONFLICT (card_id) DO UPDATE SET content_type = EXCLUDED.content_type, data = EXCLUDED.data
+                    INSERT INTO card_image_cache (scryfall_id, content_type, data)
+                    VALUES (:scryfall_id, :content_type, :data)
+                    ON CONFLICT (scryfall_id) DO UPDATE SET content_type = EXCLUDED.content_type, data = EXCLUDED.data
                 """),
-                {"card_id": card_id, "content_type": content_type, "data": data}
+                {"scryfall_id": scryfall_id, "content_type": content_type, "data": data}
+            )
+            conn.commit()
+
+    def update_card_scryfall_id(self, card_id: int, scryfall_id: str) -> None:
+        from sqlalchemy import text
+        engine = self._get_engine()
+        with engine.connect() as conn:
+            conn.execute(
+                text("UPDATE cards SET scryfall_id = :scryfall_id WHERE id = :card_id"),
+                {"scryfall_id": scryfall_id, "card_id": card_id}
             )
             conn.commit()
 
@@ -442,3 +460,29 @@ class PostgresCollectionRepository(CollectionRepository):
             )
             conn.commit()
             return result.rowcount > 0
+
+    def update_user_profile(self, user_id: int, display_name: Optional[str] = None, avatar_url: Optional[str] = None) -> Optional[Dict[str, Any]]:
+        from sqlalchemy import text
+        engine = self._get_engine()
+        updates = {}
+        if display_name is not None:
+            updates["display_name"] = display_name
+        if avatar_url is not None:
+            updates["avatar_url"] = avatar_url
+        if not updates:
+            # Nothing to update — return current user
+            with engine.connect() as conn:
+                row = conn.execute(
+                    text("SELECT id, google_id, email, display_name, avatar_url, created_at, last_login FROM users WHERE id = :id"),
+                    {"id": user_id}
+                ).mappings().fetchone()
+                return dict(row) if row else None
+        set_clause = ", ".join(f"{k} = :{k}" for k in updates)
+        updates["id"] = user_id
+        with engine.connect() as conn:
+            row = conn.execute(
+                text(f"UPDATE users SET {set_clause} WHERE id = :id RETURNING id, google_id, email, display_name, avatar_url, created_at, last_login"),
+                updates
+            ).mappings().fetchone()
+            conn.commit()
+            return dict(row) if row else None

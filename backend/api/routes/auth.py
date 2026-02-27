@@ -263,16 +263,31 @@ async def oauth_callback(code: str = None, error: str = None):
 @router.get("/me", response_model=Optional[UserPayload])
 async def get_current_user(request: Request):
     """
-    Get current authenticated user.
+    Get current authenticated user from database (always fresh).
     Returns 401 if not authenticated.
     """
     try:
         payload = get_current_user_from_cookie(request)
+        user_id = int(payload.get("sub", 0))
+        repo = get_collection_repo()
+        if repo is None:
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail="Database not configured"
+            )
+        from sqlalchemy import text
+        with repo._get_engine().connect() as conn:
+            row = conn.execute(
+                text("SELECT id, email, display_name, avatar_url FROM users WHERE id = :id"),
+                {"id": user_id}
+            ).mappings().fetchone()
+        if row is None:
+            raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="User not found")
         return UserPayload(
-            id=int(payload.get("sub", 0)),
-            email=payload.get("email"),
-            display_name=payload.get("display_name"),
-            picture=payload.get("picture")
+            id=row["id"],
+            email=row["email"],
+            display_name=row.get("display_name"),
+            picture=row.get("avatar_url")
         )
     except HTTPException:
         raise
@@ -282,6 +297,43 @@ async def get_current_user(request: Request):
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Not authenticated"
         )
+
+
+class ProfileUpdateRequest(BaseModel):
+    display_name: Optional[str] = None
+    avatar_url: Optional[str] = None
+
+
+@router.patch("/profile", response_model=UserPayload)
+async def update_profile(request: Request, body: ProfileUpdateRequest):
+    """
+    Update authenticated user's display_name and/or avatar_url.
+    Returns 413 if request body exceeds 500KB.
+    """
+    content_length = request.headers.get("content-length")
+    if content_length and int(content_length) > 500 * 1024:
+        raise HTTPException(status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE, detail="Request body too large (max 500KB)")
+
+    payload = get_current_user_from_cookie(request)
+    user_id = int(payload.get("sub", 0))
+    repo = get_collection_repo()
+    if repo is None:
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Database not configured")
+
+    updated = repo.update_user_profile(
+        user_id=user_id,
+        display_name=body.display_name,
+        avatar_url=body.avatar_url,
+    )
+    if updated is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
+
+    return UserPayload(
+        id=updated["id"],
+        email=updated["email"],
+        display_name=updated.get("display_name"),
+        picture=updated.get("avatar_url"),
+    )
 
 
 @router.post("/logout")

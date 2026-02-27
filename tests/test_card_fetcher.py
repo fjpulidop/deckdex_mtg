@@ -2,12 +2,16 @@ import unittest
 from unittest.mock import patch, MagicMock
 from openai import OpenAI
 from deckdex.card_fetcher import CardFetcher
+from deckdex.config import ScryfallConfig, OpenAIConfig
 
 
 class TestCardFetcher(unittest.TestCase):
     def setUp(self):
         """Set up the test environment."""
-        self.card_fetcher = CardFetcher()
+        self.card_fetcher = CardFetcher(
+            scryfall_config=ScryfallConfig(),
+            openai_config=OpenAIConfig(),
+        )
 
     @patch.object(CardFetcher, "_make_request")
     def test_search_card(self, mock_make_request):

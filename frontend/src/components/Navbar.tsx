@@ -1,20 +1,24 @@
 import { useRef, useEffect, useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { Menu, X, LogOut, User } from 'lucide-react';
+import { Menu, X, LogOut, User, Settings } from 'lucide-react';
 import { ThemeToggle } from './ThemeToggle';
 import { useAuth } from '../contexts/AuthContext';
+import { ProfileModal } from './ProfileModal';
+import { SettingsModal } from './SettingsModal';
 
 export function Navbar() {
   const location = useLocation();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [userMenuOpen, setUserMenuOpen] = useState(false);
+  const [profileOpen, setProfileOpen] = useState(false);
+  const [settingsOpen, setSettingsOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
   const userMenuRef = useRef<HTMLDivElement>(null);
   const { user, logout } = useAuth();
 
   const isActive = (path: string) => location.pathname === path;
 
-  // Close mobile menu when clicking outside
+  // Close menus when clicking outside
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
       if (menuRef.current && !menuRef.current.contains(event.target as Node)) {
@@ -31,7 +35,7 @@ export function Navbar() {
     }
   }, [mobileMenuOpen, userMenuOpen]);
 
-  // Close mobile menu on ESC key
+  // Close menus on ESC key
   useEffect(() => {
     function handleEscKey(event: KeyboardEvent) {
       if (event.key === 'Escape') {
@@ -50,7 +54,6 @@ export function Navbar() {
     { path: '/dashboard', label: 'Dashboard' },
     { path: '/decks', label: 'Decks', badge: 'alpha' },
     { path: '/analytics', label: 'Analytics', badge: 'beta' },
-    { path: '/settings', label: 'Settings' },
   ];
 
   const LinkItem = ({ path, label, badge }: { path: string; label: string; badge?: string }) => {
@@ -103,7 +106,7 @@ export function Navbar() {
             {/* Right side: Theme toggle, user menu and mobile menu button */}
             <div className="flex items-center gap-4">
               <ThemeToggle />
-              
+
               {/* User Menu (Desktop) */}
               {user && (
                 <div className="hidden md:flex items-center gap-3">
@@ -118,14 +121,29 @@ export function Navbar() {
                       className="flex items-center justify-center w-10 h-10 rounded-full overflow-hidden bg-indigo-100 dark:bg-indigo-900 border border-indigo-300 dark:border-indigo-700 hover:border-indigo-500 dark:hover:border-indigo-400 transition-colors"
                       aria-label="User menu"
                     >
-                      {user.picture ? (
-                        <img src={user.picture} alt={user.display_name || 'User'} className="w-full h-full object-cover" />
+                      {user.avatar_url ? (
+                        <img src={user.avatar_url} alt={user.display_name || 'User'} className="w-full h-full object-cover" />
                       ) : (
                         <User className="w-5 h-5 text-indigo-600 dark:text-indigo-400" />
                       )}
                     </button>
                     {userMenuOpen && (
                       <div className="absolute right-0 mt-2 w-48 bg-white dark:bg-gray-700 rounded-lg shadow-lg border border-gray-200 dark:border-gray-600 py-1 z-50">
+                        <button
+                          onClick={() => { setUserMenuOpen(false); setProfileOpen(true); }}
+                          className="w-full text-left px-4 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-600 flex items-center gap-2"
+                        >
+                          <User className="w-4 h-4" />
+                          Profile
+                        </button>
+                        <button
+                          onClick={() => { setUserMenuOpen(false); setSettingsOpen(true); }}
+                          className="w-full text-left px-4 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-600 flex items-center gap-2"
+                        >
+                          <Settings className="w-4 h-4" />
+                          Settings
+                        </button>
+                        <div className="my-1 border-t border-gray-200 dark:border-gray-600" />
                         <button
                           onClick={logout}
                           className="w-full text-left px-4 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-600 flex items-center gap-2"
@@ -138,7 +156,7 @@ export function Navbar() {
                   </div>
                 </div>
               )}
-              
+
               {/* Mobile Menu Button */}
               <button
                 onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
@@ -166,8 +184,8 @@ export function Navbar() {
                 {user && (
                   <div className="py-2 border-t border-gray-200 dark:border-gray-700 mt-2 pt-2">
                     <div className="flex items-center gap-2 px-1 mb-2">
-                      {user.picture ? (
-                        <img src={user.picture} alt={user.display_name || 'User'} className="w-8 h-8 rounded-full" />
+                      {user.avatar_url ? (
+                        <img src={user.avatar_url} alt={user.display_name || 'User'} className="w-8 h-8 rounded-full object-cover" />
                       ) : (
                         <div className="w-8 h-8 rounded-full bg-indigo-100 dark:bg-indigo-900 flex items-center justify-center">
                           <User className="w-4 h-4 text-indigo-600 dark:text-indigo-400" />
@@ -178,10 +196,21 @@ export function Navbar() {
                       </span>
                     </div>
                     <button
-                      onClick={() => {
-                        logout();
-                        setMobileMenuOpen(false);
-                      }}
+                      onClick={() => { setMobileMenuOpen(false); setProfileOpen(true); }}
+                      className="w-full text-left px-1 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-600 rounded flex items-center gap-2"
+                    >
+                      <User className="w-4 h-4" />
+                      Profile
+                    </button>
+                    <button
+                      onClick={() => { setMobileMenuOpen(false); setSettingsOpen(true); }}
+                      className="w-full text-left px-1 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-600 rounded flex items-center gap-2"
+                    >
+                      <Settings className="w-4 h-4" />
+                      Settings
+                    </button>
+                    <button
+                      onClick={() => { logout(); setMobileMenuOpen(false); }}
                       className="w-full text-left px-1 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-600 rounded flex items-center gap-2"
                     >
                       <LogOut className="w-4 h-4" />
@@ -195,13 +224,17 @@ export function Navbar() {
         </div>
       </nav>
 
-      {/* Mobile menu overlay backdrop (optional, for better UX) */}
+      {/* Mobile menu overlay backdrop */}
       {mobileMenuOpen && (
         <div
           className="md:hidden fixed inset-0 bg-black/20 z-30 top-[calc(100%+4rem)]"
           onClick={() => setMobileMenuOpen(false)}
         />
       )}
+
+      {/* Modals */}
+      {profileOpen && <ProfileModal onClose={() => setProfileOpen(false)} />}
+      {settingsOpen && <SettingsModal onClose={() => setSettingsOpen(false)} />}
     </>
   );
 }
