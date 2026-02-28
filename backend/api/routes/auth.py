@@ -27,6 +27,42 @@ JWT_EXPIRY_HOURS = 1
 GOOGLE_TOKEN_URL = "https://oauth2.googleapis.com/token"
 GOOGLE_USERINFO_URL = "https://openidconnect.googleapis.com/v1/userinfo"
 
+
+def _backend_origin(request: Request) -> str:
+    """Derive the public backend origin from the incoming request.
+
+    Respects X-Forwarded-Proto / X-Forwarded-Host headers set by reverse
+    proxies (e.g. GitHub Codespaces port-forwarding).  Falls back to the
+    request's own URL for local development.
+    """
+    proto = request.headers.get("x-forwarded-proto", request.url.scheme)
+    host = request.headers.get("x-forwarded-host") or request.headers.get("host") or request.url.netloc
+    return f"{proto}://{host}"
+
+
+def _frontend_origin(request: Request) -> str:
+    """Derive the public frontend origin.
+
+    In Docker Compose the frontend Vite proxy forwards /api requests to the
+    backend, so the browser's origin is the *frontend* host.  We read the
+    ``Origin`` or ``Referer`` header that the browser always sends on
+    navigation requests.  As a last resort we swap the backend port for 5173
+    (local dev default).
+    """
+    origin = request.headers.get("origin")
+    if origin:
+        return origin.rstrip("/")
+
+    referer = request.headers.get("referer")
+    if referer:
+        from urllib.parse import urlparse
+        parsed = urlparse(referer)
+        return f"{parsed.scheme}://{parsed.netloc}"
+
+    # Fallback: same host but port 5173
+    backend = _backend_origin(request)
+    return backend.replace(":8000", ":5173")
+
 # Temporary in-memory store for one-time auth codes: code -> {jwt, expires}
 # Codes are single-use and expire after 5 minutes.
 _auth_codes: Dict[str, Dict[str, Any]] = {}
@@ -117,7 +153,7 @@ def get_current_user_from_request(request: Request) -> Dict[str, Any]:
 
 
 @router.get("/google")
-async def google_login():
+async def google_login(request: Request):
     """
     Redirect to Google OAuth consent screen.
     The user logs in with their Google account, consents to share openid/email/profile,
@@ -129,101 +165,104 @@ async def google_login():
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="OAuth not configured"
         )
-    
-    # Redirect to Google OAuth consent screen
+
+    callback_url = f"{_backend_origin(request)}/api/auth/callback"
+
     query_params = {
         "client_id": GOOGLE_OAUTH_CLIENT_ID,
-        "redirect_uri": "http://localhost:8000/api/auth/callback",  # Will be updated for production
+        "redirect_uri": callback_url,
         "response_type": "code",
         "scope": "openid email profile",
     }
-    
+
     redirect_url = f"https://accounts.google.com/o/oauth2/v2/auth?{urlencode(query_params)}"
-    
+
     from fastapi.responses import RedirectResponse
     return RedirectResponse(url=redirect_url)
 
 
 @router.get("/callback")
-async def oauth_callback(code: str = None, error: str = None):
+async def oauth_callback(request: Request, code: str = None, error: str = None):
     """
     Google OAuth callback endpoint.
     Exchange authorization code for ID token, extract user info, create/update user, and set JWT cookie.
     """
+    frontend = _frontend_origin(request)
+    login_error_url = f"{frontend}/login?error=auth_failed"
+
     if error:
         logger.error(f"OAuth callback error: {error}")
         from fastapi.responses import RedirectResponse
-        return RedirectResponse(url="http://localhost:5173/login?error=auth_failed")
-    
+        return RedirectResponse(url=login_error_url)
+
     if not code:
         logger.error("No authorization code in callback")
         from fastapi.responses import RedirectResponse
-        return RedirectResponse(url="http://localhost:5173/login?error=auth_failed")
-    
+        return RedirectResponse(url=login_error_url)
+
     if not GOOGLE_OAUTH_CLIENT_ID or not GOOGLE_OAUTH_CLIENT_SECRET:
         logger.error("Google OAuth credentials not configured")
         from fastapi.responses import RedirectResponse
-        return RedirectResponse(url="http://localhost:5173/login?error=auth_failed")
-    
+        return RedirectResponse(url=login_error_url)
+
     try:
+        callback_url = f"{_backend_origin(request)}/api/auth/callback"
+
         # Exchange code for tokens
         token_data = {
             "client_id": GOOGLE_OAUTH_CLIENT_ID,
             "client_secret": GOOGLE_OAUTH_CLIENT_SECRET,
             "code": code,
             "grant_type": "authorization_code",
-            "redirect_uri": "http://localhost:8000/api/auth/callback",
+            "redirect_uri": callback_url,
         }
-        
+
         async with httpx.AsyncClient() as client:
             token_response = await client.post(GOOGLE_TOKEN_URL, data=token_data)
             token_response.raise_for_status()
             tokens = token_response.json()
-        
-        # Get user info from ID token or userinfo endpoint
-        # For simplicity, we'll use the userinfo endpoint which doesn't require parsing the ID token
+
+        # Get user info from userinfo endpoint
         async with httpx.AsyncClient() as client:
             headers = {"Authorization": f"Bearer {tokens.get('access_token')}"}
             userinfo_response = await client.get(GOOGLE_USERINFO_URL, headers=headers)
             userinfo_response.raise_for_status()
             userinfo = userinfo_response.json()
-        
+
         google_id = userinfo.get("sub")
         email = userinfo.get("email")
         name = userinfo.get("name")
         picture = userinfo.get("picture")
-        
+
         if not google_id or not email:
             logger.error("Missing required fields in Google userinfo")
             from fastapi.responses import RedirectResponse
-            return RedirectResponse(url="http://localhost:5173/login?error=auth_failed")
-        
+            return RedirectResponse(url=login_error_url)
+
         # Get or create user in database
         repo = get_collection_repo()
         if not repo:
             logger.error("Database not configured")
             from fastapi.responses import RedirectResponse
-            return RedirectResponse(url="http://localhost:5173/login?error=auth_failed")
-        
+            return RedirectResponse(url=login_error_url)
+
         # Check if user exists by google_id
         user = None
         try:
-            # Try to get the user from the repository (will need to implement this method)
             user = repo.get_user_by_google_id(google_id)
         except Exception as e:
             logger.debug(f"User lookup by google_id failed: {e}")
-        
+
         # If not found by google_id, check if this is the seed user (email match + __seed_pending__)
         if not user:
             try:
                 user = repo.get_user_by_email(email)
                 if user and user.get("google_id") == "__seed_pending__":
-                    # This is the seed user, update the google_id
                     repo.update_user_google_id(user["id"], google_id)
                     user["google_id"] = google_id
             except Exception as e:
                 logger.debug(f"User lookup by email failed: {e}")
-        
+
         # Create new user if not found
         if not user:
             try:
@@ -236,14 +275,14 @@ async def oauth_callback(code: str = None, error: str = None):
             except Exception as e:
                 logger.error(f"Failed to create user: {e}")
                 from fastapi.responses import RedirectResponse
-                return RedirectResponse(url="http://localhost:5173/login?error=auth_failed")
-        
+                return RedirectResponse(url=login_error_url)
+
         # Update last_login
         try:
             repo.update_user_last_login(user["id"])
         except Exception as e:
             logger.debug(f"Failed to update last_login: {e}")
-        
+
         # Create JWT
         jwt_token = create_jwt({
             "id": user["id"],
@@ -253,22 +292,20 @@ async def oauth_callback(code: str = None, error: str = None):
         })
 
         # Store JWT under a one-time code so the frontend can exchange it
-        # via the Vite proxy (same origin), which allows the cookie to be
-        # set correctly in the browser.
-        code = str(uuid.uuid4())
-        _auth_codes[code] = {
+        auth_code = str(uuid.uuid4())
+        _auth_codes[auth_code] = {
             "jwt": jwt_token,
             "expires": datetime.utcnow() + timedelta(minutes=5),
         }
 
         logger.info(f"User {email} logged in successfully")
         from fastapi.responses import RedirectResponse
-        return RedirectResponse(url=f"http://localhost:5173/auth/callback?code={code}")
-        
+        return RedirectResponse(url=f"{frontend}/auth/callback?code={auth_code}")
+
     except Exception as e:
         logger.error(f"OAuth callback error: {e}")
         from fastapi.responses import RedirectResponse
-        return RedirectResponse(url="http://localhost:5173/login?error=auth_failed")
+        return RedirectResponse(url=login_error_url)
 
 
 @router.get("/exchange")

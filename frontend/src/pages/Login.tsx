@@ -16,7 +16,7 @@ const Login: React.FC = () => {
 
   const handleGoogleLogin = () => {
     // Redirect to backend OAuth endpoint
-    window.location.href = 'http://localhost:8000/api/auth/google';
+    window.location.href = '/api/auth/google';
   };
 
   const error = searchParams.get('error');

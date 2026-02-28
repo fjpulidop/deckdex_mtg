@@ -24,7 +24,7 @@ COPY migrations /app/migrations
 COPY config.yaml /app/config.yaml
 
 # Create logs directory
-RUN mkdir -p /app/backend/logs
+RUN mkdir -p /app/logs
 
 # Expose port
 EXPOSE 8000
