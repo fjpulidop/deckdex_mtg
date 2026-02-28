@@ -3,6 +3,7 @@ Authentication routes for Google OAuth 2.0
 Handles OAuth callback, JWT issuance, user lookup, and logout
 """
 import os
+import uuid
 from datetime import datetime, timedelta
 from typing import Optional, Dict, Any
 from urllib.parse import urlencode
@@ -25,6 +26,10 @@ JWT_EXPIRY_HOURS = 1
 
 GOOGLE_TOKEN_URL = "https://oauth2.googleapis.com/token"
 GOOGLE_USERINFO_URL = "https://openidconnect.googleapis.com/v1/userinfo"
+
+# Temporary in-memory store for one-time auth codes: code -> {jwt, expires}
+# Codes are single-use and expire after 5 minutes.
+_auth_codes: Dict[str, Dict[str, Any]] = {}
 
 # Models
 class UserPayload(BaseModel):
@@ -75,24 +80,32 @@ def decode_jwt(token: str) -> Dict[str, Any]:
     return jwt.decode(token, JWT_SECRET_KEY, algorithms=[JWT_ALGORITHM])
 
 
-def get_current_user_from_cookie(request: Request) -> Dict[str, Any]:
+def get_current_user_from_request(request: Request) -> Dict[str, Any]:
     """
-    Extract and validate JWT from cookie.
+    Extract and validate JWT from Authorization header (preferred) or cookie.
     Returns decoded user payload or raises 401.
-    
-    Args:
-        request: FastAPI Request object
-        
-    Returns:
-        User payload dict with 'sub' (user id), 'email', 'display_name', 'picture'
+
+    The frontend stores the JWT in sessionStorage and sends it via
+    ``Authorization: Bearer <token>``.  Cookie-based auth is kept as a
+    fallback for non-browser clients or future use.
     """
-    token = request.cookies.get("access_token")
+    token: Optional[str] = None
+
+    # 1. Authorization header (preferred — works through Vite proxy in Docker)
+    auth_header = request.headers.get("authorization", "")
+    if auth_header.startswith("Bearer "):
+        token = auth_header[7:]
+
+    # 2. Fallback: cookie
+    if not token:
+        token = request.cookies.get("access_token")
+
     if not token:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Not authenticated"
         )
-    
+
     try:
         payload = decode_jwt(token)
         return payload
@@ -231,33 +244,56 @@ async def oauth_callback(code: str = None, error: str = None):
         except Exception as e:
             logger.debug(f"Failed to update last_login: {e}")
         
-        # Create JWT and set cookie
+        # Create JWT
         jwt_token = create_jwt({
             "id": user["id"],
             "email": user["email"],
             "display_name": user.get("display_name"),
             "picture": user.get("avatar_url")
         })
-        
-        # Redirect to frontend dashboard with JWT cookie set
-        from fastapi.responses import RedirectResponse
-        response = RedirectResponse(url="http://localhost:5173/dashboard")
-        response.set_cookie(
-            key="access_token",
-            value=jwt_token,
-            httponly=True,
-            secure=False,  # Set to True in production with HTTPS
-            samesite="lax",
-            max_age=3600  # 1 hour
-        )
-        
+
+        # Store JWT under a one-time code so the frontend can exchange it
+        # via the Vite proxy (same origin), which allows the cookie to be
+        # set correctly in the browser.
+        code = str(uuid.uuid4())
+        _auth_codes[code] = {
+            "jwt": jwt_token,
+            "expires": datetime.utcnow() + timedelta(minutes=5),
+        }
+
         logger.info(f"User {email} logged in successfully")
-        return response
+        from fastapi.responses import RedirectResponse
+        return RedirectResponse(url=f"http://localhost:5173/auth/callback?code={code}")
         
     except Exception as e:
         logger.error(f"OAuth callback error: {e}")
         from fastapi.responses import RedirectResponse
         return RedirectResponse(url="http://localhost:5173/login?error=auth_failed")
+
+
+@router.get("/exchange")
+async def exchange_auth_code(code: str):
+    """
+    Exchange a one-time auth code (issued by /callback) for a JWT token.
+    The frontend stores the token in sessionStorage and sends it via
+    Authorization header on subsequent requests.
+    """
+    entry = _auth_codes.pop(code, None)
+    if entry is None:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid or expired code")
+    if datetime.utcnow() > entry["expires"]:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid or expired code")
+
+    jwt_token = entry["jwt"]
+    try:
+        payload = decode_jwt(jwt_token)
+    except JWTError:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid token")
+
+    # Return token in body so the frontend can set the cookie itself via JS.
+    # (Vite's dev proxy does not reliably forward Set-Cookie headers from the
+    # backend to the browser, so we let the frontend set the cookie directly.)
+    return {"ok": True, "token": jwt_token}
 
 
 @router.get("/me", response_model=Optional[UserPayload])
@@ -267,7 +303,7 @@ async def get_current_user(request: Request):
     Returns 401 if not authenticated.
     """
     try:
-        payload = get_current_user_from_cookie(request)
+        payload = get_current_user_from_request(request)
         user_id = int(payload.get("sub", 0))
         repo = get_collection_repo()
         if repo is None:
@@ -314,7 +350,7 @@ async def update_profile(request: Request, body: ProfileUpdateRequest):
     if content_length and int(content_length) > 500 * 1024:
         raise HTTPException(status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE, detail="Request body too large (max 500KB)")
 
-    payload = get_current_user_from_cookie(request)
+    payload = get_current_user_from_request(request)
     user_id = int(payload.get("sub", 0))
     repo = get_collection_repo()
     if repo is None:

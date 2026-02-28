@@ -91,9 +91,14 @@ export function Navbar() {
             {/* Logo */}
             <Link
               to="/dashboard"
-              className="text-2xl font-bold text-indigo-600 dark:text-indigo-400 hover:text-indigo-700 dark:hover:text-indigo-300 transition-colors"
+              className="flex items-baseline gap-1.5 hover:opacity-80 transition-opacity"
             >
-              DeckDex
+              <span className="text-2xl font-bold text-indigo-600 dark:text-indigo-400">
+                DeckDex
+              </span>
+              <span className="text-xs font-semibold text-gray-400 dark:text-gray-500 tracking-widest uppercase">
+                MTG
+              </span>
             </Link>
 
             {/* Desktop Navigation */}

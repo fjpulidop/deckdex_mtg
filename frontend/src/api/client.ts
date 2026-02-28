@@ -1,11 +1,24 @@
 // API client configuration and utilities
 const API_BASE = '/api';
-const FETCH_OPTS: RequestInit = { credentials: 'include' };
 
-/** Wraps fetch and turns network errors into a clearer message. */
+/** Build headers with Authorization token from sessionStorage. */
+function authHeaders(extra?: HeadersInit): Headers {
+  const headers = new Headers(extra);
+  const token = sessionStorage.getItem('access_token');
+  if (token) {
+    headers.set('Authorization', `Bearer ${token}`);
+  }
+  return headers;
+}
+
+/** Wraps fetch, injects auth header, and turns network errors into a clearer message. */
 async function apiFetch(url: string, init?: RequestInit): Promise<Response> {
+  const merged: RequestInit = {
+    ...init,
+    headers: authHeaders(init?.headers),
+  };
   try {
-    return await fetch(url, init);
+    return await fetch(url, merged);
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e);
     if (msg === 'Failed to fetch' || msg.includes('NetworkError') || msg.includes('Load failed')) {
@@ -86,6 +99,85 @@ export interface DeckWithCards extends DeckListItem {
   cards: DeckCard[];
 }
 
+// Insights types
+export interface InsightCatalogEntry {
+  id: string;
+  label: string;
+  label_key: string;
+  keywords: string[];
+  category: string;
+  icon: string;
+  response_type: 'value' | 'distribution' | 'list' | 'comparison' | 'timeline';
+  popular: boolean;
+}
+
+export interface InsightSuggestion {
+  id: string;
+  label: string;
+}
+
+export interface InsightBreakdownItem {
+  label: string;
+  value: string;
+}
+
+export interface InsightValueData {
+  primary_value: string;
+  unit?: string;
+  breakdown?: InsightBreakdownItem[];
+}
+
+export interface InsightDistributionItem {
+  label: string;
+  count: number;
+  value?: string;
+  percentage: number;
+  color?: string;
+}
+
+export interface InsightDistributionData {
+  items: InsightDistributionItem[];
+}
+
+export interface InsightListItem {
+  card_id?: number | null;
+  name: string;
+  detail: string;
+  image_url?: string | null;
+}
+
+export interface InsightListData {
+  items: InsightListItem[];
+}
+
+export interface InsightComparisonItem {
+  label: string;
+  present: boolean;
+  detail?: string;
+}
+
+export interface InsightComparisonData {
+  items: InsightComparisonItem[];
+}
+
+export interface InsightTimelineItem {
+  period: string;
+  count: number;
+  value?: string | null;
+}
+
+export interface InsightTimelineData {
+  items: InsightTimelineItem[];
+}
+
+export interface InsightResponse {
+  insight_id: string;
+  question: string;
+  answer_text: string;
+  response_type: 'value' | 'distribution' | 'list' | 'comparison' | 'timeline';
+  data: InsightValueData | InsightDistributionData | InsightListData | InsightComparisonData | InsightTimelineData;
+}
+
 // API functions
 export const api = {
   // Cards (same filter params as stats so list and totals match)
@@ -109,13 +201,13 @@ export const api = {
       }
     }
     const query = new URLSearchParams(cleanParams).toString();
-    const response = await apiFetch(`${API_BASE}/cards/${query ? `?${query}` : ''}`, FETCH_OPTS);
+    const response = await apiFetch(`${API_BASE}/cards/${query ? `?${query}` : ''}`);
     if (!response.ok) throw new Error('Failed to fetch cards');
     return response.json();
   },
 
   getCard: async (name: string): Promise<Card> => {
-    const response = await apiFetch(`${API_BASE}/cards/${encodeURIComponent(name)}`, FETCH_OPTS);
+    const response = await apiFetch(`${API_BASE}/cards/${encodeURIComponent(name)}`);
     if (!response.ok) throw new Error('Failed to fetch card');
     return response.json();
   },
@@ -124,7 +216,7 @@ export const api = {
   getCardSuggest: async (query: string): Promise<string[]> => {
     const q = (query || '').trim();
     if (q.length < 2) return [];
-    const response = await apiFetch(`${API_BASE}/cards/suggest?q=${encodeURIComponent(q)}`, FETCH_OPTS);
+    const response = await apiFetch(`${API_BASE}/cards/suggest?q=${encodeURIComponent(q)}`);
     if (!response.ok) throw new Error('Failed to fetch suggestions');
     return response.json();
   },
@@ -133,7 +225,7 @@ export const api = {
   resolveCardByName: async (name: string): Promise<Card> => {
     const n = (name || '').trim();
     if (!n) throw new Error('Card name is required');
-    const response = await apiFetch(`${API_BASE}/cards/resolve?name=${encodeURIComponent(n)}`, FETCH_OPTS);
+    const response = await apiFetch(`${API_BASE}/cards/resolve?name=${encodeURIComponent(n)}`);
     if (!response.ok) {
       if (response.status === 404) throw new Error('Card not found');
       throw new Error('Failed to resolve card');
@@ -163,7 +255,7 @@ export const api = {
     }
     const query = new URLSearchParams(cleanParams).toString();
     const url = `${API_BASE}/stats/${query ? `?${query}` : ''}`;
-    const response = await apiFetch(url, FETCH_OPTS);
+    const response = await apiFetch(url);
     if (!response.ok) throw new Error('Failed to fetch stats');
     return response.json();
   },
@@ -220,7 +312,7 @@ export const api = {
   cancelJob: async (jobId: string): Promise<{job_id: string; status: string; message: string}> => {
     const response = await apiFetch(`${API_BASE}/jobs/${jobId}/cancel`, {
       method: 'POST',
-      ...FETCH_OPTS,
+
     });
     if (!response.ok) {
       const error = await response.json();
@@ -231,7 +323,7 @@ export const api = {
 
   // Settings: Scryfall credentials (stored as JSON internally by the backend)
   getScryfallCredentials: async (): Promise<{ configured: boolean }> => {
-    const response = await apiFetch(`${API_BASE}/settings/scryfall-credentials`, FETCH_OPTS);
+    const response = await apiFetch(`${API_BASE}/settings/scryfall-credentials`);
     if (!response.ok) throw new Error('Failed to fetch Scryfall credentials status');
     return response.json();
   },
@@ -240,7 +332,7 @@ export const api = {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ credentials }),
-      ...FETCH_OPTS,
+
     });
     if (!response.ok) {
       const err = await response.json().catch(() => ({}));
@@ -252,25 +344,25 @@ export const api = {
   // Analytics aggregations
   getAnalyticsRarity: async (params?: Record<string, string>): Promise<{ rarity: string; count: number }[]> => {
     const query = params ? new URLSearchParams(params).toString() : '';
-    const response = await apiFetch(`${API_BASE}/analytics/rarity${query ? `?${query}` : ''}`, FETCH_OPTS);
+    const response = await apiFetch(`${API_BASE}/analytics/rarity${query ? `?${query}` : ''}`);
     if (!response.ok) throw new Error('Failed to fetch analytics rarity');
     return response.json();
   },
   getAnalyticsColorIdentity: async (params?: Record<string, string>): Promise<{ color_identity: string; count: number }[]> => {
     const query = params ? new URLSearchParams(params).toString() : '';
-    const response = await apiFetch(`${API_BASE}/analytics/color-identity${query ? `?${query}` : ''}`, FETCH_OPTS);
+    const response = await apiFetch(`${API_BASE}/analytics/color-identity${query ? `?${query}` : ''}`);
     if (!response.ok) throw new Error('Failed to fetch analytics color identity');
     return response.json();
   },
   getAnalyticsCmc: async (params?: Record<string, string>): Promise<{ cmc: string; count: number }[]> => {
     const query = params ? new URLSearchParams(params).toString() : '';
-    const response = await apiFetch(`${API_BASE}/analytics/cmc${query ? `?${query}` : ''}`, FETCH_OPTS);
+    const response = await apiFetch(`${API_BASE}/analytics/cmc${query ? `?${query}` : ''}`);
     if (!response.ok) throw new Error('Failed to fetch analytics CMC');
     return response.json();
   },
   getAnalyticsSets: async (params?: Record<string, string>): Promise<{ set_name: string; count: number }[]> => {
     const query = params ? new URLSearchParams(params).toString() : '';
-    const response = await apiFetch(`${API_BASE}/analytics/sets${query ? `?${query}` : ''}`, FETCH_OPTS);
+    const response = await apiFetch(`${API_BASE}/analytics/sets${query ? `?${query}` : ''}`);
     if (!response.ok) throw new Error('Failed to fetch analytics sets');
     return response.json();
   },
@@ -282,7 +374,7 @@ export const api = {
     const response = await apiFetch(`${API_BASE}/import/file`, {
       method: 'POST',
       body: form,
-      ...FETCH_OPTS,
+
     });
     if (!response.ok) {
       const err = await response.json().catch(() => ({}));
@@ -297,7 +389,7 @@ export const api = {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(card),
-      ...FETCH_OPTS,
+
     });
     if (!response.ok) {
       const err = await response.json().catch(() => ({}));
@@ -310,7 +402,7 @@ export const api = {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(card),
-      ...FETCH_OPTS,
+
     });
     if (!response.ok) {
       const err = await response.json().catch(() => ({}));
@@ -321,7 +413,7 @@ export const api = {
   deleteCard: async (id: number): Promise<void> => {
     const response = await apiFetch(`${API_BASE}/cards/${id}`, {
       method: 'DELETE',
-      ...FETCH_OPTS,
+
     });
     if (!response.ok) {
       const err = await response.json().catch(() => ({}));
@@ -331,7 +423,7 @@ export const api = {
 
   // Decks (require Postgres; 501 if unavailable)
   getDecks: async (): Promise<DeckListItem[]> => {
-    const response = await apiFetch(`${API_BASE}/decks/`, FETCH_OPTS);
+    const response = await apiFetch(`${API_BASE}/decks/`);
     if (!response.ok) {
       const err = await response.json().catch(() => ({}));
       if (response.status === 501) throw new Error((err as { detail?: string }).detail || 'Decks require Postgres');
@@ -340,7 +432,7 @@ export const api = {
     return response.json();
   },
   getDeck: async (id: number): Promise<DeckWithCards> => {
-    const response = await apiFetch(`${API_BASE}/decks/${id}`, FETCH_OPTS);
+    const response = await apiFetch(`${API_BASE}/decks/${id}`);
     if (!response.ok) {
       const err = await response.json().catch(() => ({}));
       if (response.status === 501) throw new Error((err as { detail?: string }).detail || 'Decks require Postgres');
@@ -354,7 +446,7 @@ export const api = {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ name: name || 'Unnamed Deck' }),
-      ...FETCH_OPTS,
+
     });
     if (!response.ok) {
       const err = await response.json().catch(() => ({}));
@@ -368,7 +460,7 @@ export const api = {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(payload),
-      ...FETCH_OPTS,
+
     });
     if (!response.ok) {
       const err = await response.json().catch(() => ({}));
@@ -380,7 +472,7 @@ export const api = {
   deleteDeck: async (id: number): Promise<void> => {
     const response = await apiFetch(`${API_BASE}/decks/${id}`, {
       method: 'DELETE',
-      ...FETCH_OPTS,
+
     });
     if (!response.ok) {
       const err = await response.json().catch(() => ({}));
@@ -402,7 +494,7 @@ export const api = {
         quantity: opts?.quantity ?? 1,
         is_commander: opts?.is_commander ?? false,
       }),
-      ...FETCH_OPTS,
+
     });
     if (!response.ok) {
       const err = await response.json().catch(() => ({}));
@@ -415,7 +507,7 @@ export const api = {
   removeCardFromDeck: async (deckId: number, cardId: number): Promise<void> => {
     const response = await apiFetch(`${API_BASE}/decks/${deckId}/cards/${cardId}`, {
       method: 'DELETE',
-      ...FETCH_OPTS,
+
     });
     if (!response.ok) {
       const err = await response.json().catch(() => ({}));
@@ -428,12 +520,38 @@ export const api = {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ is_commander: true }),
-      ...FETCH_OPTS,
+
     });
     if (!response.ok) {
       const err = await response.json().catch(() => ({}));
       if (response.status === 404) throw new Error('Deck or card not found');
       throw new Error((err as { detail?: string }).detail || 'Failed to set commander');
+    }
+    return response.json();
+  },
+
+  // Insights
+  getInsightsCatalog: async (): Promise<InsightCatalogEntry[]> => {
+    const response = await apiFetch(`${API_BASE}/insights/catalog`);
+    if (!response.ok) throw new Error('Failed to fetch insights catalog');
+    return response.json();
+  },
+
+  getInsightsSuggestions: async (): Promise<InsightSuggestion[]> => {
+    const response = await apiFetch(`${API_BASE}/insights/suggestions`);
+    if (!response.ok) throw new Error('Failed to fetch insight suggestions');
+    return response.json();
+  },
+
+  executeInsight: async (insightId: string): Promise<InsightResponse> => {
+    const response = await apiFetch(`${API_BASE}/insights/${encodeURIComponent(insightId)}`, {
+      method: 'POST',
+
+    });
+    if (!response.ok) {
+      const err = await response.json().catch(() => ({}));
+      if (response.status === 404) throw new Error((err as { detail?: string }).detail || `Insight '${insightId}' not found`);
+      throw new Error((err as { detail?: string }).detail || 'Failed to execute insight');
     }
     return response.json();
   },

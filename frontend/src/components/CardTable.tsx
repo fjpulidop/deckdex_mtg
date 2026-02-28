@@ -24,20 +24,6 @@ export function CardTable({ cards, isLoading, onAdd, onRowClick }: CardTableProp
   // 'first' | 'last' | null — which row to focus after a keyboard-triggered page change
   const pendingFocus = useRef<'first' | 'last' | null>(null);
 
-  if (isLoading) {
-    return (
-      <div className="bg-white dark:bg-gray-800 rounded-lg shadow overflow-hidden">
-        <div className="p-6">
-          <div className="animate-pulse space-y-4">
-            {[1, 2, 3, 4, 5].map(i => (
-              <div key={i} className="h-12 bg-gray-200 dark:bg-gray-700 rounded"></div>
-            ))}
-          </div>
-        </div>
-      </div>
-    );
-  }
-
   const handleSort = (key: string) => {
     if (sortKey === key) {
       setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc');
@@ -102,6 +88,20 @@ export function CardTable({ cards, isLoading, onAdd, onRowClick }: CardTableProp
   // paginatedCards.length and currentPage are the right triggers; exhaustive-deps would add more
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentPage]);
+
+  if (isLoading) {
+    return (
+      <div className="bg-white dark:bg-gray-800 rounded-lg shadow overflow-hidden">
+        <div className="p-6">
+          <div className="animate-pulse space-y-4">
+            {[1, 2, 3, 4, 5].map(i => (
+              <div key={i} className="h-12 bg-gray-200 dark:bg-gray-700 rounded"></div>
+            ))}
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   const handleTbodyKeyDown = (e: React.KeyboardEvent<HTMLTableSectionElement>) => {
     if (e.key === 'ArrowDown') {

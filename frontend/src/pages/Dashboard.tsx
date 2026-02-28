@@ -2,12 +2,11 @@ import { useCallback } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { useQueryClient } from '@tanstack/react-query';
 import { useCards } from '../hooks/useApi';
-import { StatsCards } from '../components/StatsCards';
 import { Filters } from '../components/Filters';
 import { CardTable } from '../components/CardTable';
 import { CardFormModal } from '../components/CardFormModal';
 import { CardDetailModal } from '../components/CardDetailModal';
-import { TopValueCards } from '../components/TopValueCards';
+import { CollectionInsights } from '../components/CollectionInsights';
 import { api, Card } from '../api/client';
 import { useState } from 'react';
 
@@ -38,9 +37,6 @@ export function Dashboard() {
     colorIdentity: colors.length ? colors.join(',') : undefined,
     limit: 10000,
   });
-
-  // Unfiltered cards for the TopValueCards widget (always full collection)
-  const { data: allCardsData } = useCards({ limit: 10000 });
 
   const invalidateCards = useCallback(() => {
     queryClient.invalidateQueries({ queryKey: ['cards'] });
@@ -202,34 +198,8 @@ uvicorn api.main:app --reload --port 8000
   return (
     <div className="min-h-screen bg-gray-100 dark:bg-gray-900">
       <div className="container mx-auto px-4 py-8">
-        {/* Header */}
-        <div className="mb-8">
-          <h1 className="text-4xl font-bold text-gray-900 dark:text-white mb-2">
-            DeckDex MTG
-          </h1>
-          <p className="text-gray-600 dark:text-gray-400">
-            Manage your Magic: The Gathering collection
-          </p>
-        </div>
-
-        {/* Stats Cards: pass current filters so totals reflect the filtered set */}
-        <StatsCards
-          filters={{
-            search: search || undefined,
-            rarity: rarity === 'all' ? undefined : rarity,
-            type: type === 'all' ? undefined : type,
-            set: setFilter === 'all' ? undefined : setFilter,
-            priceMin: priceMin.trim() || undefined,
-            priceMax: priceMax.trim() || undefined,
-            colorIdentity: colors.length ? colors.join(',') : undefined,
-          }}
-        />
-
-        {/* Top 5 most valuable cards (always full unfiltered collection) */}
-        <TopValueCards
-          cards={allCardsData ?? []}
-          onCardClick={handleRowClick}
-        />
+        {/* Collection Insights */}
+        <CollectionInsights onCardClick={handleRowClick} />
 
         {/* Filters */}
         <Filters
