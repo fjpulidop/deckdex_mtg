@@ -15,8 +15,18 @@ const Login: React.FC = () => {
   }, [isAuthenticated, isLoading, navigate]);
 
   const handleGoogleLogin = () => {
-    // Redirect to backend OAuth endpoint
-    window.location.href = '/api/auth/google';
+    // OAuth must go directly to the backend (not through Vite proxy) so the
+    // backend can read its own public Host header and build correct redirect URIs.
+    const { protocol, hostname } = window.location;
+    let backendOrigin: string;
+    if (hostname.includes('.app.github.dev')) {
+      // Codespaces: port is encoded in the hostname
+      backendOrigin = `${protocol}//${hostname.replace('-5173.', '-8000.')}`;
+    } else {
+      // Local dev: backend on port 8000
+      backendOrigin = `${protocol}//${hostname}:8000`;
+    }
+    window.location.href = `${backendOrigin}/api/auth/google`;
   };
 
   const error = searchParams.get('error');
