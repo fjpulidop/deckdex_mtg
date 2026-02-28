@@ -111,10 +111,12 @@ export function ProfileModal({ onClose }: ProfileModalProps) {
       if (pendingCropDataUrl) {
         body.avatar_url = pendingCropDataUrl;
       }
-      const res = await fetch('http://localhost:8000/api/auth/profile', {
+      const token = sessionStorage.getItem('access_token');
+      const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+      if (token) headers['Authorization'] = `Bearer ${token}`;
+      const res = await fetch('/api/auth/profile', {
         method: 'PATCH',
-        credentials: 'include',
-        headers: { 'Content-Type': 'application/json' },
+        headers,
         body: JSON.stringify(body),
       });
       if (!res.ok) {

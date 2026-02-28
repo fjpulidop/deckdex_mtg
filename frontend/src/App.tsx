@@ -10,6 +10,7 @@ import { Settings } from './pages/Settings'
 import { Analytics } from './pages/Analytics'
 import { DeckBuilder } from './pages/DeckBuilder'
 import Login from './pages/Login'
+import AuthCallback from './pages/AuthCallback'
 import ProtectedRoute from './components/ProtectedRoute'
 
 const Landing = lazy(() => import('./pages/Landing').then(m => ({ default: m.Landing })))
@@ -33,6 +34,7 @@ function AppContent() {
           }
         />
         <Route path="/login" element={<Login />} />
+        <Route path="/auth/callback" element={<AuthCallback />} />
         <Route
           path="/dashboard"
           element={

@@ -192,13 +192,13 @@ export function Filters({
               onClick={() => toggleColor(symbol)}
               title={label}
               aria-pressed={isActive}
-              className={`w-8 h-8 rounded-full border-2 font-bold text-sm transition-all focus:outline-none focus:ring-2 focus:ring-offset-1 focus:ring-blue-400 ${
+              className={`w-8 h-8 rounded-full border-2 transition-all focus:outline-none focus:ring-2 focus:ring-offset-1 focus:ring-blue-400 flex items-center justify-center ${
                 isActive
                   ? activeClass
-                  : 'bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400 border-gray-300 dark:border-gray-600 hover:bg-gray-200 dark:hover:bg-gray-600'
+                  : 'bg-gray-100 dark:bg-gray-700 border-gray-300 dark:border-gray-600 hover:bg-gray-200 dark:hover:bg-gray-600'
               }`}
             >
-              {symbol}
+              <span className={`card-symbol card-symbol-${symbol}`} aria-hidden="true" />
             </button>
           );
         })}

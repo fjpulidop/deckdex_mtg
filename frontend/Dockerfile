@@ -17,4 +17,5 @@ EXPOSE 5173
 
 # Run dev server (for development)
 # For production, use: RUN npm run build && CMD ["npm", "run", "preview"]
+ENV NODE_OPTIONS="--max-http-header-size=32768"
 CMD ["npm", "run", "dev", "--", "--host", "0.0.0.0"]

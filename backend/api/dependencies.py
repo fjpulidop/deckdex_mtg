@@ -253,18 +253,22 @@ def decode_jwt_token(token: str) -> Dict[str, Any]:
 
 async def get_current_user(request: Request) -> Dict[str, Any]:
     """
-    Extract and validate JWT from cookie.
+    Extract and validate JWT from Authorization header (preferred) or cookie.
     Returns decoded user payload or raises 401.
-    
+
     Use this as a FastAPI dependency: `user = Depends(get_current_user)`
-    
-    Args:
-        request: FastAPI Request object
-        
-    Returns:
-        User payload dict with 'sub' (user id), 'email', 'display_name', 'picture'
     """
-    token = request.cookies.get("access_token")
+    token: Optional[str] = None
+
+    # 1. Authorization header (preferred — frontend sends Bearer token)
+    auth_header = request.headers.get("authorization", "")
+    if auth_header.startswith("Bearer "):
+        token = auth_header[7:]
+
+    # 2. Fallback: cookie
+    if not token:
+        token = request.cookies.get("access_token")
+
     if not token:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,

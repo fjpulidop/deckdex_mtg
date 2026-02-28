@@ -1,6 +1,6 @@
 import React from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { api, Card, Stats, JobResponse } from '../api/client';
+import { api, Card, Stats, JobResponse, InsightCatalogEntry, InsightSuggestion, InsightResponse } from '../api/client';
 
 // Params for cards list (same filter shape as dashboard; map to API snake_case in getCards)
 export interface CardsParams {
@@ -214,4 +214,29 @@ export function useWebSocket(jobId: string | null) {
   }, [jobId]);
 
   return { status, progress, errors, complete, summary };
+}
+
+// Hook for fetching insights catalog
+export function useInsightsCatalog() {
+  return useQuery<InsightCatalogEntry[]>({
+    queryKey: ['insights', 'catalog'],
+    queryFn: () => api.getInsightsCatalog(),
+    staleTime: 5 * 60 * 1000, // 5 minutes — catalog rarely changes
+  });
+}
+
+// Hook for fetching contextual insight suggestions
+export function useInsightsSuggestions() {
+  return useQuery<InsightSuggestion[]>({
+    queryKey: ['insights', 'suggestions'],
+    queryFn: () => api.getInsightsSuggestions(),
+    staleTime: 30000,
+  });
+}
+
+// Hook for executing an insight
+export function useInsightExecute() {
+  return useMutation<InsightResponse, Error, string>({
+    mutationFn: (insightId: string) => api.executeInsight(insightId),
+  });
 }
