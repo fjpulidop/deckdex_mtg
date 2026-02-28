@@ -9,7 +9,6 @@ interface CardTableProps {
 }
 
 export function CardTable({ cards, isLoading, onAdd, onRowClick }: CardTableProps) {
-  const hasIds = cards.some(c => c.id != null);
   const [sortKey, setSortKey] = useState<string>('created_at');
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc');
   const [currentPage, setCurrentPage] = useState(1);
@@ -131,7 +130,7 @@ export function CardTable({ cards, isLoading, onAdd, onRowClick }: CardTableProp
 
   return (
     <div ref={containerRef} className="bg-white dark:bg-gray-800 rounded-lg shadow overflow-hidden">
-      {onAdd && hasIds && (
+      {onAdd && (
         <div className="px-6 py-3 border-b border-gray-200 dark:border-gray-600">
           <button
             type="button"
