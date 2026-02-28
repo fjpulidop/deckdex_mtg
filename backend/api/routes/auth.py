@@ -59,8 +59,12 @@ def _frontend_origin(request: Request) -> str:
         parsed = urlparse(referer)
         return f"{parsed.scheme}://{parsed.netloc}"
 
-    # Fallback: same host but port 5173
+    # Fallback: derive frontend from backend origin by swapping the port.
+    # Handles both local (localhost:8000 → localhost:5173) and
+    # Codespaces ({name}-8000.app.github.dev → {name}-5173.app.github.dev).
     backend = _backend_origin(request)
+    if "-8000." in backend:
+        return backend.replace("-8000.", "-5173.")
     return backend.replace(":8000", ":5173")
 
 # Temporary in-memory store for one-time auth codes: code -> {jwt, expires}
