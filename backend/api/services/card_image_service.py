@@ -108,7 +108,7 @@ def get_card_image(card_id: int) -> Tuple[bytes, str]:
         logger.warning(f"Failed to download image from Scryfall: {e}")
         raise FileNotFoundError(f"Could not download image for '{name}'") from e
 
-    content_type = "image/jpeg"
+    content_type = resp.headers.get('content-type', 'image/jpeg')
     if scryfall_id:
         try:
             repo.save_card_image_to_global_cache(scryfall_id, content_type, data)
