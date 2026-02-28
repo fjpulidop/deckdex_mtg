@@ -1,9 +1,10 @@
 import { motion } from 'framer-motion';
 import { ArrowRight } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
+import { redirectToGoogleLogin } from '@/utils/auth';
 
 const handleGoogleLogin = () => {
-  window.location.href = 'http://localhost:8000/api/auth/google';
+  redirectToGoogleLogin();
 };
 
 export const Hero = ({ onDemoClick }: { onDemoClick: () => void }) => {

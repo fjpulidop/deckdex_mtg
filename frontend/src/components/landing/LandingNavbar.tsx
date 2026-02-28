@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Menu, X, Github, Sparkles } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
+import { redirectToGoogleLogin } from '@/utils/auth';
 
 export const LandingNavbar = () => {
   const [isOpen, setIsOpen] = useState(false);
@@ -26,7 +27,7 @@ export const LandingNavbar = () => {
   };
 
   const handleGoogleLogin = () => {
-    window.location.href = 'http://localhost:8000/api/auth/google';
+    redirectToGoogleLogin();
   };
 
   const handleLogoClick = () => {

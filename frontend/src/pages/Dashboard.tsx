@@ -171,7 +171,7 @@ export function Dashboard() {
         <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-8 max-w-lg">
           <h1 className="text-2xl font-bold text-red-600 dark:text-red-400 mb-4">Backend Connection Error</h1>
           <p className="text-gray-700 dark:text-gray-300 mb-4">
-            Cannot connect to the backend API at http://localhost:8000. Start it in one of these ways:
+            Cannot connect to the backend API. Start it in one of these ways:
           </p>
           <div className="space-y-3 text-sm">
             <p className="font-medium text-gray-800 dark:text-gray-200">Docker (all services):</p>

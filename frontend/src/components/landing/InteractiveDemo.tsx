@@ -1,5 +1,6 @@
 import { useState, useMemo } from 'react';
 import { Search } from 'lucide-react';
+import { redirectToGoogleLogin } from '@/utils/auth';
 
 interface DemoCard {
   id: number;
@@ -30,7 +31,7 @@ const DEMO_CARDS: DemoCard[] = [
 type RarityFilter = 'All' | 'Common' | 'Uncommon' | 'Rare' | 'Mythic';
 
 const handleGoogleLogin = () => {
-  window.location.href = 'http://localhost:8000/api/auth/google';
+  redirectToGoogleLogin();
 };
 
 export const InteractiveDemo = () => {
