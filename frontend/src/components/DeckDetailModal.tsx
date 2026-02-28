@@ -2,6 +2,7 @@ import { useState, useCallback, useMemo, useEffect } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { BarChart, Bar, XAxis, YAxis, ResponsiveContainer, Cell } from 'recharts';
 import { api, DeckCard } from '../api/client';
+import { useCardImage } from '../hooks/useCardImage';
 import { DeckCardPickerModal } from './DeckCardPickerModal';
 import { CardDetailModal } from './CardDetailModal';
 import { ConfirmModal } from './ConfirmModal';
@@ -127,7 +128,7 @@ export function DeckDetailModal({ deckId, onClose, onDeleted }: DeckDetailModalP
   const hoverCard = deck?.cards?.find((c) => c.id === hoverCardId);
   const previewCard = hoverCard ?? commanderOrFirst;
   const bigImageCardId = previewCard?.id ?? null;
-  const bigImageUrl = bigImageCardId != null ? api.getCardImageUrl(bigImageCardId) : null;
+  const { src: bigImageUrl } = useCardImage(bigImageCardId);
   const bigImagePrice = previewCard
     ? (previewCard.price != null && previewCard.price !== 'N/A' ? `€${previewCard.price}` : 'N/A')
     : null;

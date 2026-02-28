@@ -1,12 +1,12 @@
 ## 1. Backend: Fix Content-Type in card_image_service.py
 
-- [ ] 1.1 In `backend/api/services/card_image_service.py` line 111, replace `content_type = "image/jpeg"` with `content_type = resp.headers.get('content-type', 'image/jpeg')` so the real MIME type from Scryfall is stored in the cache and returned to the client.
+- [x] 1.1 In `backend/api/services/card_image_service.py` line 111, replace `content_type = "image/jpeg"` with `content_type = resp.headers.get('content-type', 'image/jpeg')` so the real MIME type from Scryfall is stored in the cache and returned to the client.
 
 ---
 
 ## 2. Frontend client: Add authenticated image fetch helper
 
-- [ ] 2.1 In `frontend/src/api/client.ts`, add a `fetchCardImage(id: number): Promise<string>` async function to the `api` object.
+- [x] 2.1 In `frontend/src/api/client.ts`, add a `fetchCardImage(id: number): Promise<string>` async function to the `api` object.
   - Uses `apiFetch(`${API_BASE}/cards/${id}/image`)` (inherits Authorization header)
   - Throws if `!response.ok` (include status code in error message)
   - Returns `URL.createObjectURL(await response.blob())` — a Blob URL string
@@ -15,7 +15,7 @@
 
 ## 3. Frontend hook: Create useCardImage
 
-- [ ] 3.1 Create `frontend/src/hooks/useCardImage.ts`.
+- [x] 3.1 Create `frontend/src/hooks/useCardImage.ts`.
   - Accepts `cardId: number | null`
   - Returns `{ src: string | null; loading: boolean; error: boolean }`
   - When `cardId` is null: returns `{ src: null, loading: false, error: false }`
@@ -28,7 +28,7 @@
 
 ## 4. Update InsightListRenderer.tsx
 
-- [ ] 4.1 In `frontend/src/components/insights/InsightListRenderer.tsx`, refactor `CardThumbnail`:
+- [x] 4.1 In `frontend/src/components/insights/InsightListRenderer.tsx`, refactor `CardThumbnail`:
   - Remove local `useState(false)` for error (hook handles it)
   - Call `const { src, error } = useCardImage(cardId)`
   - If `error` is true, return null (same as before)
@@ -39,7 +39,7 @@
 
 ## 5. Update CardDetailModal.tsx
 
-- [ ] 5.1 In `frontend/src/components/CardDetailModal.tsx`:
+- [x] 5.1 In `frontend/src/components/CardDetailModal.tsx`:
   - Remove line `const imageUrl = cardId != null ? api.getCardImageUrl(cardId) : null;`
   - Add `const { src: imageUrl, loading: imageLoading } = useCardImage(cardId)`
   - Replace `[imageLoaded, setImageLoaded]` and `[imageError, setImageError]` state with the hook's values where possible, or keep them only for the lightbox open/close interaction (the `onLoad`/`onError` handlers can be simplified since the hook handles errors)
@@ -50,7 +50,7 @@
 
 ## 6. Update DeckDetailModal.tsx
 
-- [ ] 6.1 In `frontend/src/components/DeckDetailModal.tsx`:
+- [x] 6.1 In `frontend/src/components/DeckDetailModal.tsx`:
   - Remove line `const bigImageUrl = bigImageCardId != null ? api.getCardImageUrl(bigImageCardId) : null;`
   - Add `const { src: bigImageUrl } = useCardImage(bigImageCardId)`
   - Pass `bigImageUrl ?? undefined` wherever `bigImageUrl` is used as `<img src>` or similar
@@ -60,7 +60,7 @@
 
 ## 7. Update DeckBuilder.tsx
 
-- [ ] 7.1 In `frontend/src/pages/DeckBuilder.tsx`, the deck list renders commander images as CSS `backgroundImage`.
+- [x] 7.1 In `frontend/src/pages/DeckBuilder.tsx`, the deck list renders commander images as CSS `backgroundImage`.
   - Each deck card is rendered inside a `.map()` — `commanderImageUrl` is computed inline per deck using `api.getCardImageUrl(deck.commander_card_id)`
   - Extract a small `DeckCard` component (or use a hook at the map level) so that `useCardImage` can be called per deck item (hooks cannot be called inside callbacks)
   - The new component receives `commanderCardId: number | null` and renders the button with the background image, calling `useCardImage(commanderCardId)` internally
@@ -71,8 +71,8 @@
 
 ## 8. Cleanup
 
-- [ ] 8.1 Remove the now-unused `getCardImageUrl` function from `frontend/src/api/client.ts` (or keep it if it is referenced elsewhere — check with grep first)
-- [ ] 8.2 Verify no component still imports or calls `api.getCardImageUrl`
+- [x] 8.1 Remove the now-unused `getCardImageUrl` function from `frontend/src/api/client.ts` (or keep it if it is referenced elsewhere — check with grep first)
+- [x] 8.2 Verify no component still imports or calls `api.getCardImageUrl`
 
 ---
 

@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Card, api } from '../api/client';
+import { useCardImage } from '../hooks/useCardImage';
 import { useActiveJobs } from '../contexts/ActiveJobsContext';
 import { ManaText } from './ManaText';
 import { ConfirmModal } from './ConfirmModal';
@@ -48,7 +49,6 @@ export function CardDetailModal({
   onCardDeleted,
 }: CardDetailModalProps) {
   const [imageLoaded, setImageLoaded] = useState(false);
-  const [imageError, setImageError] = useState(false);
   const [updatePricePending, setUpdatePricePending] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
   const [editForm, setEditForm] = useState<EditForm>(() => cardToEditForm(card));
@@ -60,7 +60,7 @@ export function CardDetailModal({
   const { addJob } = useActiveJobs();
 
   const cardId = card.id != null ? card.id : null;
-  const imageUrl = cardId != null ? api.getCardImageUrl(cardId) : null;
+  const { src: imageUrl, loading: imageLoading, error: imageError } = useCardImage(cardId);
 
   useEffect(() => {
     setEditForm(cardToEditForm(card));
@@ -148,33 +148,33 @@ export function CardDetailModal({
       >
         {/* Left: image */}
         <div className="relative flex-shrink-0 p-4 flex items-center justify-center bg-gray-100 dark:bg-gray-900 min-h-[200px] md:min-w-[280px]">
-          {imageUrl ? (
+          {imageError ? (
+            <div className="text-center text-gray-500 dark:text-gray-400 text-sm p-4">
+              Image unavailable
+            </div>
+          ) : imageUrl ? (
             <>
-              {!imageLoaded && !imageError && (
+              {!imageLoaded && (
                 <div className="absolute w-[280px] h-[390px] rounded-lg bg-gray-200 dark:bg-gray-700 animate-pulse" aria-hidden />
-              )}
-              {imageError && (
-                <div className="text-center text-gray-500 dark:text-gray-400 text-sm p-4">
-                  Image unavailable
-                </div>
               )}
               <div
                 role="button"
                 tabIndex={0}
-                onClick={() => !imageError && imageLoaded && setImageLightboxOpen(true)}
-                onKeyDown={e => e.key === 'Enter' && !imageError && imageLoaded && setImageLightboxOpen(true)}
+                onClick={() => imageLoaded && setImageLightboxOpen(true)}
+                onKeyDown={e => e.key === 'Enter' && imageLoaded && setImageLightboxOpen(true)}
                 className="cursor-zoom-in inline-block"
                 aria-label="View image larger"
               >
                 <img
                   src={imageUrl}
                   alt={displayName}
-                  className={`max-w-[280px] max-h-[390px] w-auto h-auto object-contain rounded-lg shadow-md ${!imageLoaded && !imageError ? 'invisible' : ''}`}
-                  onLoad={() => { setImageLoaded(true); setImageError(false); }}
-                  onError={() => setImageError(true)}
+                  className={`max-w-[280px] max-h-[390px] w-auto h-auto object-contain rounded-lg shadow-md ${!imageLoaded ? 'invisible' : ''}`}
+                  onLoad={() => setImageLoaded(true)}
                 />
               </div>
             </>
+          ) : imageLoading ? (
+            <div className="absolute w-[280px] h-[390px] rounded-lg bg-gray-200 dark:bg-gray-700 animate-pulse" aria-hidden />
           ) : (
             <div className="text-center text-gray-500 dark:text-gray-400 text-sm p-4">
               Image not available

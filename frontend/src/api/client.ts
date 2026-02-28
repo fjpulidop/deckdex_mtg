@@ -233,8 +233,13 @@ export const api = {
     return response.json();
   },
 
-  /** URL for card image by id (use as img src). Backend fetches from Scryfall on first request and caches. */
-  getCardImageUrl: (id: number): string => `${API_BASE}/cards/${id}/image`,
+  /** Fetch card image as a Blob URL (includes Authorization header). Caller must revoke URL when done. */
+  fetchCardImage: async (id: number): Promise<string> => {
+    const response = await apiFetch(`${API_BASE}/cards/${id}/image`);
+    if (!response.ok) throw new Error(`Image fetch failed: ${response.status}`);
+    const blob = await response.blob();
+    return URL.createObjectURL(blob);
+  },
 
   // Stats (optional filter params: same as dashboard filters)
   getStats: async (params?: {

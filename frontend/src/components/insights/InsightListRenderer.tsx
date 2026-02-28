@@ -1,7 +1,6 @@
-import { useState } from 'react';
 import { InsightListData } from '../../api/client';
 import { Card } from '../../api/client';
-import { api } from '../../api/client';
+import { useCardImage } from '../../hooks/useCardImage';
 
 interface Props {
   data: InsightListData;
@@ -10,14 +9,12 @@ interface Props {
 }
 
 function CardThumbnail({ cardId }: { cardId: number }) {
-  const [error, setError] = useState(false);
+  const { src, error } = useCardImage(cardId);
   if (error) return null;
   return (
     <img
-      src={api.getCardImageUrl(cardId)}
+      src={src ?? undefined}
       alt=""
-      loading="lazy"
-      onError={() => setError(true)}
       className="w-8 h-10 object-contain rounded"
     />
   );
