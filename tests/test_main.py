@@ -113,8 +113,9 @@ class TestClientFactory(unittest.TestCase):
 
     @patch("deckdex.spreadsheet_client.SpreadsheetClient")
     @patch("os.path.isfile", return_value=True)
+    @patch("dotenv.load_dotenv")
     @patch.dict("os.environ", {"GOOGLE_API_CREDENTIALS": "/path/to/creds.json"})
-    def test_factory_returns_spreadsheet_client_when_dry_run_false(self, mock_isfile, mock_spreadsheet_class):
+    def test_factory_returns_spreadsheet_client_when_dry_run_false(self, _mock_load_dotenv, mock_isfile, mock_spreadsheet_class):
         """Test ClientFactory returns SpreadsheetClient when dry_run=False."""
         config = ProcessorConfig(dry_run=False)
 
