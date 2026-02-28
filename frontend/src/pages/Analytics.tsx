@@ -41,7 +41,16 @@ const MTG_COLOR_MAP: Record<string, { label: string; hex: string }> = {
   C: { label: 'Colorless', hex: '#9ca3af' },
 };
 
-const CHART_COLORS = ['#6366f1', '#06b6d4', '#f59e0b', '#ef4444', '#22c55e', '#a855f7', '#ec4899', '#14b8a6', '#f97316', '#8b5cf6'];
+const CHART_COLORS = [
+  '#bd93f9', // Purple
+  '#8be9fd', // Cyan
+  '#50fa7b', // Green
+  '#ff5555', // Red
+  '#ffb86c', // Orange
+  '#ff79c6', // Pink
+  '#f1fa8c', // Yellow
+  '#6272a4', // Comment
+];
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -172,11 +181,11 @@ export function Analytics() {
   const clearFilters = useCallback(() => setDrillDown({}), []);
 
   // Theme-aware chart styles
-  const axisColor = isDark ? '#9ca3af' : '#6b7280';
-  const gridColor = isDark ? '#374151' : '#e5e7eb';
-  const tooltipBg = isDark ? '#1f2937' : '#ffffff';
-  const tooltipBorder = isDark ? '#374151' : '#e5e7eb';
-  const tooltipTextColor = isDark ? '#ffffff' : '#111827';
+  const axisColor = isDark ? '#6272a4' : '#6b7280';
+  const gridColor = isDark ? '#44475a' : '#e5e7eb';
+  const tooltipBg = isDark ? '#282a36' : '#ffffff';
+  const tooltipBorder = isDark ? '#44475a' : '#e5e7eb';
+  const tooltipTextColor = isDark ? '#f8f8f2' : '#111827';
   const tooltipContentStyle = {
     backgroundColor: tooltipBg,
     border: `1px solid ${tooltipBorder}`,
@@ -377,7 +386,7 @@ export function Analytics() {
                               key={idx}
                               fill={entry.color_identity === 'Multi' ? '#a78bfa' : colorIdentityHex(entry.color_identity)}
                               opacity={drillDown.color_identity && drillDown.color_identity !== entry.color_identity ? 0.3 : 1}
-                              stroke={isDark ? '#1f2937' : '#ffffff'}
+                              stroke={isDark ? '#282a36' : '#ffffff'}
                               strokeWidth={2}
                             />
                           ))}

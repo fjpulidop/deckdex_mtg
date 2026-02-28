@@ -7,6 +7,7 @@ import { DeckCardPickerModal } from './DeckCardPickerModal';
 import { CardDetailModal } from './CardDetailModal';
 import { ConfirmModal } from './ConfirmModal';
 import { ManaText } from './ManaText';
+import { useTheme } from '../contexts/ThemeContext';
 
 function parsePrice(price: string | undefined): number {
   if (price == null || price === '' || price === 'N/A') return 0;
@@ -74,6 +75,8 @@ interface DeckDetailModalProps {
 
 export function DeckDetailModal({ deckId, onClose, onDeleted }: DeckDetailModalProps) {
   const queryClient = useQueryClient();
+  const { theme } = useTheme();
+  const isDark = theme === 'dark';
   const [pickerOpen, setPickerOpen] = useState(false);
   const [deleteDeckConfirmOpen, setDeleteDeckConfirmOpen] = useState(false);
   const [hoverCardId, setHoverCardId] = useState<number | null>(null);
@@ -296,7 +299,9 @@ export function DeckDetailModal({ deckId, onClose, onDeleted }: DeckDetailModalP
                         {manaCurveData.map((entry, idx) => (
                           <Cell
                             key={idx}
-                            fill={filterByCmc == null || filterByCmc === entry.cmcKey ? '#6366f1' : '#94a3b8'}
+                            fill={filterByCmc == null || filterByCmc === entry.cmcKey
+                              ? (isDark ? '#bd93f9' : '#6366f1')
+                              : (isDark ? '#6272a4' : '#94a3b8')}
                             opacity={filterByCmc != null && filterByCmc !== entry.cmcKey ? 0.4 : 1}
                           />
                         ))}

@@ -10,7 +10,59 @@ body {
   background-color: #f3f4f6;
 }
 .dark body {
-  background-color: #111827;
+  background-color: #282a36;
+}
+
+/* Dracula dark theme: override Tailwind v4 CSS custom properties */
+.dark {
+  /* Gray scale → Dracula */
+  --color-gray-950: #21222c;
+  --color-gray-900: #282a36;
+  --color-gray-800: #282a36;
+  --color-gray-700: #44475a;
+  --color-gray-600: #6272a4;
+  --color-gray-500: #6272a4;
+  --color-gray-400: #6272a4;
+  --color-gray-300: #f8f8f2;
+  --color-gray-200: #f8f8f2;
+  --color-gray-100: #f8f8f2;
+
+  /* Indigo → Dracula Purple */
+  --color-indigo-400: #bd93f9;
+  --color-indigo-500: #bd93f9;
+  --color-indigo-600: #bd93f9;
+  --color-indigo-700: #a87de8;
+  --color-indigo-900: #383a59;
+
+  /* Green → Dracula Green */
+  --color-green-400: #50fa7b;
+  --color-green-500: #50fa7b;
+  --color-green-600: #50fa7b;
+  --color-green-900: #1a2b1f;
+
+  /* Red → Dracula Red */
+  --color-red-200: #ffb3b3;
+  --color-red-300: #ff7070;
+  --color-red-400: #ff5555;
+  --color-red-500: #ff5555;
+  --color-red-800: #3d1f1f;
+  --color-red-900: #3d1f1f;
+
+  /* Blue → Dracula Cyan */
+  --color-blue-400: #8be9fd;
+  --color-blue-500: #8be9fd;
+  --color-blue-900: #1a2d3d;
+
+  /* Amber/Yellow → Dracula Yellow */
+  --color-amber-200: #f1fa8c;
+  --color-amber-300: #f1fa8c;
+  --color-amber-900: #3d3d1f;
+  --color-yellow-200: #f1fa8c;
+  --color-yellow-300: #f1fa8c;
+  --color-yellow-400: #f1fa8c;
+
+  /* Orange */
+  --color-orange-900: #3d2a1f;
 }
 
 /* MTG mana symbols: estilos Scryfall (SVG) en mana-symbols-scryfall.css; fallback para símbolos sin clase */
@@ -20,7 +72,7 @@ body {
 
 /* Deck detail modal: curva de maná — etiquetas del eje visibles en modo oscuro */
 .dark .deck-detail-mana-curve .recharts-cartesian-axis-tick text {
-  fill: #e5e7eb;
+  fill: #f8f8f2;
 }
 
 /* Add cards picker: iconos de color como botones, cursor pointer (no help) */

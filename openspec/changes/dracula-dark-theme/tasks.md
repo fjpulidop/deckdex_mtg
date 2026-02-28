@@ -1,8 +1,8 @@
 ## Tarea 1 — CSS custom properties en index.css
 
-- [ ] 1.1 En `frontend/src/index.css`, sustituir el bloque `.dark body { background-color: #111827; }` por `background-color: #282a36` (Drácula Background).
+- [x] 1.1 En `frontend/src/index.css`, sustituir el bloque `.dark body { background-color: #111827; }` por `background-color: #282a36` (Drácula Background).
 
-- [ ] 1.2 Añadir a continuación un bloque `.dark { ... }` con todos los overrides de custom properties de Tailwind v4:
+- [x] 1.2 Añadir a continuación un bloque `.dark { ... }` con todos los overrides de custom properties de Tailwind v4:
   ```css
   .dark {
     /* Gray scale → Dracula */
@@ -56,11 +56,11 @@
   }
   ```
 
-- [ ] 1.3 En el bloque existente `.dark .deck-detail-mana-curve .recharts-cartesian-axis-tick text`, cambiar `fill: #e5e7eb` por `fill: #f8f8f2` (Drácula Foreground).
+- [x] 1.3 En el bloque existente `.dark .deck-detail-mana-curve .recharts-cartesian-axis-tick text`, cambiar `fill: #e5e7eb` por `fill: #f8f8f2` (Drácula Foreground).
 
 ## Tarea 2 — tailwind.config.ts: colores primary y accent
 
-- [ ] 2.1 En `frontend/tailwind.config.ts`, actualizar el objeto `primary` a:
+- [x] 2.1 En `frontend/tailwind.config.ts`, actualizar el objeto `primary` a:
   ```ts
   primary: {
     400: '#d6b4fc',
@@ -70,7 +70,7 @@
   },
   ```
 
-- [ ] 2.2 Actualizar el objeto `accent` a:
+- [x] 2.2 Actualizar el objeto `accent` a:
   ```ts
   accent: {
     400: '#ff92d0',
@@ -81,7 +81,7 @@
 
 ## Tarea 3 — Analytics.tsx: colores Recharts hardcodeados
 
-- [ ] 3.1 En `frontend/src/pages/Analytics.tsx`, localizar las líneas ~175–179 donde se definen `axisColor`, `gridColor`, `tooltipBg`, `tooltipBorder`, `tooltipTextColor`. Sustituir los valores dark por sus equivalentes Drácula:
+- [x] 3.1 En `frontend/src/pages/Analytics.tsx`, localizar las líneas ~175–179 donde se definen `axisColor`, `gridColor`, `tooltipBg`, `tooltipBorder`, `tooltipTextColor`. Sustituir los valores dark por sus equivalentes Drácula:
   ```ts
   const axisColor      = isDark ? '#6272a4' : '#6b7280';
   const gridColor      = isDark ? '#44475a' : '#e5e7eb';
@@ -90,7 +90,7 @@
   const tooltipTextColor = isDark ? '#f8f8f2' : '#111827';
   ```
 
-- [ ] 3.2 Sustituir el array `CHART_COLORS` (~línea 44) por la paleta Drácula:
+- [x] 3.2 Sustituir el array `CHART_COLORS` (~línea 44) por la paleta Drácula:
   ```ts
   const CHART_COLORS = [
     '#bd93f9', // Purple
@@ -104,22 +104,22 @@
   ];
   ```
 
-- [ ] 3.3 Localizar el stroke del pie chart (búsqueda: `stroke={isDark ? '#1f2937'`). Sustituir `'#1f2937'` por `'#282a36'` (Drácula Background).
+- [x] 3.3 Localizar el stroke del pie chart (búsqueda: `stroke={isDark ? '#1f2937'`). Sustituir `'#1f2937'` por `'#282a36'` (Drácula Background).
 
 ## Tarea 4 — DeckDetailModal.tsx: mini bar chart curva de maná
 
-- [ ] 4.1 En `frontend/src/components/DeckDetailModal.tsx`, añadir el import de `useTheme`:
+- [x] 4.1 En `frontend/src/components/DeckDetailModal.tsx`, añadir el import de `useTheme`:
   ```ts
   import { useTheme } from '../contexts/ThemeContext';
   ```
 
-- [ ] 4.2 Dentro del componente, añadir (junto al resto de hooks):
+- [x] 4.2 Dentro del componente, añadir (junto al resto de hooks):
   ```ts
   const { theme } = useTheme();
   const isDark = theme === 'dark';
   ```
 
-- [ ] 4.3 Localizar el `fill` del `<Bar>` del mini chart (~línea 299):
+- [x] 4.3 Localizar el `fill` del `<Bar>` del mini chart (~línea 299):
   ```tsx
   fill={filterByCmc == null || filterByCmc === entry.cmcKey ? '#6366f1' : '#94a3b8'}
   ```
