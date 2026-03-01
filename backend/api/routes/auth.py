@@ -361,12 +361,49 @@ class ProfileUpdateRequest(BaseModel):
     avatar_url: Optional[str] = None
 
 
+# Domains allowed for avatar URLs (Google profile pics, Gravatar, etc.)
+_SAFE_AVATAR_DOMAINS = {
+    "lh3.googleusercontent.com",
+    "lh4.googleusercontent.com",
+    "lh5.googleusercontent.com",
+    "lh6.googleusercontent.com",
+    "googleusercontent.com",
+    "gravatar.com",
+    "www.gravatar.com",
+    "avatars.githubusercontent.com",
+}
+
+
+def _validate_avatar_url(url: Optional[str]) -> Optional[str]:
+    """Validate that avatar_url is a safe HTTPS URL or None."""
+    if not url:
+        return None
+    from urllib.parse import urlparse
+    parsed = urlparse(url)
+    if parsed.scheme != "https":
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="avatar_url must use HTTPS",
+        )
+    host = (parsed.hostname or "").lower()
+    if not any(host == d or host.endswith("." + d) for d in _SAFE_AVATAR_DOMAINS):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="avatar_url domain not allowed",
+        )
+    return url
+
+
 @router.patch("/profile", response_model=UserPayload)
 async def update_profile(request: Request, body: ProfileUpdateRequest):
     """Update authenticated user's display_name and/or avatar_url."""
     content_length = request.headers.get("content-length")
     if content_length and int(content_length) > 500 * 1024:
         raise HTTPException(status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE, detail="Request body too large (max 500KB)")
+
+    # Validate avatar_url if provided
+    if body.avatar_url is not None:
+        body.avatar_url = _validate_avatar_url(body.avatar_url)
 
     payload = get_current_user_from_request(request)
     user_id = int(payload.get("sub", 0))

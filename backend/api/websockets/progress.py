@@ -150,22 +150,21 @@ class ConnectionManager:
 manager = ConnectionManager()
 
 @router.websocket("/ws/progress/{job_id}")
-async def websocket_progress(websocket: WebSocket, job_id: str, token: str = None):
+async def websocket_progress(websocket: WebSocket, job_id: str):
     """
     WebSocket endpoint for real-time progress updates.
 
-    Authentication: JWT is read from:
-    1. Query parameter ``token`` (e.g. ws://host/ws/progress/{job_id}?token=...)
-    2. Cookie ``access_token`` (sent automatically by the browser)
+    Authentication: JWT is read from the ``access_token`` HTTP-only cookie
+    (sent automatically by the browser).
 
     Clients receive progress events:
     - progress: { type, current, total, percentage, timestamp }
     - error: { type, card_name, error_type, message, timestamp }
     - complete: { type, status, summary, timestamp }
     """
-    # --- Authenticate WebSocket ---
+    # --- Authenticate WebSocket via cookie only ---
     from ..dependencies import decode_jwt_token
-    jwt_token = token or websocket.cookies.get("access_token")
+    jwt_token = websocket.cookies.get("access_token")
     if not jwt_token:
         logger.warning(f"WebSocket rejected: no auth token for job_id={job_id}")
         await websocket.close(code=4001, reason="Authentication required")

@@ -23,7 +23,7 @@ class ScryfallCredentialsUpdate(BaseModel):
 
 
 @router.get("/scryfall-credentials", response_model=ScryfallCredentialsResponse)
-async def get_scryfall_credentials_status():
+async def get_scryfall_credentials_status(user_id: int = Depends(get_current_user_id)):
     """
     Return whether Scryfall credentials are configured.
     The stored JSON is not returned for security.
@@ -33,7 +33,7 @@ async def get_scryfall_credentials_status():
 
 
 @router.put("/scryfall-credentials", response_model=ScryfallCredentialsResponse)
-async def put_scryfall_credentials(body: ScryfallCredentialsUpdate):
+async def put_scryfall_credentials(body: ScryfallCredentialsUpdate, user_id: int = Depends(get_current_user_id)):
     """
     Store or clear the Scryfall credentials JSON.
     Send { "credentials": { ... } } with the JSON content to save; { "credentials": null } to clear.
