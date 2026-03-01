@@ -113,6 +113,12 @@ def run_migrations():
                 continue
             print(f"Running {path.name}...")
             sql_content = path.read_text()
+            # Strip full-line comments before splitting so that
+            # semicolons inside "--" comments don't break the split.
+            sql_content = "\n".join(
+                line for line in sql_content.splitlines()
+                if not line.strip().startswith("--")
+            )
             for stmt in sql_content.split(";"):
                 stmt = strip_leading_comments(stmt)
                 if stmt:
