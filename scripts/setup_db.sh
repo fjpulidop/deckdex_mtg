@@ -12,7 +12,7 @@ if command -v docker-compose >/dev/null 2>&1 || command -v docker >/dev/null 2>&
   docker compose up -d db
   echo "Waiting for Postgres to be ready..."
   sleep 3
-  for f in migrations/001_cards_table.sql migrations/002_sessions_table.sql; do
+  for f in migrations/*.sql; do
     [ -f "$f" ] || continue
     echo "Running $f..."
     docker compose exec -T db psql -U deckdex -d deckdex < "$f"
@@ -24,7 +24,7 @@ fi
 if command -v psql >/dev/null 2>&1; then
   export DATABASE_URL="${DATABASE_URL:-postgresql://localhost:5432/deckdex}"
   echo "Using psql with DATABASE_URL..."
-  for f in migrations/001_cards_table.sql migrations/002_sessions_table.sql; do
+  for f in migrations/*.sql; do
     [ -f "$f" ] || continue
     echo "Running $f..."
     psql "$DATABASE_URL" -f "$f"
