@@ -199,11 +199,12 @@ def is_admin_user(email: str) -> bool:
     return email.strip().lower() == admin_email.lower()
 
 
-def _promote_bootstrap_admin(email: str) -> None:
+def promote_bootstrap_admin(email: str) -> None:
     """Set ``is_admin = TRUE`` in the DB for the bootstrap admin.
 
     Called once when the env-var admin logs in and the DB column is still
     ``FALSE``.  Silently ignored if the column doesn't exist yet.
+    Uses a conditional UPDATE to avoid wasteful writes when already promoted.
     """
     engine = get_engine()
     if engine is None:
@@ -211,11 +212,12 @@ def _promote_bootstrap_admin(email: str) -> None:
     try:
         from sqlalchemy import text
         with engine.begin() as conn:
-            conn.execute(
-                text("UPDATE users SET is_admin = TRUE WHERE LOWER(email) = :email"),
+            result = conn.execute(
+                text("UPDATE users SET is_admin = TRUE WHERE LOWER(email) = :email AND is_admin = FALSE"),
                 {"email": email.strip().lower()},
             )
-        logger.info(f"Promoted bootstrap admin (user_id lookup by email)")
+            if result.rowcount > 0:
+                logger.info("Promoted bootstrap admin in DB")
     except Exception as e:
         logger.debug(f"Bootstrap admin promotion skipped: {e}")
 
@@ -491,5 +493,5 @@ async def require_admin(user: dict = Depends(get_current_user)) -> dict:
             detail="Admin access required",
         )
     # Auto-promote bootstrap admin in DB if not already set
-    _promote_bootstrap_admin(email)
+    promote_bootstrap_admin(email)
     return user
