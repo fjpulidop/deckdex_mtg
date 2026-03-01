@@ -1,6 +1,5 @@
 import { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react';
 import { api } from '../api/client';
-import { ActiveJobs } from '../components/ActiveJobs';
 
 export interface JobInfo {
   jobId: string;
@@ -75,23 +74,10 @@ export function ActiveJobsProvider({ children }: { children: React.ReactNode }) 
   }, []);
 
   const value: ActiveJobsContextValue = { jobs, addJob, removeJob };
-  const jobsBarHeight =
-    jobs.length > 0 ? 24 + jobs.length * 72 : 0;
 
   return (
     <ActiveJobsContext.Provider value={value}>
-      <div
-        style={
-          jobsBarHeight > 0 ? { paddingBottom: jobsBarHeight } : undefined
-        }
-      >
-        {children}
-      </div>
-      <ActiveJobs
-        jobs={jobs}
-        onJobCompleted={removeJob}
-        onJobFinished={fireJobFinished}
-      />
+      {children}
     </ActiveJobsContext.Provider>
   );
 }

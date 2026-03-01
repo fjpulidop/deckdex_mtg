@@ -10,7 +10,7 @@ from pydantic import BaseModel
 from loguru import logger
 
 from ..services.processor_service import ProcessorService
-from ..dependencies import clear_collection_cache, get_collection_repo, get_current_user_id
+from ..dependencies import clear_collection_cache, get_collection_repo, get_current_user_id, get_job_repo
 from ..routes.stats import clear_stats_cache
 from ..websockets.progress import manager as ws_manager
 
@@ -125,7 +125,7 @@ async def trigger_process(
     config.process_scope = scope
     
     # Create new processor service with config
-    service = ProcessorService(config=config)
+    service = ProcessorService(config=config, job_repo=get_job_repo(), user_id=user_id)
     job_id = service.job_id
     _job_types[job_id] = 'process'
     
@@ -181,7 +181,7 @@ async def trigger_process(
 
 
 @router.post("/prices/update", response_model=JobResponse)
-async def trigger_price_update(background_tasks: BackgroundTasks):
+async def trigger_price_update(background_tasks: BackgroundTasks, user_id: int = Depends(get_current_user_id)):
     """
     Trigger price update job.
     Only one update_prices job at a time; full process can run in parallel.
@@ -205,7 +205,7 @@ async def trigger_price_update(background_tasks: BackgroundTasks):
     config = load_config(profile="default")
     config.update_prices = True
     
-    service = ProcessorService(config=config)
+    service = ProcessorService(config=config, job_repo=get_job_repo(), user_id=user_id)
     job_id = service.job_id
     _job_types[job_id] = 'update_prices'
     
@@ -382,6 +382,18 @@ async def cancel_job(job_id: str):
     _job_results[job_id] = {'status': 'cancelled', 'message': 'Job cancelled by user'}
     
     return {"job_id": job_id, "status": "cancelled", "message": "Job cancellation requested"}
+
+
+@router.get("/jobs/history")
+async def get_job_history(
+    limit: int = 50,
+    user_id: int = Depends(get_current_user_id),
+):
+    """Return persisted job history for the authenticated user (requires Postgres)."""
+    job_repo = get_job_repo()
+    if job_repo is None:
+        return []
+    return job_repo.get_job_history(user_id, limit=min(limit, 100))
 
 
 def _cleanup_old_jobs():

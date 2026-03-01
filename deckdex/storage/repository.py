@@ -47,8 +47,9 @@ def _row_to_card(row: Dict[str, Any]) -> Dict[str, Any]:
         "game_strategy": row.get("game_strategy"),
         "tier": row.get("tier"),
         "created_at": _serialize_created_at(row.get("created_at")),
+        "quantity": row.get("quantity", 1),
     }
-    return {k: v for k, v in card.items() if v is not None or k == "id"}
+    return {k: v for k, v in card.items() if v is not None or k in ("id", "quantity")}
 
 
 def _safe_cmc(value: Any) -> Optional[float]:
@@ -92,6 +93,7 @@ def _card_to_row(card: Dict[str, Any]) -> Dict[str, Any]:
         "price_usd_foil": card.get("price_usd_foil"),
         "game_strategy": card.get("game_strategy"),
         "tier": card.get("tier"),
+        "quantity": int(card.get("quantity") or 1),
     }
 
 
@@ -139,6 +141,10 @@ class CollectionRepository(ABC):
     def replace_all(self, cards: List[Dict[str, Any]], user_id: Optional[int] = None) -> int:
         """Replace entire collection with given cards (delete all, insert all). Return count inserted. If user_id provided, replace only user's cards."""
         pass
+
+    def update_quantity(self, card_id: int, quantity: int, user_id: Optional[int] = None) -> bool:
+        """Update quantity for a card by id. Returns True if updated, False if not found. If user_id provided, verify ownership."""
+        return False
 
     def get_card_image_by_scryfall_id(self, scryfall_id: str) -> Optional[Tuple[bytes, str]]:
         """Return (image_bytes, content_type) from the global cache if stored, else None."""
@@ -358,6 +364,24 @@ class PostgresCollectionRepository(CollectionRepository):
             conn.commit()
         logger.info(f"Replaced collection with {count} cards")
         return count
+
+    def update_quantity(self, card_id: int, quantity: int, user_id: Optional[int] = None) -> bool:
+        from sqlalchemy import text
+        engine = self._get_engine()
+        quantity = max(1, int(quantity))
+        with engine.connect() as conn:
+            if user_id is not None:
+                result = conn.execute(
+                    text("UPDATE cards SET quantity = :qty, updated_at = NOW() AT TIME ZONE 'utc' WHERE id = :id AND user_id = :user_id"),
+                    {"qty": quantity, "id": card_id, "user_id": user_id}
+                )
+            else:
+                result = conn.execute(
+                    text("UPDATE cards SET quantity = :qty, updated_at = NOW() AT TIME ZONE 'utc' WHERE id = :id"),
+                    {"qty": quantity, "id": card_id}
+                )
+            conn.commit()
+            return result.rowcount > 0
 
     def get_card_image_by_scryfall_id(self, scryfall_id: str) -> Optional[Tuple[bytes, str]]:
         from sqlalchemy import text

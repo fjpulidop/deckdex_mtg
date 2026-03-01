@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { X } from 'lucide-react';
 import { api } from '../api/client';
 import { ActionButtons } from './ActionButtons';
@@ -10,6 +11,7 @@ interface SettingsModalProps {
 
 export function SettingsModal({ onClose }: SettingsModalProps) {
   const { addJob } = useActiveJobs();
+  const navigate = useNavigate();
   const [importFileLoading, setImportFileLoading] = useState(false);
   const [importFileResult, setImportFileResult] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -163,20 +165,37 @@ export function SettingsModal({ onClose }: SettingsModalProps) {
           </section>
 
           <section>
-            <h3 className="text-base font-semibold mb-3 text-gray-900 dark:text-white">Import from file</h3>
-            <p className="mb-2 text-sm text-gray-600 dark:text-gray-400">
-              Upload a CSV or JSON file to replace your current collection. CSV must have a header row (e.g. Name, Type, Price).
+            <h3 className="text-base font-semibold mb-3 text-gray-900 dark:text-white">Importar colección</h3>
+            <p className="mb-3 text-sm text-gray-600 dark:text-gray-400">
+              Importa tu colección desde Moxfield, TappedOut, MTGO u otros formatos CSV, con enriquecimiento automático via Scryfall.
             </p>
-            <input
-              type="file"
-              accept=".csv,.json"
-              onChange={handleFileChange}
-              disabled={importFileLoading}
-              className="block w-full text-sm text-gray-500 dark:text-gray-400 file:mr-4 file:py-2 file:px-4 file:rounded file:border-0 file:bg-blue-50 dark:file:bg-blue-900/50 file:text-blue-700 dark:file:text-blue-300"
-            />
-            {importFileResult && (
-              <p className="mt-2 text-green-700 dark:text-green-400">{importFileResult}</p>
-            )}
+            <button
+              type="button"
+              onClick={() => { onClose(); navigate('/import'); }}
+              className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm dark:bg-blue-500 dark:hover:bg-blue-600"
+            >
+              Ir a importación →
+            </button>
+            <details className="mt-4">
+              <summary className="text-sm text-gray-500 dark:text-gray-400 cursor-pointer hover:text-gray-700 dark:hover:text-gray-200">
+                Importación rápida (CSV/JSON básico)
+              </summary>
+              <div className="mt-2">
+                <p className="mb-2 text-sm text-gray-600 dark:text-gray-400">
+                  Reemplaza tu colección con un CSV o JSON simple (sin enriquecimiento Scryfall).
+                </p>
+                <input
+                  type="file"
+                  accept=".csv,.json"
+                  onChange={handleFileChange}
+                  disabled={importFileLoading}
+                  className="block w-full text-sm text-gray-500 dark:text-gray-400 file:mr-4 file:py-2 file:px-4 file:rounded file:border-0 file:bg-blue-50 dark:file:bg-blue-900/50 file:text-blue-700 dark:file:text-blue-300"
+                />
+                {importFileResult && (
+                  <p className="mt-2 text-green-700 dark:text-green-400">{importFileResult}</p>
+                )}
+              </div>
+            </details>
           </section>
 
           <section>

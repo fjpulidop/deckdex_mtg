@@ -1,14 +1,67 @@
 import { useState, useRef, useEffect } from 'react';
-import { Card } from '../api/client';
+import { Card, api } from '../api/client';
 
 interface CardTableProps {
   cards: Card[];
   isLoading?: boolean;
   onAdd?: () => void;
   onRowClick?: (card: Card) => void;
+  onQuantityChange?: (id: number, qty: number) => void;
 }
 
-export function CardTable({ cards, isLoading, onAdd, onRowClick }: CardTableProps) {
+function QuantityCell({ card, onQuantityChange }: { card: Card; onQuantityChange?: (id: number, qty: number) => void }) {
+  const [editing, setEditing] = useState(false);
+  const [value, setValue] = useState(String(card.quantity ?? 1));
+  const [saving, setSaving] = useState(false);
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    if (editing) inputRef.current?.focus();
+  }, [editing]);
+
+  const save = async () => {
+    const qty = parseInt(value, 10);
+    if (!card.id || isNaN(qty) || qty < 1) { setEditing(false); return; }
+    setSaving(true);
+    try {
+      await api.updateCardQuantity(card.id, qty);
+      onQuantityChange?.(card.id, qty);
+    } catch {
+      setValue(String(card.quantity ?? 1));
+    } finally {
+      setSaving(false);
+      setEditing(false);
+    }
+  };
+
+  if (editing) {
+    return (
+      <input
+        ref={inputRef}
+        type="number"
+        min="1"
+        value={value}
+        onChange={e => setValue(e.target.value)}
+        onBlur={save}
+        onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); save(); } if (e.key === 'Escape') { setValue(String(card.quantity ?? 1)); setEditing(false); } }}
+        className="w-14 text-center border border-blue-400 rounded px-1 py-0.5 text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+        onClick={e => e.stopPropagation()}
+      />
+    );
+  }
+
+  return (
+    <span
+      className={`inline-block min-w-[2rem] text-center font-mono text-sm cursor-pointer px-2 py-0.5 rounded hover:bg-blue-50 dark:hover:bg-blue-900/40 ${saving ? 'opacity-50' : ''}`}
+      onClick={e => { e.stopPropagation(); setEditing(true); }}
+      title="Click to edit quantity"
+    >
+      {card.quantity ?? 1}
+    </span>
+  );
+}
+
+export function CardTable({ cards, isLoading, onAdd, onRowClick, onQuantityChange }: CardTableProps) {
   const [sortKey, setSortKey] = useState<string>('created_at');
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc');
   const [currentPage, setCurrentPage] = useState(1);
@@ -34,6 +87,11 @@ export function CardTable({ cards, isLoading, onAdd, onRowClick }: CardTableProp
 
   // Sort full list first so order is consistent across all pages
   const sortedCards = [...cards].sort((a, b) => {
+    if (sortKey === 'quantity') {
+      const aq = a.quantity ?? 1;
+      const bq = b.quantity ?? 1;
+      return sortDirection === 'asc' ? aq - bq : bq - aq;
+    }
     if (sortKey === 'price') {
       const parsePrice = (v: unknown): number => {
         if (v == null || v === '') return NaN;
@@ -146,6 +204,13 @@ export function CardTable({ cards, isLoading, onAdd, onRowClick }: CardTableProp
           <thead className="bg-gray-50 dark:bg-gray-700/50">
             <tr>
               <th
+                className="px-3 py-3 text-center text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-600 w-16"
+                onClick={() => handleSort('quantity')}
+                title="Quantity (click cell to edit)"
+              >
+                Qty {sortKey === 'quantity' && (sortDirection === 'asc' ? '↑' : '↓')}
+              </th>
+              <th
                 className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-600"
                 onClick={() => handleSort('created_at')}
                 title="Date added (newest first by default)"
@@ -194,6 +259,9 @@ export function CardTable({ cards, isLoading, onAdd, onRowClick }: CardTableProp
                 className={`hover:bg-gray-50 dark:hover:bg-gray-700/50 focus:outline-none focus:ring-2 focus:ring-inset focus:ring-blue-400 ${onRowClick ? 'cursor-pointer' : ''}`}
                 onClick={() => onRowClick?.(card)}
               >
+                <td className="px-3 py-4 whitespace-nowrap text-sm text-center" onClick={e => e.stopPropagation()}>
+                  <QuantityCell card={card} onQuantityChange={onQuantityChange} />
+                </td>
                 <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
                   {card.created_at
                     ? new Date(card.created_at).toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' })
