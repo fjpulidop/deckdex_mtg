@@ -198,7 +198,12 @@ The `get_card_image()` function in `backend/api/services/card_image_service.py` 
 
 ### Requirement: Catalog-first import enrichment
 
-The `_run_import()` method in `backend/api/services/importer_service.py` SHALL enrich cards from the catalog first. Scryfall enrichment is used only as a fallback when the user has enabled it.
+The `_run_import()` method in `backend/api/services/importer_service.py` SHALL enrich cards from the catalog first. Scryfall enrichment is used only as a fallback when the user has enabled it. The `CardFetcher` SHALL be instantiated with `(config.scryfall, config.openai)` arguments.
+
+#### Scenario: CardFetcher instantiation
+- **WHEN** `_run_import()` creates a `CardFetcher` for Scryfall fallback
+- **THEN** it SHALL pass `config.scryfall` and `config.openai` as arguments (not the entire config object)
+- **AND** the CardFetcher SHALL be functional for `search_card()` calls
 
 #### Scenario: Card found in catalog during import
 
@@ -237,3 +242,19 @@ The frontend API client (`frontend/src/api/client.ts`) SHALL provide methods for
 - **WHEN** the frontend calls `api.updateExternalApisSettings({ scryfall_enabled: boolean })`
 - **THEN** it SHALL send `PUT /api/settings/external-apis` with the JSON body and auth headers
 - **AND** return `{ scryfall_enabled: boolean }`
+
+### Requirement: External APIs integration tests
+The system SHALL have integration tests for the external-apis-settings flow using FastAPI TestClient with mocked dependencies.
+
+#### Scenario: GET settings endpoint tested
+- **WHEN** `GET /api/settings/external-apis` is called via TestClient with authentication
+- **THEN** the test SHALL verify 200 response with `{"scryfall_enabled": bool}`
+
+#### Scenario: PUT settings endpoint tested
+- **WHEN** `PUT /api/settings/external-apis` is called with `{"scryfall_enabled": true}`
+- **THEN** the test SHALL verify 200 response with the updated value
+
+#### Scenario: CardFetcher bug regression test
+- **WHEN** `_run_import()` is called and a card is not in the catalog
+- **AND** Scryfall is enabled
+- **THEN** the test SHALL verify `CardFetcher` is instantiated with `(config.scryfall, config.openai)` (not `config` alone)

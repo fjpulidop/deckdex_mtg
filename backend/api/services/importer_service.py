@@ -66,7 +66,7 @@ class ImporterService:
         from ..dependencies import get_catalog_repo, get_user_settings_repo
 
         config = load_config(profile=os.getenv("DECKDEX_PROFILE", "default"))
-        fetcher = CardFetcher(config)
+        fetcher = CardFetcher(config.scryfall, config.openai)
 
         # Resolve catalog and user settings once at the start
         catalog_repo = get_catalog_repo()
