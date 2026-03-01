@@ -21,6 +21,7 @@ from .config import (
     GoogleSheetsConfig,
     OpenAIConfig,
     DatabaseConfig,
+    CatalogConfig,
 )
 
 
@@ -119,6 +120,7 @@ def apply_env_overrides(config: Dict[str, Any]) -> Dict[str, Any]:
         "google_sheets": ["api", "google_sheets"],
         "openai": ["api", "openai"],
         "database": ["database"],
+        "catalog": ["catalog"],
     }
     
     for env_key, env_value in os.environ.items():
@@ -213,6 +215,7 @@ def build_processor_config(
     scryfall_cfg = api_cfg.get("scryfall", {})
     sheets_cfg = api_cfg.get("google_sheets", {})
     openai_cfg = api_cfg.get("openai", {})
+    catalog_cfg = yaml_config.get("catalog", {})
     database_cfg = yaml_config.get("database", {}).copy()
 
     # Database URL: YAML or DATABASE_URL env (standard name, no DECKDEX_ prefix)
@@ -225,6 +228,7 @@ def build_processor_config(
         scryfall_cfg.update(cli_overrides.get("scryfall", {}))
         sheets_cfg.update(cli_overrides.get("google_sheets", {}))
         openai_cfg.update(cli_overrides.get("openai", {}))
+        catalog_cfg.update(cli_overrides.get("catalog", {}))
         database_cfg.update(cli_overrides.get("database", {}))
 
     # Build nested config objects
@@ -232,6 +236,7 @@ def build_processor_config(
     scryfall = ScryfallConfig(**scryfall_cfg)
     google_sheets = GoogleSheetsConfig(**sheets_cfg)
     openai = OpenAIConfig(**openai_cfg)
+    catalog = CatalogConfig(**catalog_cfg)
     database = DatabaseConfig(**database_cfg) if database_cfg.get("url") else None
 
     # Build main config
@@ -240,6 +245,7 @@ def build_processor_config(
         scryfall=scryfall,
         google_sheets=google_sheets,
         openai=openai,
+        catalog=catalog,
         database=database,
         credentials_path=credentials_path,
         update_prices=update_prices,

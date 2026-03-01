@@ -24,6 +24,8 @@ from deckdex.storage import get_collection_repository
 from deckdex.storage.repository import CollectionRepository
 from deckdex.storage.deck_repository import DeckRepository
 from deckdex.storage.job_repository import JobRepository
+from deckdex.storage.image_store import ImageStore, FilesystemImageStore
+from deckdex.catalog.repository import CatalogRepository
 from loguru import logger
 
 # Cache for collection data (used when source is Google Sheets)
@@ -74,6 +76,34 @@ def get_deck_repo() -> Optional[DeckRepository]:
     if not url or not str(url).strip().startswith("postgresql"):
         return None
     return DeckRepository(url)
+
+
+_image_store: Optional[ImageStore] = None
+
+
+def get_image_store() -> ImageStore:
+    """Get shared FilesystemImageStore instance (singleton)."""
+    global _image_store
+    if _image_store is None:
+        config = load_config(profile=os.getenv("DECKDEX_PROFILE", "default"))
+        image_dir = config.catalog.image_dir
+        if not os.path.isabs(image_dir):
+            image_dir = os.path.join(project_root, image_dir)
+        _image_store = FilesystemImageStore(image_dir)
+    return _image_store
+
+
+def get_catalog_repo() -> Optional[CatalogRepository]:
+    """Get CatalogRepository when DATABASE_URL is set; else None."""
+    config = load_config(profile=os.getenv("DECKDEX_PROFILE", "default"))
+    url = None
+    if config.database is not None and getattr(config.database, "url", None):
+        url = config.database.url
+    if not url:
+        url = os.getenv("DATABASE_URL")
+    if not url or not str(url).strip().startswith("postgresql"):
+        return None
+    return CatalogRepository(url)
 
 
 def get_spreadsheet_client() -> SpreadsheetClient:

@@ -10,6 +10,11 @@ default:
   # database:
   #   url: postgresql://localhost:5432/deckdex
 
+  catalog:
+    image_dir: "data/images"          # Directory for card images (filesystem)
+    bulk_data_url: "https://api.scryfall.com/bulk-data/default-cards"
+    image_size: "normal"              # small (~15KB), normal (~50KB), large (~100KB)
+
   processing:
     batch_size: 20                    # Cards per batch
     max_workers: 4                    # Parallel workers (1-10)

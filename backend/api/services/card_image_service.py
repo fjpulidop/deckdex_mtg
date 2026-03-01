@@ -1,6 +1,6 @@
 """
-Card image service: resolve card image by id, using a global cache keyed by scryfall_id.
-On cache miss, fetch from Scryfall, persist scryfall_id to cards row, store in global cache.
+Card image service: resolve card image by id, using filesystem ImageStore keyed by scryfall_id.
+On cache miss, fetch from Scryfall, persist scryfall_id to cards row, store via ImageStore.
 """
 import os
 import sys
@@ -16,27 +16,31 @@ from loguru import logger
 
 from deckdex.config_loader import load_config
 from deckdex.card_fetcher import CardFetcher
+from deckdex.storage.image_store import ImageStore
 
 
-def get_card_image(card_id: int) -> Tuple[bytes, str]:
+def get_card_image(card_id: int, image_store: ImageStore = None) -> Tuple[bytes, str]:
     """
     Return (image_bytes, content_type) for the given card id.
 
     Lookup flow:
       1. Resolve card row to get name + scryfall_id.
-      2. If scryfall_id known: check global cache → return if hit.
+      2. If scryfall_id known: check ImageStore → return if hit.
       3. Fetch from Scryfall by name to obtain scryfall_id and image URL.
       4. Persist scryfall_id to cards row (lazy population).
-      5. Check global cache again (another user may have just populated it).
-      6. Download image, store in global cache, return.
+      5. Check ImageStore again (another request may have just populated it).
+      6. Download image, store via ImageStore, return.
 
     Raises FileNotFoundError if card not found or image unavailable.
     """
-    from ..dependencies import get_collection_repo
+    from ..dependencies import get_collection_repo, get_image_store
 
     repo = get_collection_repo()
     if repo is None:
         raise FileNotFoundError("Card images require PostgreSQL (DATABASE_URL)")
+
+    if image_store is None:
+        image_store = get_image_store()
 
     # 1) Resolve card row
     card = repo.get_card_by_id(card_id)
@@ -49,14 +53,14 @@ def get_card_image(card_id: int) -> Tuple[bytes, str]:
 
     scryfall_id = card.get("scryfall_id") or None
 
-    # 2) Cache hit via known scryfall_id
+    # 2) Cache hit via known scryfall_id (filesystem)
     if scryfall_id:
         try:
-            cached = repo.get_card_image_by_scryfall_id(scryfall_id)
+            cached = image_store.get(scryfall_id)
             if cached is not None:
                 return cached
         except Exception as e:
-            logger.warning(f"Failed to read global image cache for scryfall_id={scryfall_id}: {e}")
+            logger.warning(f"Failed to read image store for scryfall_id={scryfall_id}: {e}")
 
     # 3) Fetch from Scryfall to get scryfall_id + image URL
     config = load_config(profile=os.getenv("DECKDEX_PROFILE", "default"))
@@ -90,16 +94,16 @@ def get_card_image(card_id: int) -> Tuple[bytes, str]:
             logger.warning(f"Failed to persist scryfall_id for card_id={card_id}: {e}")
             scryfall_id = fetched_scryfall_id
 
-    # 5) Check global cache again (race condition guard)
+    # 5) Check ImageStore again (race condition guard)
     if scryfall_id:
         try:
-            cached = repo.get_card_image_by_scryfall_id(scryfall_id)
+            cached = image_store.get(scryfall_id)
             if cached is not None:
                 return cached
         except Exception as e:
-            logger.warning(f"Failed to read global image cache (second check) for scryfall_id={scryfall_id}: {e}")
+            logger.warning(f"Failed to read image store (second check) for scryfall_id={scryfall_id}: {e}")
 
-    # 6) Download and store in global cache
+    # 6) Download and store via ImageStore
     try:
         resp = requests.get(image_url, timeout=config.scryfall.timeout)
         resp.raise_for_status()
@@ -111,8 +115,8 @@ def get_card_image(card_id: int) -> Tuple[bytes, str]:
     content_type = resp.headers.get('content-type', 'image/jpeg')
     if scryfall_id:
         try:
-            repo.save_card_image_to_global_cache(scryfall_id, content_type, data)
+            image_store.put(scryfall_id, data, content_type)
         except Exception as e:
-            logger.warning(f"Failed to save image to global cache for scryfall_id={scryfall_id}: {e}")
+            logger.warning(f"Failed to save image to store for scryfall_id={scryfall_id}: {e}")
 
     return data, content_type
