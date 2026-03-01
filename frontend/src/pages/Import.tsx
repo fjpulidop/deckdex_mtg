@@ -9,6 +9,7 @@ import { useActiveJobs } from '../contexts/ActiveJobsContext';
 
 type Step = 'upload' | 'preview' | 'mode' | 'progress' | 'result';
 type Mode = 'merge' | 'replace';
+type InputMode = 'file' | 'text';
 
 interface Preview {
   detected_format: string;
@@ -37,7 +38,9 @@ export default function Import() {
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const [step, setStep] = useState<Step>('upload');
+  const [inputMode, setInputMode] = useState<InputMode>('file');
   const [file, setFile] = useState<File | null>(null);
+  const [pastedText, setPastedText] = useState('');
   const [preview, setPreview] = useState<Preview | null>(null);
   const [mode, setMode] = useState<Mode>('merge');
   const [result, setResult] = useState<ImportResult | null>(null);
@@ -45,7 +48,7 @@ export default function Import() {
   const [error, setError] = useState<string | null>(null);
   const [showNotFound, setShowNotFound] = useState(false);
 
-  // Step 1 → 2: upload and preview
+  // Step 1 → 2: upload and preview (file)
   const handleFileSelect = async (selected: File) => {
     setFile(selected);
     setError(null);
@@ -67,22 +70,36 @@ export default function Import() {
     if (f) handleFileSelect(f);
   };
 
+  // Step 1 → 2: preview pasted text
+  const handleTextPreview = async () => {
+    if (!pastedText.trim()) return;
+    setError(null);
+    setLoading(true);
+    try {
+      const p = await api.importPreviewText(pastedText);
+      setPreview(p);
+      setStep('preview');
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Error al analizar el texto');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   // Step 3 → 4 → 5: launch import job
   const handleImport = async () => {
-    if (!file) return;
+    if (inputMode === 'file' && !file) return;
+    if (inputMode === 'text' && !pastedText.trim()) return;
     setLoading(true);
     setError(null);
     setStep('progress');
     try {
-      const res = await api.importExternal(file, mode);
+      const res = inputMode === 'text'
+        ? await api.importExternalText(pastedText, mode)
+        : await api.importExternal(file!, mode);
       addJob(res.job_id, `Import (${FORMAT_LABELS[res.format] ?? res.format})`, () => {
         // job finished callback — update step to result
       });
-      // Poll for job completion via existing WebSocket in JobsBottomBar
-      // We simulate result display after a slight delay
-      // The actual result comes from the import endpoint response (job_id only)
-      // To show results we listen for job completion. For simplicity: navigate to
-      // a result view after user confirms (or redirect to dashboard).
       setResult({ imported: res.card_count, skipped: 0, not_found: [], mode: res.mode, format: res.format });
       setStep('result');
     } catch (e) {
@@ -96,6 +113,7 @@ export default function Import() {
   const reset = () => {
     setStep('upload');
     setFile(null);
+    setPastedText('');
     setPreview(null);
     setResult(null);
     setError(null);
@@ -132,26 +150,64 @@ export default function Import() {
 
         {/* Step 1: Upload */}
         {step === 'upload' && (
-          <div
-            onDrop={handleDrop}
-            onDragOver={e => e.preventDefault()}
-            className="border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-xl p-12 text-center hover:border-blue-400 transition"
-          >
-            <div className="text-4xl mb-4">📁</div>
-            <p className="text-gray-600 dark:text-gray-300 mb-4">Arrastra tu archivo aquí o</p>
-            <label className="cursor-pointer">
-              <span className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition text-sm">
-                {loading ? 'Cargando…' : 'Seleccionar archivo'}
-              </span>
-              <input
-                ref={fileInputRef}
-                type="file"
-                accept=".csv,.txt"
-                className="sr-only"
-                onChange={e => { const f = e.target.files?.[0]; if (f) handleFileSelect(f); }}
-              />
-            </label>
-            <p className="mt-4 text-xs text-gray-400">Formatos: Moxfield CSV, TappedOut CSV, MTGO .txt, CSV genérico</p>
+          <div className="space-y-4">
+            {/* Tab switcher */}
+            <div className="flex rounded-lg border border-gray-200 dark:border-gray-700 overflow-hidden">
+              <button
+                onClick={() => setInputMode('file')}
+                className={`flex-1 py-2 text-sm font-medium transition ${inputMode === 'file' ? 'bg-blue-600 text-white' : 'bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700'}`}
+              >
+                Subir archivo
+              </button>
+              <button
+                onClick={() => setInputMode('text')}
+                className={`flex-1 py-2 text-sm font-medium transition ${inputMode === 'text' ? 'bg-blue-600 text-white' : 'bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700'}`}
+              >
+                Pegar texto
+              </button>
+            </div>
+
+            {inputMode === 'file' ? (
+              <div
+                onDrop={handleDrop}
+                onDragOver={e => e.preventDefault()}
+                className="border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-xl p-12 text-center hover:border-blue-400 transition"
+              >
+                <div className="text-4xl mb-4">📁</div>
+                <p className="text-gray-600 dark:text-gray-300 mb-4">Arrastra tu archivo aquí o</p>
+                <label className="cursor-pointer">
+                  <span className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition text-sm">
+                    {loading ? 'Cargando…' : 'Seleccionar archivo'}
+                  </span>
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    accept=".csv,.txt"
+                    className="sr-only"
+                    onChange={e => { const f = e.target.files?.[0]; if (f) handleFileSelect(f); }}
+                  />
+                </label>
+                <p className="mt-4 text-xs text-gray-400">Formatos: Moxfield CSV, TappedOut CSV, MTGO .txt, CSV genérico</p>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                <textarea
+                  value={pastedText}
+                  onChange={e => setPastedText(e.target.value)}
+                  placeholder={"Pega tu listado de cartas aquí. Formato:\n4 Lightning Bolt\n2 Black Lotus\n1 Sol Ring"}
+                  rows={10}
+                  className="w-full rounded-xl border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-sm text-gray-800 dark:text-gray-100 p-4 font-mono resize-none focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+                <p className="text-xs text-gray-400">Formato: una carta por línea con cantidad. Ej: <code className="bg-gray-100 dark:bg-gray-700 px-1 rounded">4 Lightning Bolt</code></p>
+                <button
+                  onClick={handleTextPreview}
+                  disabled={loading || !pastedText.trim()}
+                  className="w-full py-2 bg-blue-600 text-white rounded-lg text-sm hover:bg-blue-700 disabled:opacity-50 transition"
+                >
+                  {loading ? 'Analizando…' : 'Continuar →'}
+                </button>
+              </div>
+            )}
           </div>
         )}
 

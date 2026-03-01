@@ -125,10 +125,28 @@ async def import_from_file(
 # ---------------------------------------------------------------------------
 @router_import.post("/preview")
 async def import_preview(
-    file: UploadFile = File(...),
+    file: Optional[UploadFile] = File(None),
+    text: Optional[str] = Form(None),
     user_id: int = Depends(get_current_user_id),
 ):
-    """Parse file and return detected format + card count + sample (no DB writes)."""
+    """Parse file or pasted text and return detected format + card count + sample (no DB writes)."""
+    if text and text.strip():
+        from deckdex.importers.mtgo import parse as mtgo_parse
+        try:
+            parsed = mtgo_parse(text)
+        except Exception as e:
+            raise HTTPException(status_code=400, detail=f"Failed to parse text: {e}")
+        if not parsed:
+            raise HTTPException(status_code=400, detail="No cards found in text.")
+        return {
+            "detected_format": "mtgo",
+            "card_count": len(parsed),
+            "sample": [c["name"] for c in parsed[:5]],
+        }
+
+    if not file:
+        raise HTTPException(status_code=400, detail="Provide a file or paste card text.")
+
     content_bytes = await file.read()
     text_content = _read_content(content_bytes)
     filename = file.filename or ""
@@ -154,11 +172,12 @@ async def import_preview(
 @router_import.post("/external")
 async def import_external(
     background_tasks: BackgroundTasks,
-    file: UploadFile = File(...),
+    file: Optional[UploadFile] = File(None),
+    text: Optional[str] = Form(None),
     mode: str = Form(default="merge"),
     user_id: int = Depends(get_current_user_id),
 ):
-    """Parse external collection file, enrich via Scryfall, write to DB as async job."""
+    """Parse external collection file or pasted text, enrich via Scryfall, write to DB as async job."""
     repo = get_collection_repo()
     if not repo:
         raise HTTPException(status_code=501, detail="Postgres required. Set DATABASE_URL.")
@@ -166,17 +185,26 @@ async def import_external(
     if mode not in ("merge", "replace"):
         mode = "merge"
 
-    content_bytes = await file.read()
-    text_content = _read_content(content_bytes)
-    filename = file.filename or ""
-
-    try:
-        fmt, parsed_cards = _parse_file(filename, text_content)
-    except Exception as e:
-        raise HTTPException(status_code=400, detail=f"Failed to parse file: {e}")
+    if text and text.strip():
+        from deckdex.importers.mtgo import parse as mtgo_parse
+        try:
+            parsed_cards = mtgo_parse(text)
+        except Exception as e:
+            raise HTTPException(status_code=400, detail=f"Failed to parse text: {e}")
+        fmt = "mtgo"
+    elif file:
+        content_bytes = await file.read()
+        text_content = _read_content(content_bytes)
+        filename = file.filename or ""
+        try:
+            fmt, parsed_cards = _parse_file(filename, text_content)
+        except Exception as e:
+            raise HTTPException(status_code=400, detail=f"Failed to parse file: {e}")
+    else:
+        raise HTTPException(status_code=400, detail="Provide a file or paste card text.")
 
     if not parsed_cards:
-        raise HTTPException(status_code=400, detail="No cards found in file.")
+        raise HTTPException(status_code=400, detail="No cards found.")
 
     job_id = str(uuid.uuid4())
     job_repo = get_job_repo()

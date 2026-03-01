@@ -54,16 +54,19 @@ class ProcessRequest(BaseModel):
 
 
 @router.get("/jobs", response_model=List[JobListItem])
-async def list_jobs():
+async def list_jobs(user_id: int = Depends(get_current_user_id)):
     """
     List all active and recently completed jobs.
-    
+
     Returns list of jobs with their current status and progress.
+    Includes in-memory jobs (process/price) and DB-persisted running jobs (imports).
     """
     jobs = []
-    
-    # Active jobs
+    in_memory_ids: set = set()
+
+    # Active jobs (in-memory)
     for job_id, service in _active_jobs.items():
+        in_memory_ids.add(job_id)
         metadata = service.get_metadata()
         jobs.append(JobListItem(
             job_id=job_id,
@@ -72,9 +75,10 @@ async def list_jobs():
             progress=metadata.progress,
             start_time=metadata.start_time.isoformat(),
         ))
-    
-    # Recently completed jobs
+
+    # Recently completed jobs (in-memory)
     for job_id, result in _job_results.items():
+        in_memory_ids.add(job_id)
         if job_id not in _active_jobs:
             jobs.append(JobListItem(
                 job_id=job_id,
@@ -83,7 +87,25 @@ async def list_jobs():
                 progress={'summary': result},
                 start_time='',
             ))
-    
+
+    # Running/pending jobs from Postgres not yet in memory (e.g. import jobs after page refresh)
+    job_repo = get_job_repo()
+    if job_repo:
+        try:
+            db_jobs = job_repo.get_job_history(user_id, limit=20)
+            for db_job in db_jobs:
+                jid = str(db_job.get('id', ''))
+                if jid and jid not in in_memory_ids and db_job.get('status') in ('running', 'pending'):
+                    jobs.append(JobListItem(
+                        job_id=jid,
+                        status=db_job['status'],
+                        job_type=db_job.get('type', 'unknown'),
+                        progress={},
+                        start_time=str(db_job.get('created_at') or ''),
+                    ))
+        except Exception:
+            pass
+
     return jobs
 
 
