@@ -57,7 +57,7 @@ async def trigger_catalog_sync(user: dict = Depends(require_admin)):
             detail="Catalog sync already in progress",
         )
 
-    logger.info(f"Admin {user.get('email')} triggered catalog sync: {job_id}")
+    logger.info(f"Admin user_id={user.get('sub')} triggered catalog sync: {job_id}")
     return {"job_id": job_id, "status": "started", "message": "Catalog sync started"}
 
 

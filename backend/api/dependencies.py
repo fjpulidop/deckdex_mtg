@@ -168,16 +168,56 @@ def get_user_settings_repo() -> Optional[UserSettingsRepository]:
 
 
 def is_admin_user(email: str) -> bool:
-    """Check if the given email matches the configured admin email.
+    """Check if the user is an admin.
 
-    Reads ``DECKDEX_ADMIN_EMAIL`` from the environment.  Returns ``False``
-    when the env var is missing/empty or the emails don't match.
-    Comparison is case-insensitive.
+    Priority:
+    1. ``is_admin`` column in the ``users`` table (DB source of truth).
+    2. Fallback: ``DECKDEX_ADMIN_EMAIL`` env var (bootstrap / no-DB mode).
+
+    When the env var matches but the DB column is still ``False``, the
+    caller should promote the user via :func:`_promote_bootstrap_admin`.
     """
+    # --- DB check (primary) ---
+    engine = get_engine()
+    if engine is not None:
+        try:
+            from sqlalchemy import text
+            with engine.connect() as conn:
+                row = conn.execute(
+                    text("SELECT is_admin FROM users WHERE LOWER(email) = :email"),
+                    {"email": email.strip().lower()},
+                ).fetchone()
+            if row is not None and row[0]:
+                return True
+        except Exception:
+            pass  # column may not exist yet (migration pending)
+
+    # --- Env var fallback (bootstrap) ---
     admin_email = os.getenv("DECKDEX_ADMIN_EMAIL", "").strip()
     if not admin_email:
         return False
     return email.strip().lower() == admin_email.lower()
+
+
+def _promote_bootstrap_admin(email: str) -> None:
+    """Set ``is_admin = TRUE`` in the DB for the bootstrap admin.
+
+    Called once when the env-var admin logs in and the DB column is still
+    ``FALSE``.  Silently ignored if the column doesn't exist yet.
+    """
+    engine = get_engine()
+    if engine is None:
+        return
+    try:
+        from sqlalchemy import text
+        with engine.begin() as conn:
+            conn.execute(
+                text("UPDATE users SET is_admin = TRUE WHERE LOWER(email) = :email"),
+                {"email": email.strip().lower()},
+            )
+        logger.info(f"Promoted bootstrap admin (user_id lookup by email)")
+    except Exception as e:
+        logger.debug(f"Bootstrap admin promotion skipped: {e}")
 
 
 def get_spreadsheet_client() -> SpreadsheetClient:
@@ -439,6 +479,10 @@ async def require_admin(user: dict = Depends(get_current_user)) -> dict:
 
     Depends on ``get_current_user`` (authentication checked first).
     Raises 403 if the authenticated user is not the admin.
+
+    On first call for the bootstrap admin (env var match but DB column
+    still ``FALSE``), auto-promotes the user in the DB so subsequent
+    checks hit the fast path.
     """
     email = user.get("email", "")
     if not is_admin_user(email):
@@ -446,4 +490,6 @@ async def require_admin(user: dict = Depends(get_current_user)) -> dict:
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Admin access required",
         )
+    # Auto-promote bootstrap admin in DB if not already set
+    _promote_bootstrap_admin(email)
     return user

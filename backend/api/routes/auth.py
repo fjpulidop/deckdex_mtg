@@ -15,7 +15,7 @@ from jose import jwt, JWTError
 from loguru import logger
 
 from ..dependencies import (
-    get_collection_repo, is_admin_user,
+    get_collection_repo, is_admin_user, _promote_bootstrap_admin,
     blacklist_token, decode_jwt_token,
 )
 from ..main import limiter
@@ -287,7 +287,7 @@ async def oauth_callback(request: Request, code: str = None, error: str = None):
             "expires": datetime.utcnow() + timedelta(minutes=5),
         }
 
-        logger.info(f"User {email} logged in successfully")
+        logger.info(f"User id={user['id']} logged in successfully")
         from fastapi.responses import RedirectResponse
         return RedirectResponse(url=f"{frontend}/auth/callback?code={auth_code}")
 
@@ -334,17 +334,20 @@ async def get_current_user(request: Request):
         from sqlalchemy import text
         with repo._get_engine().connect() as conn:
             row = conn.execute(
-                text("SELECT id, email, display_name, avatar_url FROM users WHERE id = :id"),
+                text("SELECT id, email, display_name, avatar_url, is_admin FROM users WHERE id = :id"),
                 {"id": user_id}
             ).mappings().fetchone()
         if row is None:
             raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="User not found")
+        admin = bool(row.get("is_admin")) or is_admin_user(row["email"])
+        if admin:
+            _promote_bootstrap_admin(row["email"])
         return UserPayload(
             id=row["id"],
             email=row["email"],
             display_name=row.get("display_name"),
             picture=row.get("avatar_url"),
-            is_admin=is_admin_user(row["email"]),
+            is_admin=admin,
         )
     except HTTPException:
         raise
@@ -494,3 +497,106 @@ async def logout(request: Request, response: Response):
 async def health():
     """Health check endpoint (no auth required)"""
     return {"status": "ok"}
+
+
+# ---------------------------------------------------------------------------
+# Avatar proxy — serves cached user avatars instead of leaking external URLs
+# ---------------------------------------------------------------------------
+import hashlib
+from pathlib import Path
+from fastapi.responses import FileResponse
+
+_AVATAR_CACHE_DIR = Path(
+    os.getenv("DECKDEX_AVATAR_DIR", os.path.join(os.path.dirname(__file__), "../../../data/avatars"))
+).resolve()
+_AVATAR_CACHE_DIR.mkdir(parents=True, exist_ok=True)
+
+# Max avatar download size (2 MB)
+_MAX_AVATAR_BYTES = 2 * 1024 * 1024
+
+
+@router.get("/avatar/{user_id}")
+async def get_avatar(user_id: int, request: Request):
+    """Proxy endpoint that serves a locally cached copy of the user's avatar.
+
+    On first request (cache miss), downloads the avatar from the stored
+    ``avatar_url``, saves it to disk, and serves it.  Subsequent requests
+    serve from cache.  Returns 404 if the user has no avatar.
+    """
+    # Authenticate
+    get_current_user_from_request(request)
+
+    repo = get_collection_repo()
+    if repo is None:
+        raise HTTPException(status_code=503, detail="Database not configured")
+
+    from sqlalchemy import text
+    with repo._get_engine().connect() as conn:
+        row = conn.execute(
+            text("SELECT avatar_url FROM users WHERE id = :id"),
+            {"id": user_id},
+        ).fetchone()
+
+    if row is None or not row[0]:
+        raise HTTPException(status_code=404, detail="No avatar")
+
+    avatar_url: str = row[0]
+
+    # Deterministic cache key from URL
+    url_hash = hashlib.sha256(avatar_url.encode()).hexdigest()[:16]
+    cache_path = _AVATAR_CACHE_DIR / f"{user_id}_{url_hash}.img"
+
+    if cache_path.exists():
+        # Guess content type from magic bytes
+        ct = _guess_content_type(cache_path)
+        return FileResponse(cache_path, media_type=ct)
+
+    # Download avatar (validate domain first)
+    from urllib.parse import urlparse
+    parsed = urlparse(avatar_url)
+    if parsed.scheme != "https":
+        raise HTTPException(status_code=400, detail="Avatar URL must be HTTPS")
+
+    try:
+        async with httpx.AsyncClient(timeout=10) as client:
+            resp = await client.get(avatar_url)
+            resp.raise_for_status()
+    except Exception:
+        raise HTTPException(status_code=502, detail="Failed to fetch avatar")
+
+    if len(resp.content) > _MAX_AVATAR_BYTES:
+        raise HTTPException(status_code=502, detail="Avatar too large")
+
+    # Write to cache atomically
+    import tempfile
+    fd, tmp = tempfile.mkstemp(dir=_AVATAR_CACHE_DIR)
+    try:
+        os.write(fd, resp.content)
+        os.close(fd)
+        os.replace(tmp, cache_path)
+    except Exception:
+        try:
+            os.close(fd)
+        except OSError:
+            pass
+        if os.path.exists(tmp):
+            os.unlink(tmp)
+        raise
+
+    ct = resp.headers.get("content-type", "image/jpeg")
+    return FileResponse(cache_path, media_type=ct)
+
+
+def _guess_content_type(path: Path) -> str:
+    """Guess image content type from file magic bytes."""
+    try:
+        header = path.read_bytes()[:8]
+        if header[:3] == b"\xff\xd8\xff":
+            return "image/jpeg"
+        if header[:8] == b"\x89PNG\r\n\x1a\n":
+            return "image/png"
+        if header[:4] == b"RIFF" and header[8:12] == b"WEBP" if len(header) >= 12 else False:
+            return "image/webp"
+    except Exception:
+        pass
+    return "image/jpeg"

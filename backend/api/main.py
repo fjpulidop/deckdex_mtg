@@ -16,17 +16,26 @@ import sys
 
 # Configure loguru logger
 logger.remove()  # Remove default handler
-logger.add(
-    sys.stderr,
-    format="<green>{time:YYYY-MM-DD HH:mm:ss}</green> | <level>{level: <8}</level> | <cyan>{name}</cyan>:<cyan>{function}</cyan>:<cyan>{line}</cyan> - <level>{message}</level>",
-    level="INFO"
-)
+
+_is_dev = os.getenv("DECKDEX_PROFILE", "default") in ("default", "development")
+
+# stderr: human-readable in dev, JSON in production
+if _is_dev:
+    logger.add(
+        sys.stderr,
+        format="<green>{time:YYYY-MM-DD HH:mm:ss}</green> | <level>{level: <8}</level> | <cyan>{name}</cyan>:<cyan>{function}</cyan>:<cyan>{line}</cyan> - <level>{message}</level>",
+        level="INFO",
+    )
+else:
+    logger.add(sys.stderr, serialize=True, level="INFO")
+
+# File: always structured JSON for log aggregation / SIEM ingestion
 logger.add(
     "logs/api.log",
     rotation="500 MB",
     retention="10 days",
     level="INFO",
-    format="{time:YYYY-MM-DD HH:mm:ss} | {level: <8} | {name}:{function}:{line} - {message}"
+    serialize=True,
 )
 
 # Rate limiter (in-memory storage, keyed by remote address by default)
@@ -113,9 +122,6 @@ async def request_id_and_logging(request: Request, call_next):
 # ---------------------------------------------------------------------------
 # Security headers middleware
 # ---------------------------------------------------------------------------
-_is_dev = os.getenv("DECKDEX_PROFILE", "default") in ("default", "development")
-
-
 @app.middleware("http")
 async def security_headers(request: Request, call_next):
     response = await call_next(request)

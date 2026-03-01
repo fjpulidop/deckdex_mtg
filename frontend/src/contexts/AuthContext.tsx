@@ -43,12 +43,13 @@ async function fetchMe(): Promise<User | null> {
     });
     if (response.ok) {
       const data = await response.json();
-      // Backend returns { id, email, display_name, picture, is_admin } — map picture → avatar_url
+      // Use the avatar proxy endpoint instead of external URLs
+      const hasAvatar = !!(data.picture || data.avatar_url);
       return {
         id: data.id,
         email: data.email,
         display_name: data.display_name,
-        avatar_url: data.picture ?? data.avatar_url,
+        avatar_url: hasAvatar ? `/api/auth/avatar/${data.id}` : undefined,
         is_admin: data.is_admin ?? false,
       };
     }
