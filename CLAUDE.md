@@ -72,12 +72,7 @@ Browser → React (Vite, :5173)
 
 ## Conventions
 
-- **Routes are thin**: validate input → call service → return Pydantic model. No business logic in routes.
-- **deckdex/ has no framework deps**: stdlib + `requirements.txt` only. No FastAPI or React imports here.
-- **Config via config_loader**: never hardcode paths or secrets; always go through `config_loader.py`.
-- **Storage via repository**: all DB ops through `storage/repository.py`. No raw SQL elsewhere.
-- **WebSockets**: follow `api/websockets/progress.py` pattern for job progress.
-- **Frontend**: functional components + hooks, TypeScript strict, `useApi` hook for all backend calls.
+Layer-specific conventions are in `.claude/rules/` (loaded conditionally per layer).
 
 ## Warnings
 
@@ -87,25 +82,13 @@ Browser → React (Vite, :5173)
 
 ⚠️ **Job state**: lost on backend restart (in-memory, not persisted).
 
-## Specs (OpenSpec)
+## OpenSpec
 
-`openspec/specs/` is the source of truth for requirements and design decisions.
-**Before implementing any feature, read the relevant spec(s) in this folder.**
-
-Key specs to know:
-- `openspec/specs/data-model.md` — data model and field definitions
-- `openspec/specs/architecture/spec.md` — system architecture
-- `openspec/specs/conventions.md` — coding conventions
-- `openspec/specs/web-api-backend/spec.md` — API contracts
-- `openspec/specs/web-dashboard-ui/spec.md` — UI patterns
-- Per-capability specs live in `openspec/specs/<capability>/spec.md`
-
-## Change workflow (OpenSpec)
-
-Changes live in `openspec/changes/<name>/`. Use `/opsx:ff` to create a new change, `/opsx:apply` to implement, `/opsx:archive` when done.
+- **Specs**: `openspec/specs/` is the source of truth. Read relevant specs before implementing.
+- **Changes**: `openspec/changes/<name>/`. Use `/opsx:ff` → `/opsx:apply` → `/opsx:archive`.
+- Key specs: `data-model.md`, `architecture/spec.md`, `conventions.md`, `web-api-backend/spec.md`, `web-dashboard-ui/spec.md`. Per-capability: `openspec/specs/<capability>/spec.md`.
 
 ## Scoped context
 
-- `backend/CLAUDE.md` — FastAPI routes, services, WebSockets
-- `frontend/CLAUDE.md` — React, TypeScript, Vite
-- `deckdex/CLAUDE.md` — Core package (processor, storage, config)
+- `backend/CLAUDE.md`, `frontend/CLAUDE.md`, `deckdex/CLAUDE.md` — per-layer commands, file maps, and context.
+- `.claude/rules/` — per-layer conventions (loaded conditionally by path).
