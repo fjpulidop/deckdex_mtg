@@ -106,6 +106,34 @@ def get_catalog_repo() -> Optional[CatalogRepository]:
     return CatalogRepository(url)
 
 
+def is_admin_user(email: str) -> bool:
+    """Check if the given email matches the configured admin email.
+
+    Reads ``DECKDEX_ADMIN_EMAIL`` from the environment.  Returns ``False``
+    when the env var is missing/empty or the emails don't match.
+    Comparison is case-insensitive.
+    """
+    admin_email = os.getenv("DECKDEX_ADMIN_EMAIL", "").strip()
+    if not admin_email:
+        return False
+    return email.strip().lower() == admin_email.lower()
+
+
+async def require_admin(user: dict = Depends(get_current_user)) -> dict:
+    """FastAPI dependency that gates admin-only endpoints.
+
+    Depends on ``get_current_user`` (authentication checked first).
+    Raises 403 if the authenticated user is not the admin.
+    """
+    email = user.get("email", "")
+    if not is_admin_user(email):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Admin access required",
+        )
+    return user
+
+
 def get_spreadsheet_client() -> SpreadsheetClient:
     """
     Get configured SpreadsheetClient instance.

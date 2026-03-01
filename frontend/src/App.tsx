@@ -12,8 +12,10 @@ import { DeckBuilder } from './pages/DeckBuilder'
 import Login from './pages/Login'
 import AuthCallback from './pages/AuthCallback'
 import ProtectedRoute from './components/ProtectedRoute'
+import AdminRoute from './components/AdminRoute'
 import { JobsBottomBar } from './components/JobsBottomBar'
 import Import from './pages/Import'
+import { Admin } from './pages/Admin'
 
 const Landing = lazy(() => import('./pages/Landing').then(m => ({ default: m.Landing })))
 
@@ -75,6 +77,14 @@ function AppContent() {
             <ProtectedRoute>
               <Import />
             </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/admin"
+          element={
+            <AdminRoute>
+              <Admin />
+            </AdminRoute>
           }
         />
       </Routes>

@@ -188,6 +188,14 @@ export interface InsightResponse {
   data: InsightValueData | InsightDistributionData | InsightListData | InsightComparisonData | InsightTimelineData;
 }
 
+export interface CatalogSyncStatus {
+  last_bulk_sync: string | null;
+  total_cards: number;
+  total_images_downloaded: number;
+  status: string;
+  error_message: string | null;
+}
+
 // API functions
 export const api = {
   // Cards (same filter params as stats so list and totals match)
@@ -635,6 +643,27 @@ export const api = {
       const err = await response.json().catch(() => ({}));
       if (response.status === 404) throw new Error((err as { detail?: string }).detail || `Insight '${insightId}' not found`);
       throw new Error((err as { detail?: string }).detail || 'Failed to execute insight');
+    }
+    return response.json();
+  },
+
+  // Admin endpoints
+  adminTriggerCatalogSync: async (): Promise<{ job_id: string; status: string; message: string }> => {
+    const response = await apiFetch(`${API_BASE}/admin/catalog/sync`, {
+      method: 'POST',
+    });
+    if (!response.ok) {
+      const err = await response.json().catch(() => ({}));
+      throw new Error((err as { detail?: string }).detail || 'Failed to trigger catalog sync');
+    }
+    return response.json();
+  },
+
+  adminGetCatalogSyncStatus: async (): Promise<CatalogSyncStatus> => {
+    const response = await apiFetch(`${API_BASE}/admin/catalog/sync/status`);
+    if (!response.ok) {
+      const err = await response.json().catch(() => ({}));
+      throw new Error((err as { detail?: string }).detail || 'Failed to fetch catalog sync status');
     }
     return response.json();
   },
