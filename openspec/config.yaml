@@ -1,20 +1,57 @@
 schema: spec-driven
 
-# Project context (optional)
-# This is shown to AI when creating artifacts.
-# Add your tech stack, conventions, style guides, domain knowledge, etc.
-# Example:
-#   context: |
-#     Tech stack: TypeScript, React, Node.js
-#     We use conventional commits
-#     Domain: e-commerce platform
+context: |
+  # DeckDex MTG — Project Context
 
-# Per-artifact rules (optional)
-# Add custom rules for specific artifacts.
-# Example:
-#   rules:
-#     proposal:
-#       - Keep proposals under 500 words
-#       - Always include a "Non-goals" section
-#     tasks:
-#       - Break tasks into chunks of max 2 hours
+  ## Domain
+  Magic: The Gathering collection manager. Users import, catalog, price-track,
+  and build decks from their MTG card collections. Supports both CLI and web.
+
+  ## Architecture (3 layers, strict boundaries)
+  Browser (React :5173) → FastAPI (:8000) → deckdex/ core → PostgreSQL / Google Sheets
+
+  ## Tech Stack
+  - Core: Python 3.9+, type hints, PEP-8
+  - Backend: FastAPI, uvicorn, WebSockets, Pydantic, SQLAlchemy
+  - Frontend: React 19, TypeScript strict (no `any`), Vite 7, Tailwind, TanStack Query
+  - Storage: PostgreSQL (primary) or Google Sheets (legacy)
+  - External APIs: Scryfall (card data), OpenAI (optional enrichment)
+  - Tests: pytest (all tests in tests/)
+  - Lint/format: ruff
+
+  ## Key Conventions
+  - Routes are thin: validate → call service → return Pydantic model. No business logic.
+  - deckdex/ has ZERO framework deps (no FastAPI, no React). Stdlib + requirements.txt only.
+  - Config always via config_loader.py. Never hardcode paths or secrets.
+  - All DB ops through storage/repository.py. No raw SQL elsewhere.
+  - Frontend: functional components + hooks, all backend calls through api/client.ts + useApi hook.
+  - WebSockets follow api/websockets/progress.py pattern for job progress.
+  - Commits: short imperative summary. Branches: feat/ fix/ chore/ docs/.
+
+  ## Repo Structure
+  deckdex/          → Core package (processing, config, storage)
+  backend/api/      → FastAPI routes, services, websockets
+  frontend/src/     → React dashboard (components, hooks, pages, api)
+  tests/            → All tests (pytest)
+  openspec/specs/   → Source of truth for requirements and design
+
+  ## Constraints
+  - No auth: app is localhost-only, do not expose to internet
+  - Job state is in-memory (lost on restart)
+  - Google Sheets mode: no concurrent CLI + web (write conflicts)
+
+rules:
+  proposal:
+    - Keep proposals concise (under 500 words)
+    - Always include a "Non-goals" section to limit scope
+    - Reference existing specs when relevant (openspec/specs/<capability>/spec.md)
+  design:
+    - Respect the 3-layer architecture (frontend → backend → core)
+    - deckdex/ must never import from backend/ or frontend/
+    - Specify which layer each component lives in
+    - Reference existing patterns in the codebase before inventing new ones
+  tasks:
+    - Break tasks into small, independently testable chunks
+    - Order tasks by layer: core (deckdex/) → backend → frontend
+    - Include a verification step (tests or manual check) per task
+    - Mark which files will be created vs modified
