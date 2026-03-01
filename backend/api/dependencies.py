@@ -26,6 +26,7 @@ from deckdex.storage.deck_repository import DeckRepository
 from deckdex.storage.job_repository import JobRepository
 from deckdex.storage.image_store import ImageStore, FilesystemImageStore
 from deckdex.catalog.repository import CatalogRepository
+from deckdex.storage.user_settings_repository import UserSettingsRepository
 from loguru import logger
 
 # Cache for collection data (used when source is Google Sheets)
@@ -104,6 +105,19 @@ def get_catalog_repo() -> Optional[CatalogRepository]:
     if not url or not str(url).strip().startswith("postgresql"):
         return None
     return CatalogRepository(url)
+
+
+def get_user_settings_repo() -> Optional[UserSettingsRepository]:
+    """Get UserSettingsRepository when DATABASE_URL is set; else None."""
+    config = load_config(profile=os.getenv("DECKDEX_PROFILE", "default"))
+    url = None
+    if config.database is not None and getattr(config.database, "url", None):
+        url = config.database.url
+    if not url:
+        url = os.getenv("DATABASE_URL")
+    if not url or not str(url).strip().startswith("postgresql"):
+        return None
+    return UserSettingsRepository(url)
 
 
 def is_admin_user(email: str) -> bool:

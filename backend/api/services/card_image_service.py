@@ -1,10 +1,12 @@
 """
 Card image service: resolve card image by id, using filesystem ImageStore keyed by scryfall_id.
-On cache miss, fetch from Scryfall, persist scryfall_id to cards row, store via ImageStore.
+
+Catalog-first: checks ImageStore (includes catalog-synced images) before
+falling back to Scryfall download (only when the user has enabled Scryfall).
 """
 import os
 import sys
-from typing import Tuple
+from typing import Optional, Tuple
 
 # Project root for default data path
 project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), "../../../"))
@@ -19,21 +21,23 @@ from deckdex.card_fetcher import CardFetcher
 from deckdex.storage.image_store import ImageStore
 
 
-def get_card_image(card_id: int, image_store: ImageStore = None) -> Tuple[bytes, str]:
+def get_card_image(
+    card_id: int,
+    image_store: ImageStore = None,
+    user_id: Optional[int] = None,
+) -> Tuple[bytes, str]:
     """
     Return (image_bytes, content_type) for the given card id.
 
     Lookup flow:
       1. Resolve card row to get name + scryfall_id.
-      2. If scryfall_id known: check ImageStore → return if hit.
-      3. Fetch from Scryfall by name to obtain scryfall_id and image URL.
-      4. Persist scryfall_id to cards row (lazy population).
-      5. Check ImageStore again (another request may have just populated it).
-      6. Download image, store via ImageStore, return.
+      2. If scryfall_id known: check ImageStore -> return if hit.
+      3. If user has Scryfall enabled: fetch from Scryfall, download image, store.
+      4. Otherwise raise FileNotFoundError.
 
     Raises FileNotFoundError if card not found or image unavailable.
     """
-    from ..dependencies import get_collection_repo, get_image_store
+    from ..dependencies import get_collection_repo, get_image_store, get_user_settings_repo
 
     repo = get_collection_repo()
     if repo is None:
@@ -53,7 +57,7 @@ def get_card_image(card_id: int, image_store: ImageStore = None) -> Tuple[bytes,
 
     scryfall_id = card.get("scryfall_id") or None
 
-    # 2) Cache hit via known scryfall_id (filesystem)
+    # 2) Cache hit via known scryfall_id (filesystem / catalog-synced images)
     if scryfall_id:
         try:
             cached = image_store.get(scryfall_id)
@@ -62,7 +66,21 @@ def get_card_image(card_id: int, image_store: ImageStore = None) -> Tuple[bytes,
         except Exception as e:
             logger.warning(f"Failed to read image store for scryfall_id={scryfall_id}: {e}")
 
-    # 3) Fetch from Scryfall to get scryfall_id + image URL
+    # 3) Check if Scryfall fallback is allowed for this user
+    scryfall_enabled = False
+    if user_id is not None:
+        settings_repo = get_user_settings_repo()
+        if settings_repo is not None:
+            settings = settings_repo.get_external_apis_settings(user_id)
+            scryfall_enabled = settings.get("scryfall_enabled", False)
+
+    if not scryfall_enabled:
+        raise FileNotFoundError(
+            f"Image not found in local store for card '{name}'. "
+            "Enable Scryfall in Settings to download images online."
+        )
+
+    # 4) Fetch from Scryfall to get scryfall_id + image URL
     config = load_config(profile=os.getenv("DECKDEX_PROFILE", "default"))
     fetcher = CardFetcher(config.scryfall, config.openai)
 
@@ -85,7 +103,7 @@ def get_card_image(card_id: int, image_store: ImageStore = None) -> Tuple[bytes,
     if not image_url:
         raise FileNotFoundError(f"No image URL for card '{name}'")
 
-    # 4) Persist scryfall_id to cards row (lazy)
+    # 5) Persist scryfall_id to cards row (lazy)
     if fetched_scryfall_id and fetched_scryfall_id != scryfall_id:
         try:
             repo.update_card_scryfall_id(card_id, fetched_scryfall_id)
@@ -94,7 +112,7 @@ def get_card_image(card_id: int, image_store: ImageStore = None) -> Tuple[bytes,
             logger.warning(f"Failed to persist scryfall_id for card_id={card_id}: {e}")
             scryfall_id = fetched_scryfall_id
 
-    # 5) Check ImageStore again (race condition guard)
+    # 6) Check ImageStore again (race condition guard)
     if scryfall_id:
         try:
             cached = image_store.get(scryfall_id)
@@ -103,7 +121,7 @@ def get_card_image(card_id: int, image_store: ImageStore = None) -> Tuple[bytes,
         except Exception as e:
             logger.warning(f"Failed to read image store (second check) for scryfall_id={scryfall_id}: {e}")
 
-    # 6) Download and store via ImageStore
+    # 7) Download and store via ImageStore
     try:
         resp = requests.get(image_url, timeout=config.scryfall.timeout)
         resp.raise_for_status()

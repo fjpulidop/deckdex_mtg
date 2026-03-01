@@ -56,12 +56,25 @@ class ImporterService:
             )
 
     def _run_import(self, parsed_cards: List[ParsedCard]) -> Dict[str, Any]:
-        """Runs in a thread: enrich cards then write to DB."""
+        """Runs in a thread: enrich cards then write to DB.
+
+        Catalog-first: tries to enrich from the local catalog before falling
+        back to Scryfall (only when the user has Scryfall enabled).
+        """
         from deckdex.card_fetcher import CardFetcher
         from sqlalchemy import text
+        from ..dependencies import get_catalog_repo, get_user_settings_repo
 
         config = load_config(profile=os.getenv("DECKDEX_PROFILE", "default"))
         fetcher = CardFetcher(config)
+
+        # Resolve catalog and user settings once at the start
+        catalog_repo = get_catalog_repo()
+        scryfall_enabled = False
+        settings_repo = get_user_settings_repo()
+        if settings_repo is not None:
+            user_settings = settings_repo.get_external_apis_settings(self._user_id)
+            scryfall_enabled = user_settings.get("scryfall_enabled", False)
 
         total = len(parsed_cards)
         imported = 0
@@ -71,11 +84,28 @@ class ImporterService:
 
         for i, pc in enumerate(parsed_cards):
             self._emit(i, total)
-            try:
-                card_data = fetcher.search_card(pc["name"])
+            card_data = None
+
+            # 1. Try catalog first
+            if catalog_repo is not None:
+                try:
+                    results = catalog_repo.search_by_name(pc["name"], limit=1)
+                    if results:
+                        card_data = results[0]
+                except Exception:
+                    pass
+
+            # 2. Scryfall fallback
+            if card_data is None and scryfall_enabled:
+                try:
+                    card_data = fetcher.search_card(pc["name"])
+                except Exception:
+                    pass
+
+            if card_data is not None:
                 card_data["quantity"] = pc["quantity"]
                 enriched_cards.append(card_data)
-            except Exception:
+            else:
                 not_found.append(pc["name"])
 
         self._emit(total, total)
