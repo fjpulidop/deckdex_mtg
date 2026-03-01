@@ -390,6 +390,44 @@ async def update_profile(request: Request, body: ProfileUpdateRequest):
     )
 
 
+@router.post("/refresh")
+async def refresh_token(request: Request, response: Response):
+    """
+    Silent token refresh: issue a new JWT if the current one is still valid.
+    The old token's JTI is blacklisted so it cannot be reused.
+    Sets the new JWT as an HTTP-only cookie.
+    """
+    token = request.cookies.get("access_token")
+    if not token:
+        auth_header = request.headers.get("authorization", "")
+        if auth_header.startswith("Bearer "):
+            token = auth_header[7:]
+
+    if not token:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Not authenticated")
+
+    try:
+        payload = decode_jwt_token(token)
+    except (JWTError, ValueError):
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid or expired token")
+
+    # Blacklist old token
+    old_jti = payload.get("jti")
+    old_exp = payload.get("exp")
+    if old_jti and old_exp:
+        blacklist_token(old_jti, datetime.utcfromtimestamp(old_exp))
+
+    # Issue new token with same user info
+    new_token = create_jwt({
+        "id": payload.get("sub"),
+        "email": payload.get("email"),
+        "display_name": payload.get("display_name"),
+        "picture": payload.get("picture"),
+    })
+    _set_jwt_cookie(response, new_token)
+    return {"ok": True}
+
+
 @router.post("/logout")
 async def logout(request: Request, response: Response):
     """Logout: blacklist current token and clear cookie."""

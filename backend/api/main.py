@@ -3,6 +3,7 @@ DeckDex MTG - FastAPI Backend
 Main application entry point
 """
 import os
+import uuid
 from fastapi import FastAPI, Request, status
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
@@ -76,24 +77,87 @@ async def validation_exception_handler(request: Request, exc: RequestValidationE
         }
     )
 
-# Middleware to log all requests
+# ---------------------------------------------------------------------------
+# Global request body size limit (25 MB)
+# ---------------------------------------------------------------------------
+_MAX_BODY_SIZE = 25 * 1024 * 1024  # 25 MB
+
+
 @app.middleware("http")
-async def log_requests(request: Request, call_next):
-    logger.info(f"{request.method} {request.url.path}")
+async def body_size_limit(request: Request, call_next):
+    content_length = request.headers.get("content-length")
+    if content_length and int(content_length) > _MAX_BODY_SIZE:
+        return JSONResponse(
+            status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
+            content={"detail": "Request body too large (max 25MB)"},
+        )
+    return await call_next(request)
+
+
+# ---------------------------------------------------------------------------
+# Request ID + logging middleware
+# ---------------------------------------------------------------------------
+@app.middleware("http")
+async def request_id_and_logging(request: Request, call_next):
+    request_id = request.headers.get("x-request-id") or str(uuid.uuid4())
+    # Stash on request state so downstream handlers/logs can use it
+    request.state.request_id = request_id
+
+    logger.info(f"{request.method} {request.url.path} [rid={request_id}]")
     response = await call_next(request)
-    logger.info(f"{request.method} {request.url.path} - {response.status_code}")
+    response.headers["X-Request-ID"] = request_id
+    logger.info(f"{request.method} {request.url.path} - {response.status_code} [rid={request_id}]")
     return response
+
+
+# ---------------------------------------------------------------------------
+# Security headers middleware
+# ---------------------------------------------------------------------------
+_is_dev = os.getenv("DECKDEX_PROFILE", "default") in ("default", "development")
+
+
+@app.middleware("http")
+async def security_headers(request: Request, call_next):
+    response = await call_next(request)
+    response.headers["X-Content-Type-Options"] = "nosniff"
+    response.headers["X-Frame-Options"] = "DENY"
+    response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
+    response.headers["Permissions-Policy"] = "camera=(), microphone=(), geolocation=()"
+    if not _is_dev:
+        response.headers["Strict-Transport-Security"] = "max-age=63072000; includeSubDomains"
+    return response
+
 
 logger.info("DeckDex MTG API started")
 
-# Health check endpoint
+
+# ---------------------------------------------------------------------------
+# Deep health check (verifies DB connectivity)
+# ---------------------------------------------------------------------------
 @app.get("/api/health")
 async def health_check():
-    return {
+    result = {
         "service": "DeckDex MTG API",
         "version": "0.1.0",
-        "status": "healthy"
+        "status": "healthy",
+        "database": "not_configured",
     }
+    try:
+        from .db import get_engine
+        engine = get_engine()
+        if engine is not None:
+            from sqlalchemy import text
+            with engine.connect() as conn:
+                conn.execute(text("SELECT 1"))
+            result["database"] = "connected"
+        else:
+            result["database"] = "not_configured"
+    except Exception as e:
+        logger.error(f"Health check DB probe failed: {e}")
+        result["status"] = "degraded"
+        result["database"] = "error"
+        return JSONResponse(status_code=503, content=result)
+    return result
 
 # Import and include routers
 from .routes import cards, stats, process, import_routes, settings_routes, analytics, decks, auth, insights, catalog_routes, admin_routes

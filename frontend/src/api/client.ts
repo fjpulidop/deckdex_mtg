@@ -1,15 +1,32 @@
 // API client configuration and utilities
 const API_BASE = '/api';
 
-/** Wraps fetch with credentials: 'include' (sends HTTP-only cookies) and turns network errors into a clearer message. */
+/** Track whether a token refresh is already in-flight to avoid concurrent refreshes. */
+let _refreshPromise: Promise<boolean> | null = null;
+
+/** Attempt to silently refresh the JWT cookie. Returns true on success. */
+async function _tryRefreshToken(): Promise<boolean> {
+  try {
+    const res = await fetch(`${API_BASE}/auth/refresh`, {
+      method: 'POST',
+      credentials: 'include',
+    });
+    return res.ok;
+  } catch {
+    return false;
+  }
+}
+
+/** Wraps fetch with credentials: 'include' (sends HTTP-only cookies), 401 auto-retry with refresh, and network error handling. */
 async function apiFetch(url: string, init?: RequestInit): Promise<Response> {
   const merged: RequestInit = {
     ...init,
     credentials: 'include',
     headers: new Headers(init?.headers),
   };
+  let response: Response;
   try {
-    return await fetch(url, merged);
+    response = await fetch(url, merged);
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e);
     if (msg === 'Failed to fetch' || msg.includes('NetworkError') || msg.includes('Load failed')) {
@@ -17,6 +34,30 @@ async function apiFetch(url: string, init?: RequestInit): Promise<Response> {
     }
     throw e;
   }
+
+  // On 401, attempt a single silent refresh then retry the original request
+  if (response.status === 401 && !url.includes('/auth/refresh') && !url.includes('/auth/me')) {
+    if (!_refreshPromise) {
+      _refreshPromise = _tryRefreshToken().finally(() => { _refreshPromise = null; });
+    }
+    const refreshed = await _refreshPromise;
+    if (refreshed) {
+      // Retry original request with fresh cookie
+      try {
+        return await fetch(url, merged);
+      } catch (e) {
+        const msg = e instanceof Error ? e.message : String(e);
+        if (msg === 'Failed to fetch' || msg.includes('NetworkError') || msg.includes('Load failed')) {
+          throw new Error('Cannot reach the backend. Check that it is running (e.g. on port 8000) and that the frontend can connect to it.');
+        }
+        throw e;
+      }
+    }
+    // Refresh failed — redirect to login
+    window.location.href = '/login';
+  }
+
+  return response;
 }
 
 export interface Card {
