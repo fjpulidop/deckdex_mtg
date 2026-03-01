@@ -31,11 +31,14 @@ services:
       - GOOGLE_OAUTH_CLIENT_ID=${GOOGLE_OAUTH_CLIENT_ID}
       - GOOGLE_OAUTH_CLIENT_SECRET=${GOOGLE_OAUTH_CLIENT_SECRET}
       - JWT_SECRET_KEY=${JWT_SECRET_KEY}
+      - DECKDEX_ADMIN_EMAIL=${DECKDEX_ADMIN_EMAIL}
+      - DECKDEX_CORS_ORIGINS=${DECKDEX_CORS_ORIGINS:-http://localhost:5173}
     volumes:
       - ./backend:/app/backend:ro
       - ./deckdex:/app/deckdex:ro
       - ./config.yaml:/app/config.yaml:ro
       - backend-logs:/app/logs
+      - avatar-cache:/app/data/avatars
     env_file:
       - .env
     depends_on:
@@ -63,6 +66,7 @@ services:
 volumes:
   backend-logs:
   deckdex-pgdata:
+  avatar-cache:
 
 networks:
   deckdex-network:

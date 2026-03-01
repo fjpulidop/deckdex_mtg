@@ -152,25 +152,38 @@ manager = ConnectionManager()
 @router.websocket("/ws/progress/{job_id}")
 async def websocket_progress(websocket: WebSocket, job_id: str):
     """
-    WebSocket endpoint for real-time progress updates
-    
-    Clients connect with a job_id and receive progress events:
+    WebSocket endpoint for real-time progress updates.
+
+    Authentication: JWT is read from the ``access_token`` HTTP-only cookie
+    (sent automatically by the browser).
+
+    Clients receive progress events:
     - progress: { type, current, total, percentage, timestamp }
     - error: { type, card_name, error_type, message, timestamp }
     - complete: { type, status, summary, timestamp }
-    
-    Args:
-        websocket: WebSocket connection
-        job_id: Job ID to monitor
     """
+    # --- Authenticate WebSocket via cookie only ---
+    from ..dependencies import decode_jwt_token
+    jwt_token = websocket.cookies.get("access_token")
+    if not jwt_token:
+        logger.warning(f"WebSocket rejected: no auth token for job_id={job_id}")
+        await websocket.close(code=4001, reason="Authentication required")
+        return
+    try:
+        decode_jwt_token(jwt_token)
+    except Exception:
+        logger.warning(f"WebSocket rejected: invalid token for job_id={job_id}")
+        await websocket.close(code=4001, reason="Invalid or expired token")
+        return
+
     # Validate job exists (check active jobs)
     from ..routes.process import _active_jobs, _job_results
-    
+
     if job_id not in _active_jobs and job_id not in _job_results:
         logger.warning(f"WebSocket connection rejected: job_id={job_id} not found")
         await websocket.close(code=4004, reason="Job not found")
         return
-    
+
     # Accept connection
     await manager.connect(websocket, job_id)
     

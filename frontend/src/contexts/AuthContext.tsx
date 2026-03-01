@@ -37,21 +37,19 @@ interface AuthProviderProps {
 }
 
 async function fetchMe(): Promise<User | null> {
-  const token = sessionStorage.getItem('access_token');
-  if (!token) return null;
-
   try {
     const response = await fetch('/api/auth/me', {
-      headers: { Authorization: `Bearer ${token}` },
+      credentials: 'include',
     });
     if (response.ok) {
       const data = await response.json();
-      // Backend returns { id, email, display_name, picture, is_admin } — map picture → avatar_url
+      // Use the avatar proxy endpoint instead of external URLs
+      const hasAvatar = !!(data.picture || data.avatar_url);
       return {
         id: data.id,
         email: data.email,
         display_name: data.display_name,
-        avatar_url: data.picture ?? data.avatar_url,
+        avatar_url: hasAvatar ? `/api/auth/avatar/${data.id}` : undefined,
         is_admin: data.is_admin ?? false,
       };
     }
@@ -79,11 +77,10 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
   const logout = async () => {
     try {
-      await fetch('/api/auth/logout', { method: 'POST' });
+      await fetch('/api/auth/logout', { method: 'POST', credentials: 'include' });
     } catch (error) {
       console.error('Error during logout:', error);
     }
-    sessionStorage.removeItem('access_token');
     setUser(null);
     window.location.href = '/';
   };

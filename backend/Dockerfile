@@ -23,8 +23,8 @@ COPY scripts /app/scripts
 COPY migrations /app/migrations
 COPY config.yaml /app/config.yaml
 
-# Create logs directory
-RUN mkdir -p /app/logs
+# Create logs and avatar cache directories
+RUN mkdir -p /app/logs /app/data/avatars
 
 # Expose port
 EXPOSE 8000

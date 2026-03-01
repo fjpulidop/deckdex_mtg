@@ -27,11 +27,11 @@ def _row_to_deck(row: Dict[str, Any]) -> Dict[str, Any]:
 class DeckRepository:
     """PostgreSQL implementation for decks and deck_cards. Requires same DB as collection (cards table)."""
 
-    def __init__(self, database_url: str):
-        if not database_url or not database_url.strip().startswith("postgresql"):
+    def __init__(self, database_url: str, engine=None):
+        if engine is None and (not database_url or not database_url.strip().startswith("postgresql")):
             raise ValueError("database_url must be a non-empty postgresql:// URL")
         self._url = database_url
-        self._eng = None
+        self._eng = engine
 
     def _get_engine(self):
         from sqlalchemy import create_engine

@@ -2,17 +2,11 @@ import { vi, describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { api } from '../client';
 
 describe('api client (apiFetch behaviour)', () => {
-  beforeEach(() => {
-    sessionStorage.clear();
-  });
-
   afterEach(() => {
     vi.restoreAllMocks();
   });
 
-  it('injects Authorization header from sessionStorage', async () => {
-    sessionStorage.setItem('access_token', 'test-token-abc');
-
+  it('sends credentials: include for cookie-based auth', async () => {
     const mockResponse = new Response(JSON.stringify([]), { status: 200 });
     const fetchSpy = vi.spyOn(globalThis, 'fetch').mockResolvedValue(mockResponse);
 
@@ -20,19 +14,7 @@ describe('api client (apiFetch behaviour)', () => {
 
     expect(fetchSpy).toHaveBeenCalledOnce();
     const [, init] = fetchSpy.mock.calls[0];
-    const headers = init?.headers as Headers;
-    expect(headers.get('Authorization')).toBe('Bearer test-token-abc');
-  });
-
-  it('does not inject Authorization header when no token in sessionStorage', async () => {
-    const mockResponse = new Response(JSON.stringify([]), { status: 200 });
-    const fetchSpy = vi.spyOn(globalThis, 'fetch').mockResolvedValue(mockResponse);
-
-    await api.getCards();
-
-    const [, init] = fetchSpy.mock.calls[0];
-    const headers = init?.headers as Headers;
-    expect(headers.get('Authorization')).toBeNull();
+    expect(init?.credentials).toBe('include');
   });
 
   it('throws a user-friendly error on "Failed to fetch"', async () => {

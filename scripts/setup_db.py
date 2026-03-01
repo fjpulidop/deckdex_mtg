@@ -117,6 +117,20 @@ def run_migrations():
                 stmt = strip_leading_comments(stmt)
                 if stmt:
                     conn.execute(text(stmt))
+
+    # Run Python migrations (e.g. data migrations with run(database_url) signature)
+    py_files = sorted(migrations_dir.glob("*.py"))
+    for path in py_files:
+        if path.name.startswith(".") or path.name.startswith("__"):
+            continue
+        print(f"Running {path.name}...")
+        import importlib.util
+        spec = importlib.util.spec_from_file_location(path.stem, path)
+        mod = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(mod)
+        if hasattr(mod, "run"):
+            mod.run(DATABASE_URL)
+
     print("Migrations completed.")
 
 

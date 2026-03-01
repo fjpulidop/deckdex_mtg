@@ -35,7 +35,7 @@ The backend SHALL issue and validate JWTs stored in HTTP-only cookies for statel
 
 #### Scenario: JWT payload
 - **WHEN** the backend signs a JWT
-- **THEN** the payload SHALL contain `sub` (user database ID as string), `email`, `name`, `picture`, and `exp` (expiration timestamp)
+- **THEN** the payload SHALL contain `sub` (user database ID as string), `email`, `display_name`, `picture`, `jti` (UUID for token revocation), and `exp` (expiration timestamp)
 
 #### Scenario: Valid JWT on request
 - **WHEN** an API request includes a valid, non-expired JWT in the cookie
@@ -84,9 +84,17 @@ The backend SHALL expose authentication endpoints under `/api/auth/`.
 - **WHEN** an unauthenticated client calls `PATCH /api/auth/profile`
 - **THEN** the backend SHALL return HTTP 401
 
+#### Scenario: POST /api/auth/refresh — silent token refresh
+- **WHEN** an authenticated client calls `POST /api/auth/refresh`
+- **THEN** the backend SHALL validate the current JWT, blacklist the old token's JTI, issue a new JWT with a fresh JTI and expiration, set it as an HTTP-only cookie, and return `{"ok": true}`
+
+#### Scenario: POST /api/auth/refresh — expired token
+- **WHEN** a client calls `POST /api/auth/refresh` with an expired or invalid JWT
+- **THEN** the backend SHALL return HTTP 401
+
 #### Scenario: POST /api/auth/logout
 - **WHEN** a client calls `POST /api/auth/logout`
-- **THEN** the backend SHALL clear the JWT cookie (set `max_age=0`) and return HTTP 200
+- **THEN** the backend SHALL blacklist the current token's JTI, clear the JWT cookie, and return HTTP 200
 
 ### Requirement: Public endpoints do not require authentication
 The endpoints `/api/health` and all `/api/auth/*` routes SHALL be accessible without authentication.
@@ -177,4 +185,67 @@ The backend SHALL require three environment variables for auth functionality.
 #### Scenario: Missing auth environment variables
 - **WHEN** any of the three auth environment variables is missing and a user hits an auth endpoint
 - **THEN** the backend SHALL return HTTP 500 with a clear error message indicating which variable is missing
+
+### Requirement: Token revocation via JTI blacklist
+The backend SHALL maintain an in-memory blacklist of revoked token JTIs to prevent reuse of old tokens after refresh or logout.
+
+#### Scenario: Blacklisted token rejected
+- **WHEN** a request includes a JWT whose `jti` has been blacklisted
+- **THEN** the backend SHALL return HTTP 401 Unauthorized
+
+#### Scenario: Blacklist cleanup
+- **WHEN** a blacklisted JTI's token has expired (based on the stored `exp` timestamp)
+- **THEN** the system SHALL remove the entry from the blacklist during periodic cleanup (every 10 minutes)
+
+### Requirement: Avatar proxy endpoint
+The backend SHALL provide `GET /api/auth/avatar/{user_id}` to serve user avatars from a local cache, avoiding external URL leakage to the browser.
+
+#### Scenario: Avatar served from cache
+- **WHEN** an authenticated client requests `GET /api/auth/avatar/{user_id}` and the avatar is cached locally
+- **THEN** the backend SHALL return the cached image file with the correct content-type (stored in a `.ct` sidecar file)
+
+#### Scenario: Avatar cache miss
+- **WHEN** the avatar is not cached locally
+- **THEN** the backend SHALL validate the stored `avatar_url` against the domain allowlist, download the image (max 2MB), write it atomically to disk with a `.ct` sidecar, and serve it
+
+#### Scenario: Avatar URL domain validation
+- **WHEN** the stored `avatar_url` is not HTTPS or its domain is not in the allowlist (`googleusercontent.com`, `gravatar.com`, `avatars.githubusercontent.com`)
+- **THEN** the backend SHALL return HTTP 400
+
+#### Scenario: No avatar
+- **WHEN** the user has no `avatar_url` in the database
+- **THEN** the backend SHALL return HTTP 404
+
+### Requirement: Profile update avatar URL validation
+The `PATCH /api/auth/profile` endpoint SHALL validate `avatar_url` against a domain allowlist to prevent SSRF.
+
+#### Scenario: Valid avatar URL accepted
+- **WHEN** `avatar_url` is an HTTPS URL from an allowed domain
+- **THEN** the backend SHALL accept the update
+
+#### Scenario: Invalid avatar URL rejected
+- **WHEN** `avatar_url` is not HTTPS or its domain is not in the allowlist
+- **THEN** the backend SHALL return HTTP 400
+
+### Requirement: Frontend 401 interceptor with silent refresh
+The frontend API client SHALL automatically handle 401 responses by attempting a silent token refresh before redirecting to login.
+
+#### Scenario: 401 triggers refresh then retry
+- **WHEN** an API call returns 401 (except `/auth/refresh` and `/auth/me`)
+- **THEN** the client SHALL call `POST /api/auth/refresh`, and if successful, retry the original request
+
+#### Scenario: Concurrent 401s deduplicated
+- **WHEN** multiple API calls receive 401 simultaneously
+- **THEN** only one refresh request SHALL be in-flight; all waiting calls SHALL share the same refresh promise
+
+#### Scenario: Refresh failure redirects to login
+- **WHEN** the refresh attempt fails (e.g., token fully expired)
+- **THEN** the client SHALL redirect to `/login`
+
+### Requirement: Frontend avatar via proxy
+The frontend SHALL display user avatars via the backend proxy endpoint instead of external URLs.
+
+#### Scenario: AuthContext uses proxy URL
+- **WHEN** `/api/auth/me` indicates the user has an avatar
+- **THEN** `AuthContext` SHALL set `avatar_url` to `/api/auth/avatar/{user_id}` (the proxy endpoint)
 

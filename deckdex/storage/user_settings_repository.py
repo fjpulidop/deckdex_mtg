@@ -12,9 +12,9 @@ _DEFAULT_EXTERNAL_APIS = {"scryfall_enabled": False}
 class UserSettingsRepository:
     """Read/write user settings from the ``user_settings`` table."""
 
-    def __init__(self, database_url: str):
+    def __init__(self, database_url: str, engine=None):
         self._database_url = database_url
-        self._eng = None
+        self._eng = engine
 
     def _engine(self):
         if self._eng is None:

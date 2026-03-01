@@ -68,3 +68,16 @@ deckdex_mtg/
 ## Security
 
 - Credentials and API keys in env only; config.yaml safe to commit (no secrets). Least-privilege Google account.
+- **Authentication:** Google OAuth 2.0 → JWT in HTTP-only cookies; all data endpoints require auth.
+- **CORS:** Configurable via `DECKDEX_CORS_ORIGINS` env var (comma-separated, default `http://localhost:5173`).
+- **Rate limiting:** slowapi (in-memory); per-IP for auth endpoints (10/min).
+- **Middleware stack** (FastAPI, execution order bottom-to-top):
+  1. Security headers (`X-Content-Type-Options: nosniff`, `X-Frame-Options: DENY`, `Referrer-Policy`, `Permissions-Policy`, `Strict-Transport-Security` in production)
+  2. Request ID + logging (UUID per request, `X-Request-ID` response header)
+  3. Body size limit (25 MB global; 500 KB for profile updates)
+  4. CORS middleware
+- **Error sanitization:** 500 responses return generic `{"detail": "Internal server error"}`; full details logged server-side only.
+- **Token lifecycle:** JWT includes `jti` claim; refresh via `POST /api/auth/refresh` blacklists old JTI; logout blacklists token. In-memory blacklist with TTL cleanup.
+- **SSRF protection:** Avatar URLs validated against domain allowlist (Google, Gravatar, GitHub) before downloading. Avatar proxy caches locally.
+- **Path traversal:** ImageStore validates keys (rejects `..`, `/`, null bytes); base dir resolved to absolute path.
+- **Reverse proxy:** See `docs/deployment/reverse-proxy.md` for nginx and Caddy configurations for production HTTPS.

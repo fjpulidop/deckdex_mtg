@@ -48,8 +48,14 @@ class FilesystemImageStore(ImageStore):
     """
 
     def __init__(self, base_dir: str):
-        self._base = Path(base_dir)
+        self._base = Path(base_dir).resolve()
         self._base.mkdir(parents=True, exist_ok=True)
+
+    @staticmethod
+    def _validate_key(key: str) -> None:
+        """Reject keys that could escape the base directory."""
+        if not key or ".." in key or key.startswith("/") or "\x00" in key:
+            raise ValueError(f"Invalid image store key: {key!r}")
 
     def _ext_for(self, content_type: str) -> str:
         return _CONTENT_TYPE_TO_EXT.get(content_type, ".jpg")
@@ -66,6 +72,7 @@ class FilesystemImageStore(ImageStore):
         return self._base / f"{key}.meta"
 
     def get(self, key: str) -> Optional[Tuple[bytes, str]]:
+        self._validate_key(key)
         img = self._find_image_path(key)
         if img is None:
             return None
@@ -84,6 +91,7 @@ class FilesystemImageStore(ImageStore):
             return None
 
     def put(self, key: str, data: bytes, content_type: str) -> None:
+        self._validate_key(key)
         ext = self._ext_for(content_type)
         img_path = self._base / f"{key}{ext}"
         meta_path = self._meta_path(key)
@@ -112,9 +120,11 @@ class FilesystemImageStore(ImageStore):
             logger.warning(f"Failed to write meta for {key}: {e}")
 
     def exists(self, key: str) -> bool:
+        self._validate_key(key)
         return self._find_image_path(key) is not None
 
     def delete(self, key: str) -> None:
+        self._validate_key(key)
         img = self._find_image_path(key)
         if img:
             img.unlink(missing_ok=True)

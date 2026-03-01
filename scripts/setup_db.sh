@@ -12,10 +12,16 @@ if command -v docker-compose >/dev/null 2>&1 || command -v docker >/dev/null 2>&
   docker compose up -d db
   echo "Waiting for Postgres to be ready..."
   sleep 3
-  for f in migrations/001_cards_table.sql migrations/002_sessions_table.sql; do
+  for f in migrations/*.sql; do
     [ -f "$f" ] || continue
     echo "Running $f..."
     docker compose exec -T db psql -U deckdex -d deckdex < "$f"
+  done
+  # Run Python migrations inside the backend container (has Python + deps)
+  for f in migrations/*.py; do
+    [ -f "$f" ] || continue
+    echo "Running $f..."
+    docker compose exec -T backend python "/app/$f"
   done
   echo "Database is ready. DATABASE_URL for local backend: postgresql://deckdex:deckdex@localhost:5432/deckdex"
   exit 0
@@ -24,10 +30,16 @@ fi
 if command -v psql >/dev/null 2>&1; then
   export DATABASE_URL="${DATABASE_URL:-postgresql://localhost:5432/deckdex}"
   echo "Using psql with DATABASE_URL..."
-  for f in migrations/001_cards_table.sql migrations/002_sessions_table.sql; do
+  for f in migrations/*.sql; do
     [ -f "$f" ] || continue
     echo "Running $f..."
     psql "$DATABASE_URL" -f "$f"
+  done
+  # Run Python migrations locally
+  for f in migrations/*.py; do
+    [ -f "$f" ] || continue
+    echo "Running $f..."
+    python "$f"
   done
   echo "Database is ready."
   exit 0

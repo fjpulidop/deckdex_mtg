@@ -33,7 +33,7 @@ async def insights_suggestions(user_id: int = Depends(get_current_user_id)):
         return engine.get_suggestions(limit=6)
     except Exception as e:
         logger.error("Error computing insight suggestions: %s", e)
-        raise HTTPException(status_code=500, detail=str(e)) from e
+        raise HTTPException(status_code=500, detail="Failed to compute suggestions") from e
 
 
 @router.post("/{insight_id}")
@@ -47,10 +47,10 @@ async def execute_insight(
         service = InsightsService(cards)
         result = service.execute(insight_id)
         return result
-    except ValueError as e:
-        raise HTTPException(status_code=404, detail=str(e)) from e
-    except NotImplementedError as e:
-        raise HTTPException(status_code=501, detail=str(e)) from e
+    except ValueError:
+        raise HTTPException(status_code=404, detail="Insight not found")
+    except NotImplementedError:
+        raise HTTPException(status_code=501, detail="Insight not yet implemented")
     except Exception as e:
         logger.error("Error executing insight '%s': %s", insight_id, e)
-        raise HTTPException(status_code=500, detail=str(e)) from e
+        raise HTTPException(status_code=500, detail="Failed to execute insight") from e

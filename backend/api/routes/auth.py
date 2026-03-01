@@ -2,19 +2,26 @@
 Authentication routes for Google OAuth 2.0
 Handles OAuth callback, JWT issuance, user lookup, and logout
 """
+import hashlib
 import os
 import uuid
 from datetime import datetime, timedelta
+from pathlib import Path
 from typing import Optional, Dict, Any
-from urllib.parse import urlencode
+from urllib.parse import urlencode, urlparse
 
 from fastapi import APIRouter, Request, Response, HTTPException, status
+from fastapi.responses import FileResponse
 from pydantic import BaseModel
 import httpx
 from jose import jwt, JWTError
 from loguru import logger
 
-from ..dependencies import get_collection_repo, is_admin_user
+from ..dependencies import (
+    get_collection_repo, is_admin_user, promote_bootstrap_admin,
+    blacklist_token, decode_jwt_token,
+)
+from ..main import limiter
 
 router = APIRouter(prefix="/api/auth", tags=["auth"])
 
@@ -28,48 +35,60 @@ GOOGLE_TOKEN_URL = "https://oauth2.googleapis.com/token"
 GOOGLE_USERINFO_URL = "https://openidconnect.googleapis.com/v1/userinfo"
 
 
-def _backend_origin(request: Request) -> str:
-    """Derive the public backend origin from the incoming request.
+def _is_dev_mode() -> bool:
+    """Check if running in development mode."""
+    return os.getenv("DECKDEX_PROFILE", "default") in ("default", "development")
 
-    Respects X-Forwarded-Proto / X-Forwarded-Host headers set by reverse
-    proxies (e.g. GitHub Codespaces port-forwarding).  Falls back to the
-    request's own URL for local development.
-    """
+
+def _backend_origin(request: Request) -> str:
+    """Derive the public backend origin from the incoming request."""
     proto = request.headers.get("x-forwarded-proto", request.url.scheme)
     host = request.headers.get("x-forwarded-host") or request.headers.get("host") or request.url.netloc
     return f"{proto}://{host}"
 
 
 def _frontend_origin(request: Request) -> str:
-    """Derive the public frontend origin.
-
-    In Docker Compose the frontend Vite proxy forwards /api requests to the
-    backend, so the browser's origin is the *frontend* host.  We read the
-    ``Origin`` or ``Referer`` header that the browser always sends on
-    navigation requests.  As a last resort we swap the backend port for 5173
-    (local dev default).
-    """
+    """Derive the public frontend origin."""
     origin = request.headers.get("origin")
     if origin:
         return origin.rstrip("/")
 
     referer = request.headers.get("referer")
     if referer:
-        from urllib.parse import urlparse
         parsed = urlparse(referer)
         return f"{parsed.scheme}://{parsed.netloc}"
 
-    # Fallback: derive frontend from backend origin by swapping the port.
-    # Handles both local (localhost:8000 → localhost:5173) and
-    # Codespaces ({name}-8000.app.github.dev → {name}-5173.app.github.dev).
     backend = _backend_origin(request)
     if "-8000." in backend:
         return backend.replace("-8000.", "-5173.")
     return backend.replace(":8000", ":5173")
 
 # Temporary in-memory store for one-time auth codes: code -> {jwt, expires}
-# Codes are single-use and expire after 5 minutes.
 _auth_codes: Dict[str, Dict[str, Any]] = {}
+
+
+def _cleanup_expired_auth_codes():
+    """Remove expired one-time auth codes to prevent memory leak."""
+    now = datetime.utcnow()
+    expired = [k for k, v in _auth_codes.items() if v["expires"] < now]
+    for k in expired:
+        del _auth_codes[k]
+    if expired:
+        logger.debug(f"Cleaned up {len(expired)} expired auth codes")
+
+
+def _set_jwt_cookie(response: Response, token: str):
+    """Set JWT as HTTP-only cookie on the response."""
+    response.set_cookie(
+        key="access_token",
+        value=token,
+        httponly=True,
+        samesite="lax",
+        path="/",
+        max_age=3600,
+        secure=not _is_dev_mode(),
+    )
+
 
 # Models
 class UserPayload(BaseModel):
@@ -81,65 +100,43 @@ class UserPayload(BaseModel):
 
 
 def create_jwt(user: Dict[str, Any]) -> str:
-    """
-    Create JWT token with user payload.
-    Uses HS256 algorithm and includes 1h expiry.
-    
-    Args:
-        user: Dictionary with 'id', 'email', 'display_name', 'picture' keys
-        
-    Returns:
-        Signed JWT token
-    """
+    """Create JWT token with user payload including JTI for revocation."""
     if not JWT_SECRET_KEY:
         raise ValueError("JWT_SECRET_KEY environment variable not set")
-    
+
     payload = {
         "sub": str(user.get("id")),
         "email": user.get("email"),
         "display_name": user.get("display_name"),
         "picture": user.get("picture"),
+        "jti": str(uuid.uuid4()),
         "exp": datetime.utcnow() + timedelta(hours=JWT_EXPIRY_HOURS)
     }
     return jwt.encode(payload, JWT_SECRET_KEY, algorithm=JWT_ALGORITHM)
 
 
 def decode_jwt(token: str) -> Dict[str, Any]:
-    """
-    Validate and decode JWT token.
-    Raises JWTError if token is invalid or expired.
-    
-    Args:
-        token: JWT token to decode
-        
-    Returns:
-        Decoded token payload
-    """
+    """Validate and decode JWT token."""
     if not JWT_SECRET_KEY:
         raise ValueError("JWT_SECRET_KEY environment variable not set")
-    
     return jwt.decode(token, JWT_SECRET_KEY, algorithms=[JWT_ALGORITHM])
 
 
 def get_current_user_from_request(request: Request) -> Dict[str, Any]:
     """
-    Extract and validate JWT from Authorization header (preferred) or cookie.
+    Extract and validate JWT from cookie (primary) or Authorization header (fallback).
     Returns decoded user payload or raises 401.
-
-    The frontend stores the JWT in sessionStorage and sends it via
-    ``Authorization: Bearer <token>``.  Cookie-based auth is kept as a
-    fallback for non-browser clients or future use.
     """
     token: Optional[str] = None
 
-    # 1. Authorization header (preferred — works through Vite proxy in Docker)
-    auth_header = request.headers.get("authorization", "")
-    if auth_header.startswith("Bearer "):
-        token = auth_header[7:]
+    # 1. Cookie (primary — HTTP-only cookie set by backend)
+    token = request.cookies.get("access_token")
 
-    # 2. Fallback: cookie
+    # 2. Fallback: Authorization header (for API/non-browser clients)
     if not token:
-        token = request.cookies.get("access_token")
+        auth_header = request.headers.get("authorization", "")
+        if auth_header.startswith("Bearer "):
+            token = auth_header[7:]
 
     if not token:
         raise HTTPException(
@@ -148,9 +145,9 @@ def get_current_user_from_request(request: Request) -> Dict[str, Any]:
         )
 
     try:
-        payload = decode_jwt(token)
+        payload = decode_jwt_token(token)
         return payload
-    except JWTError:
+    except (JWTError, ValueError):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid or expired token"
@@ -158,12 +155,9 @@ def get_current_user_from_request(request: Request) -> Dict[str, Any]:
 
 
 @router.get("/google")
+@limiter.limit("10/minute")
 async def google_login(request: Request):
-    """
-    Redirect to Google OAuth consent screen.
-    The user logs in with their Google account, consents to share openid/email/profile,
-    and is redirected to /api/auth/callback with an authorization code.
-    """
+    """Redirect to Google OAuth consent screen."""
     if not GOOGLE_OAUTH_CLIENT_ID:
         logger.error("GOOGLE_OAUTH_CLIENT_ID not configured")
         raise HTTPException(
@@ -187,11 +181,9 @@ async def google_login(request: Request):
 
 
 @router.get("/callback")
+@limiter.limit("10/minute")
 async def oauth_callback(request: Request, code: str = None, error: str = None):
-    """
-    Google OAuth callback endpoint.
-    Exchange authorization code for ID token, extract user info, create/update user, and set JWT cookie.
-    """
+    """Google OAuth callback — exchange code, create/update user, issue one-time auth code."""
     frontend = _frontend_origin(request)
     login_error_url = f"{frontend}/login?error=auth_failed"
 
@@ -213,7 +205,6 @@ async def oauth_callback(request: Request, code: str = None, error: str = None):
     try:
         callback_url = f"{_backend_origin(request)}/api/auth/callback"
 
-        # Exchange code for tokens
         token_data = {
             "client_id": GOOGLE_OAUTH_CLIENT_ID,
             "client_secret": GOOGLE_OAUTH_CLIENT_SECRET,
@@ -227,7 +218,6 @@ async def oauth_callback(request: Request, code: str = None, error: str = None):
             token_response.raise_for_status()
             tokens = token_response.json()
 
-        # Get user info from userinfo endpoint
         async with httpx.AsyncClient() as client:
             headers = {"Authorization": f"Bearer {tokens.get('access_token')}"}
             userinfo_response = await client.get(GOOGLE_USERINFO_URL, headers=headers)
@@ -244,21 +234,18 @@ async def oauth_callback(request: Request, code: str = None, error: str = None):
             from fastapi.responses import RedirectResponse
             return RedirectResponse(url=login_error_url)
 
-        # Get or create user in database
         repo = get_collection_repo()
         if not repo:
             logger.error("Database not configured")
             from fastapi.responses import RedirectResponse
             return RedirectResponse(url=login_error_url)
 
-        # Check if user exists by google_id
         user = None
         try:
             user = repo.get_user_by_google_id(google_id)
         except Exception as e:
             logger.debug(f"User lookup by google_id failed: {e}")
 
-        # If not found by google_id, check if this is the seed user (email match + __seed_pending__)
         if not user:
             try:
                 user = repo.get_user_by_email(email)
@@ -268,7 +255,6 @@ async def oauth_callback(request: Request, code: str = None, error: str = None):
             except Exception as e:
                 logger.debug(f"User lookup by email failed: {e}")
 
-        # Create new user if not found
         if not user:
             try:
                 user = repo.create_user(
@@ -282,13 +268,11 @@ async def oauth_callback(request: Request, code: str = None, error: str = None):
                 from fastapi.responses import RedirectResponse
                 return RedirectResponse(url=login_error_url)
 
-        # Update last_login
         try:
             repo.update_user_last_login(user["id"])
         except Exception as e:
             logger.debug(f"Failed to update last_login: {e}")
 
-        # Create JWT
         jwt_token = create_jwt({
             "id": user["id"],
             "email": user["email"],
@@ -296,14 +280,16 @@ async def oauth_callback(request: Request, code: str = None, error: str = None):
             "picture": user.get("avatar_url")
         })
 
-        # Store JWT under a one-time code so the frontend can exchange it
+        # Clean up expired codes before adding new one
+        _cleanup_expired_auth_codes()
+
         auth_code = str(uuid.uuid4())
         _auth_codes[auth_code] = {
             "jwt": jwt_token,
             "expires": datetime.utcnow() + timedelta(minutes=5),
         }
 
-        logger.info(f"User {email} logged in successfully")
+        logger.info(f"User id={user['id']} logged in successfully")
         from fastapi.responses import RedirectResponse
         return RedirectResponse(url=f"{frontend}/auth/callback?code={auth_code}")
 
@@ -314,12 +300,9 @@ async def oauth_callback(request: Request, code: str = None, error: str = None):
 
 
 @router.get("/exchange")
-async def exchange_auth_code(code: str):
-    """
-    Exchange a one-time auth code (issued by /callback) for a JWT token.
-    The frontend stores the token in sessionStorage and sends it via
-    Authorization header on subsequent requests.
-    """
+@limiter.limit("10/minute")
+async def exchange_auth_code(request: Request, response: Response, code: str = ""):
+    """Exchange a one-time auth code for a JWT set as HTTP-only cookie."""
     entry = _auth_codes.pop(code, None)
     if entry is None:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid or expired code")
@@ -328,22 +311,19 @@ async def exchange_auth_code(code: str):
 
     jwt_token = entry["jwt"]
     try:
-        payload = decode_jwt(jwt_token)
+        decode_jwt(jwt_token)
     except JWTError:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid token")
 
-    # Return token in body so the frontend can set the cookie itself via JS.
-    # (Vite's dev proxy does not reliably forward Set-Cookie headers from the
-    # backend to the browser, so we let the frontend set the cookie directly.)
-    return {"ok": True, "token": jwt_token}
+    # Set JWT as HTTP-only cookie
+    _set_jwt_cookie(response, jwt_token)
+
+    return {"ok": True}
 
 
 @router.get("/me", response_model=Optional[UserPayload])
 async def get_current_user(request: Request):
-    """
-    Get current authenticated user from database (always fresh).
-    Returns 401 if not authenticated.
-    """
+    """Get current authenticated user from database (always fresh)."""
     try:
         payload = get_current_user_from_request(request)
         user_id = int(payload.get("sub", 0))
@@ -356,17 +336,22 @@ async def get_current_user(request: Request):
         from sqlalchemy import text
         with repo._get_engine().connect() as conn:
             row = conn.execute(
-                text("SELECT id, email, display_name, avatar_url FROM users WHERE id = :id"),
+                text("SELECT id, email, display_name, avatar_url, is_admin FROM users WHERE id = :id"),
                 {"id": user_id}
             ).mappings().fetchone()
         if row is None:
             raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="User not found")
+        admin = bool(row.get("is_admin"))
+        if not admin and is_admin_user(row["email"]):
+            # Bootstrap: env var matches but DB column not yet set
+            promote_bootstrap_admin(row["email"])
+            admin = True
         return UserPayload(
             id=row["id"],
             email=row["email"],
             display_name=row.get("display_name"),
             picture=row.get("avatar_url"),
-            is_admin=is_admin_user(row["email"]),
+            is_admin=admin,
         )
     except HTTPException:
         raise
@@ -383,15 +368,48 @@ class ProfileUpdateRequest(BaseModel):
     avatar_url: Optional[str] = None
 
 
+# Domains allowed for avatar URLs (Google profile pics, Gravatar, etc.)
+_SAFE_AVATAR_DOMAINS = {
+    "lh3.googleusercontent.com",
+    "lh4.googleusercontent.com",
+    "lh5.googleusercontent.com",
+    "lh6.googleusercontent.com",
+    "googleusercontent.com",
+    "gravatar.com",
+    "www.gravatar.com",
+    "avatars.githubusercontent.com",
+}
+
+
+def _validate_avatar_url(url: Optional[str]) -> Optional[str]:
+    """Validate that avatar_url is a safe HTTPS URL or None."""
+    if not url:
+        return None
+    parsed = urlparse(url)
+    if parsed.scheme != "https":
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="avatar_url must use HTTPS",
+        )
+    host = (parsed.hostname or "").lower()
+    if not any(host == d or host.endswith("." + d) for d in _SAFE_AVATAR_DOMAINS):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="avatar_url domain not allowed",
+        )
+    return url
+
+
 @router.patch("/profile", response_model=UserPayload)
 async def update_profile(request: Request, body: ProfileUpdateRequest):
-    """
-    Update authenticated user's display_name and/or avatar_url.
-    Returns 413 if request body exceeds 500KB.
-    """
+    """Update authenticated user's display_name and/or avatar_url."""
     content_length = request.headers.get("content-length")
     if content_length and int(content_length) > 500 * 1024:
         raise HTTPException(status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE, detail="Request body too large (max 500KB)")
+
+    # Validate avatar_url if provided
+    if body.avatar_url is not None:
+        body.avatar_url = _validate_avatar_url(body.avatar_url)
 
     payload = get_current_user_from_request(request)
     user_id = int(payload.get("sub", 0))
@@ -415,13 +433,65 @@ async def update_profile(request: Request, body: ProfileUpdateRequest):
     )
 
 
+@router.post("/refresh")
+async def refresh_token(request: Request, response: Response):
+    """
+    Silent token refresh: issue a new JWT if the current one is still valid.
+    The old token's JTI is blacklisted so it cannot be reused.
+    Sets the new JWT as an HTTP-only cookie.
+    """
+    token = request.cookies.get("access_token")
+    if not token:
+        auth_header = request.headers.get("authorization", "")
+        if auth_header.startswith("Bearer "):
+            token = auth_header[7:]
+
+    if not token:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Not authenticated")
+
+    try:
+        payload = decode_jwt_token(token)
+    except (JWTError, ValueError):
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid or expired token")
+
+    # Blacklist old token
+    old_jti = payload.get("jti")
+    old_exp = payload.get("exp")
+    if old_jti and old_exp:
+        blacklist_token(old_jti, datetime.utcfromtimestamp(old_exp))
+
+    # Issue new token with same user info
+    new_token = create_jwt({
+        "id": payload.get("sub"),
+        "email": payload.get("email"),
+        "display_name": payload.get("display_name"),
+        "picture": payload.get("picture"),
+    })
+    _set_jwt_cookie(response, new_token)
+    return {"ok": True}
+
+
 @router.post("/logout")
-async def logout(response: Response):
-    """
-    Logout current user.
-    Clears the JWT cookie.
-    """
-    response.delete_cookie(key="access_token", httponly=True, samesite="lax")
+async def logout(request: Request, response: Response):
+    """Logout: blacklist current token and clear cookie."""
+    # Try to blacklist the current token
+    token = request.cookies.get("access_token")
+    if not token:
+        auth_header = request.headers.get("authorization", "")
+        if auth_header.startswith("Bearer "):
+            token = auth_header[7:]
+
+    if token:
+        try:
+            payload = decode_jwt(token)
+            jti = payload.get("jti")
+            exp_ts = payload.get("exp")
+            if jti and exp_ts:
+                blacklist_token(jti, datetime.utcfromtimestamp(exp_ts))
+        except (JWTError, Exception):
+            pass  # Token already expired or invalid — fine
+
+    response.delete_cookie(key="access_token", httponly=True, samesite="lax", path="/")
     logger.info("User logged out")
     return {"message": "Logged out successfully"}
 
@@ -430,3 +500,85 @@ async def logout(response: Response):
 async def health():
     """Health check endpoint (no auth required)"""
     return {"status": "ok"}
+
+
+# ---------------------------------------------------------------------------
+# Avatar proxy — serves cached user avatars instead of leaking external URLs
+# ---------------------------------------------------------------------------
+_AVATAR_CACHE_DIR = Path(
+    os.getenv("DECKDEX_AVATAR_DIR", os.path.join(os.path.dirname(__file__), "../../../data/avatars"))
+).resolve()
+_AVATAR_CACHE_DIR.mkdir(parents=True, exist_ok=True)
+
+# Max avatar download size (2 MB)
+_MAX_AVATAR_BYTES = 2 * 1024 * 1024
+
+
+@router.get("/avatar/{user_id}")
+async def get_avatar(user_id: int, request: Request):
+    """Proxy endpoint that serves a locally cached copy of the user's avatar.
+
+    On first request (cache miss), downloads the avatar from the stored
+    ``avatar_url``, saves it to disk, and serves it.  Subsequent requests
+    serve from cache.  Returns 404 if the user has no avatar.
+    """
+    # Authenticate
+    get_current_user_from_request(request)
+
+    repo = get_collection_repo()
+    if repo is None:
+        raise HTTPException(status_code=503, detail="Database not configured")
+
+    from sqlalchemy import text
+    with repo._get_engine().connect() as conn:
+        row = conn.execute(
+            text("SELECT avatar_url FROM users WHERE id = :id"),
+            {"id": user_id},
+        ).fetchone()
+
+    if row is None or not row[0]:
+        raise HTTPException(status_code=404, detail="No avatar")
+
+    avatar_url: str = row[0]
+
+    # Deterministic cache key from URL
+    url_hash = hashlib.sha256(avatar_url.encode()).hexdigest()[:16]
+    cache_path = _AVATAR_CACHE_DIR / f"{user_id}_{url_hash}.img"
+    ct_path = _AVATAR_CACHE_DIR / f"{user_id}_{url_hash}.ct"
+
+    if cache_path.exists():
+        ct = ct_path.read_text().strip() if ct_path.exists() else "image/jpeg"
+        return FileResponse(cache_path, media_type=ct)
+
+    # Validate domain against allowlist before downloading
+    _validate_avatar_url(avatar_url)
+
+    try:
+        async with httpx.AsyncClient(timeout=10) as client:
+            resp = await client.get(avatar_url)
+            resp.raise_for_status()
+    except Exception:
+        raise HTTPException(status_code=502, detail="Failed to fetch avatar")
+
+    if len(resp.content) > _MAX_AVATAR_BYTES:
+        raise HTTPException(status_code=502, detail="Avatar too large")
+
+    # Write to cache atomically
+    import tempfile
+    fd, tmp = tempfile.mkstemp(dir=_AVATAR_CACHE_DIR)
+    try:
+        os.write(fd, resp.content)
+        os.close(fd)
+        os.replace(tmp, cache_path)
+    except Exception:
+        try:
+            os.close(fd)
+        except OSError:
+            pass
+        if os.path.exists(tmp):
+            os.unlink(tmp)
+        raise
+
+    ct = resp.headers.get("content-type", "image/jpeg")
+    ct_path.write_text(ct)
+    return FileResponse(cache_path, media_type=ct)
