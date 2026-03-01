@@ -193,7 +193,7 @@ async def analytics_rarity(
         for c in cards:
             r = (c.get("rarity") or "Unknown").strip()
             if r:
-                counter[r] += 1
+                counter[r] += int(c.get("quantity") or 1)
         result = sorted(
             [{"rarity": k, "count": v} for k, v in counter.items()],
             key=lambda x: x["count"],
@@ -231,7 +231,7 @@ async def analytics_color_identity(
         counter: Counter = Counter()
         for c in cards:
             identity = _normalize_color_identity(c.get("color_identity") or c.get("identity") or "")
-            counter[identity] += 1
+            counter[identity] += int(c.get("quantity") or 1)
         result = sorted(
             [{"color_identity": k, "count": v} for k, v in counter.items()],
             key=lambda x: x["count"],
@@ -277,7 +277,7 @@ async def analytics_cmc(
                     bucket = str(val) if val < 7 else "7+"
                 except (ValueError, TypeError):
                     bucket = "Unknown"
-            counter[bucket] += 1
+            counter[bucket] += int(c.get("quantity") or 1)
 
         # Sort: numeric buckets first (0-6), then 7+, then Unknown
         def sort_key(item):
@@ -329,7 +329,7 @@ async def analytics_sets(
         for c in cards:
             s = (c.get("set_name") or "Unknown").strip()
             if s:
-                counter[s] += 1
+                counter[s] += int(c.get("quantity") or 1)
         most_common = counter.most_common(limit)
         result = [{"set_name": k, "count": v} for k, v in most_common]
         _set_cached(key, result)

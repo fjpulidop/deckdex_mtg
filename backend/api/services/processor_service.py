@@ -114,12 +114,14 @@ class ProcessorService:
     the core processor logic. Intercepts tqdm output to emit progress events.
     """
     
-    def __init__(self, config: Optional[ProcessorConfig] = None, progress_callback: Optional[Callable] = None):
+    def __init__(self, config: Optional[ProcessorConfig] = None, progress_callback: Optional[Callable] = None, job_repo=None, user_id: Optional[int] = None):
         self.config = config or load_config(profile=os.getenv("DECKDEX_PROFILE", "default"))
         self.progress_callback = progress_callback
+        self._job_repo = job_repo  # Optional[JobRepository]
+        self._user_id = user_id
         self._lock = threading.Lock()
         self._cancel_flag = threading.Event()
-        
+
         # Job metadata
         self.job_id = str(uuid.uuid4())
         self.start_time = datetime.now()
@@ -130,10 +132,10 @@ class ProcessorService:
             'percentage': 0.0,
             'errors': []
         }
-        
+
         # Event loop reference for cross-thread callback
         self._loop: Optional[asyncio.AbstractEventLoop] = None
-        
+
         logger.info(f"ProcessorService initialized with job_id={self.job_id}")
     
     def get_metadata(self) -> JobMetadata:
@@ -148,6 +150,22 @@ class ProcessorService:
                 progress=self.progress_data.copy()
             )
     
+    def _persist_job_start(self, job_type: str) -> None:
+        """Write job row to Postgres (no-op when job_repo is None)."""
+        if self._job_repo is not None:
+            try:
+                self._job_repo.create_job(self._user_id, job_type, job_id=self.job_id)
+            except Exception as e:
+                logger.warning(f"Failed to persist job start: {e}")
+
+    def _persist_job_end(self, status: str, result: Optional[Dict[str, Any]] = None) -> None:
+        """Update job row in Postgres (no-op when job_repo is None)."""
+        if self._job_repo is not None:
+            try:
+                self._job_repo.update_job_status(self.job_id, status, result=result)
+            except Exception as e:
+                logger.warning(f"Failed to persist job end: {e}")
+
     async def _emit_progress(self, event_type: str, data: Dict[str, Any]):
         """Emit progress event to callback if provided."""
         if self.progress_callback:
@@ -195,10 +213,11 @@ class ProcessorService:
     async def process_cards_async(self, limit: Optional[int] = None):
         """Process cards asynchronously with real-time progress tracking."""
         logger.info(f"Starting async card processing (job_id={self.job_id}, limit={limit})")
-        
+        self._persist_job_start('process')
+
         # Capture event loop for cross-thread progress callbacks
         self._loop = asyncio.get_event_loop()
-        
+
         with self._lock:
             self.status = 'running'
         
@@ -247,33 +266,37 @@ class ProcessorService:
                 else:
                     self.status = 'error'
             
+            self._persist_job_end(self.status, result)
             # Only emit complete if not already emitted by cancel_async
             if not self._cancel_flag.is_set():
                 await self._emit_progress('complete', {
                     'status': self.status,
                     'summary': result
                 })
-            
+
             logger.info(f"Card processing finished (job_id={self.job_id}, status={self.status})")
             return result
-            
+
         except Exception as e:
             logger.error(f"Error in process_cards_async: {e}")
             with self._lock:
                 self.status = 'error'
+            self._persist_job_end('error', {'status': 'error', 'error': str(e)})
             await self._emit_progress('complete', {
                 'status': 'error',
                 'summary': {'status': 'error', 'error': str(e)}
             })
             raise
-    
+
+
     async def update_prices_async(self):
         """Update prices asynchronously with real-time progress tracking."""
         logger.info(f"Starting async price update (job_id={self.job_id})")
-        
+        self._persist_job_start('update_prices')
+
         # Capture event loop for cross-thread progress callbacks
         self._loop = asyncio.get_event_loop()
-        
+
         with self._lock:
             self.status = 'running'
         
@@ -322,20 +345,22 @@ class ProcessorService:
                 else:
                     self.status = 'error'
             
+            self._persist_job_end(self.status, result)
             # Only emit complete if not already emitted by cancel_async
             if not self._cancel_flag.is_set():
                 await self._emit_progress('complete', {
                     'status': self.status,
                     'summary': result
                 })
-            
+
             logger.info(f"Price update finished (job_id={self.job_id}, status={self.status})")
             return result
-            
+
         except Exception as e:
             logger.error(f"Error in update_prices_async: {e}")
             with self._lock:
                 self.status = 'error'
+            self._persist_job_end('error', {'status': 'error', 'error': str(e)})
             await self._emit_progress('complete', {
                 'status': 'error',
                 'summary': {'status': 'error', 'error': str(e)}

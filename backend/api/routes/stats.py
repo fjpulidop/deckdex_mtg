@@ -57,18 +57,19 @@ def calculate_stats(collection: list) -> dict:
     Returns:
         Dictionary with statistics
     """
-    total_cards = len(collection)
+    total_cards = sum(int(card.get("quantity") or 1) for card in collection)
 
-    # Calculate total value and average price
-    prices = []
+    # Calculate total value and average price (quantity-weighted)
+    total_value = 0.0
+    priced_qty = 0
     for card in collection:
-        price_str = card.get("price")
-        price = parse_price(price_str)
+        price = parse_price(card.get("price"))
+        qty = int(card.get("quantity") or 1)
         if price is not None:
-            prices.append(price)
+            total_value += price * qty
+            priced_qty += qty
 
-    total_value = sum(prices)
-    average_price = total_value / len(prices) if prices else 0.0
+    average_price = total_value / priced_qty if priced_qty else 0.0
 
     return {
         "total_cards": total_cards,

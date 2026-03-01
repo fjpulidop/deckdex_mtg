@@ -51,6 +51,7 @@ export interface Card {
   game_strategy?: string;
   tier?: string;
   created_at?: string;  // ISO timestamp when card was added
+  quantity?: number;
   [key: string]: any;
 }
 
@@ -79,6 +80,15 @@ export interface JobStatus {
   };
   start_time: string;
   job_type: string;
+}
+
+export interface JobHistoryItem {
+  job_id: string;
+  type: string;
+  status: string;
+  created_at: string | null;
+  completed_at: string | null;
+  result: Record<string, unknown> | null;
 }
 
 export interface DeckListItem {
@@ -369,6 +379,51 @@ export const api = {
     const query = params ? new URLSearchParams(params).toString() : '';
     const response = await apiFetch(`${API_BASE}/analytics/sets${query ? `?${query}` : ''}`);
     if (!response.ok) throw new Error('Failed to fetch analytics sets');
+    return response.json();
+  },
+
+  // Quantity update (inline edit)
+  updateCardQuantity: async (cardId: number, quantity: number): Promise<{ id: number; quantity: number }> => {
+    const response = await apiFetch(`${API_BASE}/cards/${cardId}/quantity`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ quantity }),
+    });
+    if (!response.ok) {
+      const err = await response.json().catch(() => ({}));
+      throw new Error((err as { detail?: string }).detail || 'Failed to update quantity');
+    }
+    return response.json();
+  },
+
+  // Job history
+  getJobHistory: async (limit = 50): Promise<JobHistoryItem[]> => {
+    const response = await apiFetch(`${API_BASE}/jobs/history?limit=${limit}`);
+    if (!response.ok) throw new Error('Failed to fetch job history');
+    return response.json();
+  },
+
+  // Import preview + external import
+  importPreview: async (file: File): Promise<{ detected_format: string; card_count: number; sample: string[] }> => {
+    const form = new FormData();
+    form.append('file', file);
+    const response = await apiFetch(`${API_BASE}/import/preview`, { method: 'POST', body: form });
+    if (!response.ok) {
+      const err = await response.json().catch(() => ({}));
+      throw new Error((err as { detail?: string }).detail || 'Preview failed');
+    }
+    return response.json();
+  },
+
+  importExternal: async (file: File, mode: 'merge' | 'replace'): Promise<{ job_id: string; card_count: number; format: string; mode: string }> => {
+    const form = new FormData();
+    form.append('file', file);
+    form.append('mode', mode);
+    const response = await apiFetch(`${API_BASE}/import/external`, { method: 'POST', body: form });
+    if (!response.ok) {
+      const err = await response.json().catch(() => ({}));
+      throw new Error((err as { detail?: string }).detail || 'Import failed');
+    }
     return response.json();
   },
 

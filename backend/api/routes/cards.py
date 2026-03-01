@@ -41,6 +41,7 @@ class Card(BaseModel):
     game_strategy: Optional[str] = None
     tier: Optional[str] = None
     created_at: Optional[str] = None  # ISO timestamp when card was added
+    quantity: Optional[int] = 1
 
     class Config:
         from_attributes = True
@@ -263,6 +264,30 @@ async def update_card(
     except Exception as e:
         logger.error(f"Error updating card {id}: {e}")
         raise HTTPException(status_code=400, detail=str(e))
+
+
+@router.patch("/{id}/quantity")
+async def update_card_quantity(
+    id: int,
+    body: Dict[str, Any],
+    user_id: int = Depends(get_current_user_id),
+):
+    """Partial update: set quantity for a card (inline edit from the card table)."""
+    repo = get_collection_repo()
+    if repo is None:
+        raise HTTPException(status_code=501, detail="Requires PostgreSQL. Set DATABASE_URL.")
+    try:
+        quantity = int(body.get("quantity", 1))
+    except (TypeError, ValueError):
+        raise HTTPException(status_code=400, detail="quantity must be an integer")
+    if quantity < 1:
+        raise HTTPException(status_code=400, detail="quantity must be >= 1")
+    updated = repo.update_quantity(id, quantity, user_id=user_id)
+    if not updated:
+        raise HTTPException(status_code=404, detail=f"Card id {id} not found")
+    clear_collection_cache()
+    clear_stats_cache()
+    return {"id": id, "quantity": quantity}
 
 
 @router.delete("/{id}", status_code=204)
