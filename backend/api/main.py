@@ -101,7 +101,7 @@ async def health_check():
     }
 
 # Import and include routers
-from .routes import cards, stats, process, import_routes, settings_routes, analytics, decks, auth, insights
+from .routes import cards, stats, process, import_routes, settings_routes, analytics, decks, auth, insights, catalog_routes, admin_routes
 from .websockets import progress
 
 app.include_router(auth.router)
@@ -113,6 +113,8 @@ app.include_router(settings_routes.router)
 app.include_router(analytics.router)
 app.include_router(decks.router)
 app.include_router(insights.router)
+app.include_router(catalog_routes.router)
+app.include_router(admin_routes.router)
 app.include_router(progress.router)
 
 @app.on_event("startup")

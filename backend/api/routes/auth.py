@@ -14,7 +14,7 @@ import httpx
 from jose import jwt, JWTError
 from loguru import logger
 
-from ..dependencies import get_collection_repo
+from ..dependencies import get_collection_repo, is_admin_user
 
 router = APIRouter(prefix="/api/auth", tags=["auth"])
 
@@ -77,6 +77,7 @@ class UserPayload(BaseModel):
     email: str
     display_name: Optional[str] = None
     picture: Optional[str] = None
+    is_admin: bool = False
 
 
 def create_jwt(user: Dict[str, Any]) -> str:
@@ -364,7 +365,8 @@ async def get_current_user(request: Request):
             id=row["id"],
             email=row["email"],
             display_name=row.get("display_name"),
-            picture=row.get("avatar_url")
+            picture=row.get("avatar_url"),
+            is_admin=is_admin_user(row["email"]),
         )
     except HTTPException:
         raise

@@ -21,8 +21,12 @@ export function SettingsModal({ onClose }: SettingsModalProps) {
   const [scryfallLoading, setScryfallLoading] = useState(false);
   const [scryfallMessage, setScryfallMessage] = useState<string | null>(null);
 
+  const [scryfallEnabled, setScryfallEnabled] = useState(false);
+  const [scryfallToggleLoading, setScryfallToggleLoading] = useState(false);
+
   useEffect(() => {
     api.getScryfallCredentials().then((r) => setScryfallConfigured(r.configured)).catch(() => setScryfallConfigured(false));
+    api.getExternalApisSettings().then((r) => setScryfallEnabled(r.scryfall_enabled)).catch(() => {});
   }, []);
 
   // ESC to close
@@ -162,6 +166,50 @@ export function SettingsModal({ onClose }: SettingsModalProps) {
             </div>
             {scryfallConfigured && <p className="mt-2 text-green-700 dark:text-green-400 text-sm">Scryfall credentials are stored and will be used by the backend.</p>}
             {scryfallMessage && <p className="mt-2 text-green-700 dark:text-green-400 text-sm">{scryfallMessage}</p>}
+          </section>
+
+          <section>
+            <h3 className="text-base font-semibold mb-3 text-gray-900 dark:text-white">APIs externas</h3>
+            <p className="mb-3 text-sm text-gray-600 dark:text-gray-400">
+              Controla qué APIs externas puede consultar la aplicación. Cuando están desactivadas, solo se usa el catálogo local.
+            </p>
+            <div className="flex items-center justify-between py-2">
+              <div>
+                <p className="text-sm font-medium text-gray-900 dark:text-white">Scryfall</p>
+                <p className="text-xs text-gray-500 dark:text-gray-400">
+                  Permite consultar la API de Scryfall cuando una carta no se encuentra en el catálogo local.
+                </p>
+              </div>
+              <button
+                type="button"
+                role="switch"
+                aria-checked={scryfallEnabled}
+                disabled={scryfallToggleLoading}
+                onClick={async () => {
+                  const newVal = !scryfallEnabled;
+                  setScryfallEnabled(newVal);
+                  setScryfallToggleLoading(true);
+                  try {
+                    const r = await api.updateExternalApisSettings({ scryfall_enabled: newVal });
+                    setScryfallEnabled(r.scryfall_enabled);
+                  } catch (e) {
+                    setScryfallEnabled(!newVal);
+                    setError(e instanceof Error ? e.message : 'Failed to update setting');
+                  } finally {
+                    setScryfallToggleLoading(false);
+                  }
+                }}
+                className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 disabled:opacity-50 ${
+                  scryfallEnabled ? 'bg-indigo-600' : 'bg-gray-300 dark:bg-gray-600'
+                }`}
+              >
+                <span
+                  className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${
+                    scryfallEnabled ? 'translate-x-5' : 'translate-x-0'
+                  }`}
+                />
+              </button>
+            </div>
           </section>
 
           <section>

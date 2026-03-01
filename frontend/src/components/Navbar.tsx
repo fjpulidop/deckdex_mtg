@@ -54,6 +54,7 @@ export function Navbar() {
     { path: '/dashboard', label: 'Dashboard' },
     { path: '/decks', label: 'Decks', badge: 'alpha' },
     { path: '/analytics', label: 'Analytics', badge: 'beta' },
+    ...(user?.is_admin ? [{ path: '/admin', label: 'Admin' }] : []),
   ];
 
   const LinkItem = ({ path, label, badge }: { path: string; label: string; badge?: string }) => {

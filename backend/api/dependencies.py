@@ -24,6 +24,9 @@ from deckdex.storage import get_collection_repository
 from deckdex.storage.repository import CollectionRepository
 from deckdex.storage.deck_repository import DeckRepository
 from deckdex.storage.job_repository import JobRepository
+from deckdex.storage.image_store import ImageStore, FilesystemImageStore
+from deckdex.catalog.repository import CatalogRepository
+from deckdex.storage.user_settings_repository import UserSettingsRepository
 from loguru import logger
 
 # Cache for collection data (used when source is Google Sheets)
@@ -74,6 +77,75 @@ def get_deck_repo() -> Optional[DeckRepository]:
     if not url or not str(url).strip().startswith("postgresql"):
         return None
     return DeckRepository(url)
+
+
+_image_store: Optional[ImageStore] = None
+
+
+def get_image_store() -> ImageStore:
+    """Get shared FilesystemImageStore instance (singleton)."""
+    global _image_store
+    if _image_store is None:
+        config = load_config(profile=os.getenv("DECKDEX_PROFILE", "default"))
+        image_dir = config.catalog.image_dir
+        if not os.path.isabs(image_dir):
+            image_dir = os.path.join(project_root, image_dir)
+        _image_store = FilesystemImageStore(image_dir)
+    return _image_store
+
+
+def get_catalog_repo() -> Optional[CatalogRepository]:
+    """Get CatalogRepository when DATABASE_URL is set; else None."""
+    config = load_config(profile=os.getenv("DECKDEX_PROFILE", "default"))
+    url = None
+    if config.database is not None and getattr(config.database, "url", None):
+        url = config.database.url
+    if not url:
+        url = os.getenv("DATABASE_URL")
+    if not url or not str(url).strip().startswith("postgresql"):
+        return None
+    return CatalogRepository(url)
+
+
+def get_user_settings_repo() -> Optional[UserSettingsRepository]:
+    """Get UserSettingsRepository when DATABASE_URL is set; else None."""
+    config = load_config(profile=os.getenv("DECKDEX_PROFILE", "default"))
+    url = None
+    if config.database is not None and getattr(config.database, "url", None):
+        url = config.database.url
+    if not url:
+        url = os.getenv("DATABASE_URL")
+    if not url or not str(url).strip().startswith("postgresql"):
+        return None
+    return UserSettingsRepository(url)
+
+
+def is_admin_user(email: str) -> bool:
+    """Check if the given email matches the configured admin email.
+
+    Reads ``DECKDEX_ADMIN_EMAIL`` from the environment.  Returns ``False``
+    when the env var is missing/empty or the emails don't match.
+    Comparison is case-insensitive.
+    """
+    admin_email = os.getenv("DECKDEX_ADMIN_EMAIL", "").strip()
+    if not admin_email:
+        return False
+    return email.strip().lower() == admin_email.lower()
+
+
+async def require_admin(user: dict = Depends(get_current_user)) -> dict:
+    """FastAPI dependency that gates admin-only endpoints.
+
+    Depends on ``get_current_user`` (authentication checked first).
+    Raises 403 if the authenticated user is not the admin.
+    """
+    email = user.get("email", "")
+    if not is_admin_user(email):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Admin access required",
+        )
+    return user
 
 
 def get_spreadsheet_client() -> SpreadsheetClient:

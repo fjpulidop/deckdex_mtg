@@ -126,6 +126,24 @@ class OpenAIConfig:
 
 
 @dataclass
+class CatalogConfig:
+    """Configuration for the local card catalog.
+
+    Attributes:
+        image_dir: Directory for storing card images (relative to project root or absolute).
+        bulk_data_url: Scryfall bulk data API endpoint (returns JSON with download_uri).
+        image_size: Which Scryfall image size to download (small, normal, large).
+    """
+    image_dir: str = "data/images"
+    bulk_data_url: str = "https://api.scryfall.com/bulk-data/default-cards"
+    image_size: str = "normal"
+
+    def __post_init__(self):
+        if self.image_size not in ("small", "normal", "large"):
+            raise ValueError("image_size must be one of: small, normal, large")
+
+
+@dataclass
 class ProcessorConfig:
     """Main configuration container for MagicCardProcessor.
     
@@ -156,6 +174,7 @@ class ProcessorConfig:
     scryfall: ScryfallConfig = field(default_factory=ScryfallConfig)
     google_sheets: GoogleSheetsConfig = field(default_factory=GoogleSheetsConfig)
     openai: OpenAIConfig = field(default_factory=OpenAIConfig)
+    catalog: CatalogConfig = field(default_factory=CatalogConfig)
     database: Optional[DatabaseConfig] = field(default_factory=lambda: None)
     
     # Google Sheets credentials (not in YAML)

@@ -5,6 +5,7 @@ interface User {
   email: string;
   display_name?: string;
   avatar_url?: string;
+  is_admin?: boolean;
 }
 
 interface AuthContextType {
@@ -45,12 +46,13 @@ async function fetchMe(): Promise<User | null> {
     });
     if (response.ok) {
       const data = await response.json();
-      // Backend returns { id, email, display_name, picture } — map picture → avatar_url
+      // Backend returns { id, email, display_name, picture, is_admin } — map picture → avatar_url
       return {
         id: data.id,
         email: data.email,
         display_name: data.display_name,
         avatar_url: data.picture ?? data.avatar_url,
+        is_admin: data.is_admin ?? false,
       };
     }
     return null;

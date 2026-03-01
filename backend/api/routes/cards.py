@@ -103,14 +103,17 @@ async def list_cards(
 
 
 @router.get("/suggest", response_model=List[str])
-async def suggest_cards(q: Optional[str] = Query(default=None)):
+async def suggest_cards(
+    q: Optional[str] = Query(default=None),
+    user_id: int = Depends(get_current_user_id),
+):
     """
-    Return card name suggestions from Scryfall autocomplete for the Add card name field.
+    Return card name suggestions (catalog-first, Scryfall fallback if enabled).
     Query param q: search string. If missing or length < 2, returns empty array.
     """
     if not q or len(q.strip()) < 2:
         return []
-    return suggest_card_names(q.strip())
+    return suggest_card_names(q.strip(), user_id=user_id)
 
 
 @router.get("/resolve", response_model=Card)
@@ -129,7 +132,7 @@ async def resolve_card(
         collection = get_cached_collection(user_id=user_id)
         name_lower = name.strip().lower()
         from_coll = next((c for c in collection if (c.get("name") or "").lower() == name_lower), None)
-        payload = resolve_card_by_name(name.strip(), from_collection=from_coll)
+        payload = resolve_card_by_name(name.strip(), from_collection=from_coll, user_id=user_id)
         return Card(**{k: v for k, v in payload.items() if k in Card.model_fields})
     except CardNotFoundError as e:
         raise HTTPException(status_code=404, detail=str(e))
@@ -146,7 +149,7 @@ async def get_card_image(
     Returns 404 if card not found or image unavailable.
     """
     try:
-        data, media_type = resolve_card_image(id)
+        data, media_type = resolve_card_image(id, user_id=user_id)
         return Response(content=data, media_type=media_type)
     except FileNotFoundError:
         raise HTTPException(status_code=404, detail="Card or image not found")
