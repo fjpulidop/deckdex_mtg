@@ -415,9 +415,32 @@ export const api = {
     return response.json();
   },
 
+  importPreviewText: async (text: string): Promise<{ detected_format: string; card_count: number; sample: string[] }> => {
+    const form = new FormData();
+    form.append('text', text);
+    const response = await apiFetch(`${API_BASE}/import/preview`, { method: 'POST', body: form });
+    if (!response.ok) {
+      const err = await response.json().catch(() => ({}));
+      throw new Error((err as { detail?: string }).detail || 'Preview failed');
+    }
+    return response.json();
+  },
+
   importExternal: async (file: File, mode: 'merge' | 'replace'): Promise<{ job_id: string; card_count: number; format: string; mode: string }> => {
     const form = new FormData();
     form.append('file', file);
+    form.append('mode', mode);
+    const response = await apiFetch(`${API_BASE}/import/external`, { method: 'POST', body: form });
+    if (!response.ok) {
+      const err = await response.json().catch(() => ({}));
+      throw new Error((err as { detail?: string }).detail || 'Import failed');
+    }
+    return response.json();
+  },
+
+  importExternalText: async (text: string, mode: 'merge' | 'replace'): Promise<{ job_id: string; card_count: number; format: string; mode: string }> => {
+    const form = new FormData();
+    form.append('text', text);
     form.append('mode', mode);
     const response = await apiFetch(`${API_BASE}/import/external`, { method: 'POST', body: form });
     if (!response.ok) {
