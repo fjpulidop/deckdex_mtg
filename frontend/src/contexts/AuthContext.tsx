@@ -37,12 +37,9 @@ interface AuthProviderProps {
 }
 
 async function fetchMe(): Promise<User | null> {
-  const token = sessionStorage.getItem('access_token');
-  if (!token) return null;
-
   try {
     const response = await fetch('/api/auth/me', {
-      headers: { Authorization: `Bearer ${token}` },
+      credentials: 'include',
     });
     if (response.ok) {
       const data = await response.json();
@@ -79,11 +76,10 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
   const logout = async () => {
     try {
-      await fetch('/api/auth/logout', { method: 'POST' });
+      await fetch('/api/auth/logout', { method: 'POST', credentials: 'include' });
     } catch (error) {
       console.error('Error during logout:', error);
     }
-    sessionStorage.removeItem('access_token');
     setUser(null);
     window.location.href = '/';
   };

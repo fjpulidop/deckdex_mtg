@@ -18,14 +18,16 @@ const AuthCallback: React.FC = () => {
       return;
     }
 
-    fetch(`/api/auth/exchange?code=${encodeURIComponent(code)}`)
+    // Exchange the one-time code — backend sets HTTP-only cookie automatically
+    fetch(`/api/auth/exchange?code=${encodeURIComponent(code)}`, {
+      credentials: 'include',
+    })
       .then(async (res) => {
         if (!res.ok) {
           navigate('/login?error=auth_failed', { replace: true });
           return;
         }
-        const data = await res.json();
-        sessionStorage.setItem('access_token', data.token);
+        // Cookie is set by the backend; just refresh user state
         await refreshUser();
         navigate('/dashboard', { replace: true });
       })

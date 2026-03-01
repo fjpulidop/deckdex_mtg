@@ -7,11 +7,12 @@ import json
 import uuid
 from typing import List, Optional
 
-from fastapi import APIRouter, BackgroundTasks, HTTPException, UploadFile, File, Form, Depends
+from fastapi import APIRouter, BackgroundTasks, HTTPException, UploadFile, File, Form, Depends, Request
 from loguru import logger
 
 from ..dependencies import get_collection_repo, clear_collection_cache, get_current_user_id, get_job_repo
 from ..websockets.progress import manager as ws_manager
+from ..main import limiter
 
 router_import = APIRouter(prefix="/api/import", tags=["import"])
 
@@ -44,7 +45,9 @@ def _parse_file(filename: str, content: str):
 
 
 @router_import.post("/file")
+@limiter.limit("5/minute")
 async def import_from_file(
+    request: Request,
     file: Optional[UploadFile] = File(None),
     user_id: int = Depends(get_current_user_id)
 ):
@@ -58,7 +61,15 @@ async def import_from_file(
 
     if not file:
         raise HTTPException(status_code=400, detail="No file uploaded.")
+
+    # Enforce file size limit (10 MB)
+    max_size = 10 * 1024 * 1024
+    content_length = request.headers.get("content-length")
+    if content_length and int(content_length) > max_size:
+        raise HTTPException(status_code=413, detail="File too large (max 10MB)")
     content = await file.read()
+    if len(content) > max_size:
+        raise HTTPException(status_code=413, detail="File too large (max 10MB)")
     try:
         text_content = content.decode("utf-8")
     except UnicodeDecodeError:
@@ -76,8 +87,8 @@ async def import_from_file(
                 cards = data["cards"]
             else:
                 cards = [data]
-        except json.JSONDecodeError as e:
-            raise HTTPException(status_code=400, detail=f"Invalid JSON: {e}")
+        except json.JSONDecodeError:
+            raise HTTPException(status_code=400, detail="Invalid JSON format")
     else:
         # CSV (or no extension)
         reader = csv.reader(io.StringIO(text_content))
@@ -124,7 +135,9 @@ async def import_from_file(
 # POST /api/import/preview
 # ---------------------------------------------------------------------------
 @router_import.post("/preview")
+@limiter.limit("5/minute")
 async def import_preview(
+    request: Request,
     file: Optional[UploadFile] = File(None),
     text: Optional[str] = Form(None),
     user_id: int = Depends(get_current_user_id),
@@ -135,7 +148,8 @@ async def import_preview(
         try:
             parsed = mtgo_parse(text)
         except Exception as e:
-            raise HTTPException(status_code=400, detail=f"Failed to parse text: {e}")
+            logger.error(f"Failed to parse text: {e}")
+            raise HTTPException(status_code=400, detail="Failed to parse text")
         if not parsed:
             raise HTTPException(status_code=400, detail="No cards found in text.")
         return {
@@ -147,14 +161,18 @@ async def import_preview(
     if not file:
         raise HTTPException(status_code=400, detail="Provide a file or paste card text.")
 
+    max_size = 10 * 1024 * 1024
     content_bytes = await file.read()
+    if len(content_bytes) > max_size:
+        raise HTTPException(status_code=413, detail="File too large (max 10MB)")
     text_content = _read_content(content_bytes)
     filename = file.filename or ""
 
     try:
         fmt, parsed = _parse_file(filename, text_content)
     except Exception as e:
-        raise HTTPException(status_code=400, detail=f"Failed to parse file: {e}")
+        logger.error(f"Failed to parse file: {e}")
+        raise HTTPException(status_code=400, detail="Failed to parse file")
 
     if not parsed:
         raise HTTPException(status_code=400, detail="No cards found in file.")
@@ -170,7 +188,9 @@ async def import_preview(
 # POST /api/import/external
 # ---------------------------------------------------------------------------
 @router_import.post("/external")
+@limiter.limit("5/minute")
 async def import_external(
+    request: Request,
     background_tasks: BackgroundTasks,
     file: Optional[UploadFile] = File(None),
     text: Optional[str] = Form(None),
@@ -190,7 +210,8 @@ async def import_external(
         try:
             parsed_cards = mtgo_parse(text)
         except Exception as e:
-            raise HTTPException(status_code=400, detail=f"Failed to parse text: {e}")
+            logger.error(f"Failed to parse text: {e}")
+            raise HTTPException(status_code=400, detail="Failed to parse text")
         fmt = "mtgo"
     elif file:
         content_bytes = await file.read()
@@ -199,7 +220,8 @@ async def import_external(
         try:
             fmt, parsed_cards = _parse_file(filename, text_content)
         except Exception as e:
-            raise HTTPException(status_code=400, detail=f"Failed to parse file: {e}")
+            logger.error(f"Failed to parse file: {e}")
+            raise HTTPException(status_code=400, detail="Failed to parse file")
     else:
         raise HTTPException(status_code=400, detail="Provide a file or paste card text.")
 

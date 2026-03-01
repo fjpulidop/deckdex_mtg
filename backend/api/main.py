@@ -2,11 +2,15 @@
 DeckDex MTG - FastAPI Backend
 Main application entry point
 """
+import os
 from fastapi import FastAPI, Request, status
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from fastapi.exceptions import RequestValidationError
 from loguru import logger
+from slowapi import Limiter, _rate_limit_exceeded_handler
+from slowapi.util import get_remote_address
+from slowapi.errors import RateLimitExceeded
 import sys
 
 # Configure loguru logger
@@ -24,6 +28,9 @@ logger.add(
     format="{time:YYYY-MM-DD HH:mm:ss} | {level: <8} | {name}:{function}:{line} - {message}"
 )
 
+# Rate limiter (in-memory storage, keyed by remote address by default)
+limiter = Limiter(key_func=get_remote_address)
+
 # Initialize FastAPI app
 app = FastAPI(
     title="DeckDex MTG API",
@@ -31,40 +38,35 @@ app = FastAPI(
     version="0.1.0"
 )
 
-# Configure CORS for local development
+# Attach limiter to app state (required by slowapi)
+app.state.limiter = limiter
+app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
+
+# Configure CORS (configurable via environment)
+_cors_origins_raw = os.getenv("DECKDEX_CORS_ORIGINS", "http://localhost:5173")
+_cors_origins = [o.strip() for o in _cors_origins_raw.split(",") if o.strip()]
+logger.info(f"CORS allowed origins: {_cors_origins}")
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:5173"],  # Vite dev server
+    allow_origins=_cors_origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
-# Global exception handler for unhandled exceptions
+# Global exception handler for unhandled exceptions — NO internal details leaked
 @app.exception_handler(Exception)
 async def global_exception_handler(request: Request, exc: Exception):
-    """
-    Handle all unhandled exceptions
-    
-    Returns 500 Internal Server Error with logging
-    """
-    logger.error(f"Unhandled exception: {exc}", exc_info=True)
+    logger.error(f"Unhandled exception on {request.method} {request.url.path}: {exc}", exc_info=True)
     return JSONResponse(
         status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-        content={
-            "detail": "Internal server error",
-            "error": str(exc)
-        }
+        content={"detail": "Internal server error"}
     )
 
 # Validation error handler
 @app.exception_handler(RequestValidationError)
 async def validation_exception_handler(request: Request, exc: RequestValidationError):
-    """
-    Handle request validation errors
-    
-    Returns 400 Bad Request with validation details
-    """
     logger.warning(f"Validation error: {exc.errors()}")
     return JSONResponse(
         status_code=status.HTTP_400_BAD_REQUEST,
@@ -77,9 +79,6 @@ async def validation_exception_handler(request: Request, exc: RequestValidationE
 # Middleware to log all requests
 @app.middleware("http")
 async def log_requests(request: Request, call_next):
-    """
-    Log all API requests with endpoint, method, and response status
-    """
     logger.info(f"{request.method} {request.url.path}")
     response = await call_next(request)
     logger.info(f"{request.method} {request.url.path} - {response.status_code}")
@@ -90,10 +89,6 @@ logger.info("DeckDex MTG API started")
 # Health check endpoint
 @app.get("/api/health")
 async def health_check():
-    """
-    Health check endpoint
-    Returns service name and version
-    """
     return {
         "service": "DeckDex MTG API",
         "version": "0.1.0",
@@ -125,4 +120,6 @@ async def startup_event():
 @app.on_event("shutdown")
 async def shutdown_event():
     """Application shutdown tasks"""
+    from .db import dispose_engine
+    dispose_engine()
     logger.info("API shutting down")

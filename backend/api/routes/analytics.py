@@ -203,7 +203,7 @@ async def analytics_rarity(
         return result
     except Exception as e:
         logger.error("Error in analytics/rarity: %s", e)
-        raise HTTPException(status_code=500, detail=str(e)) from e
+        raise HTTPException(status_code=500, detail="Analytics computation failed") from e
 
 
 # ---------------------------------------------------------------------------
@@ -241,7 +241,7 @@ async def analytics_color_identity(
         return result
     except Exception as e:
         logger.error("Error in analytics/color-identity: %s", e)
-        raise HTTPException(status_code=500, detail=str(e)) from e
+        raise HTTPException(status_code=500, detail="Analytics computation failed") from e
 
 
 # ---------------------------------------------------------------------------
@@ -299,7 +299,7 @@ async def analytics_cmc(
         return result
     except Exception as e:
         logger.error("Error in analytics/cmc: %s", e)
-        raise HTTPException(status_code=500, detail=str(e)) from e
+        raise HTTPException(status_code=500, detail="Analytics computation failed") from e
 
 
 # ---------------------------------------------------------------------------
@@ -336,4 +336,4 @@ async def analytics_sets(
         return result
     except Exception as e:
         logger.error("Error in analytics/sets: %s", e)
-        raise HTTPException(status_code=500, detail=str(e)) from e
+        raise HTTPException(status_code=500, detail="Analytics computation failed") from e

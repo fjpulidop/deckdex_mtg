@@ -13,6 +13,7 @@ from ..services.processor_service import ProcessorService
 from ..dependencies import clear_collection_cache, get_collection_repo, get_current_user_id, get_job_repo
 from ..routes.stats import clear_stats_cache
 from ..websockets.progress import manager as ws_manager
+from ..main import limiter
 
 router = APIRouter(prefix="/api", tags=["process"])
 
@@ -110,6 +111,7 @@ async def list_jobs(user_id: int = Depends(get_current_user_id)):
 
 
 @router.post("/process", response_model=JobResponse)
+@limiter.limit("5/minute")
 async def trigger_process(
     request: Request,
     background_tasks: BackgroundTasks,
@@ -187,7 +189,7 @@ async def trigger_process(
                 clear_stats_cache()
         except Exception as e:
             logger.error(f"Process job {job_id} failed: {e}")
-            _job_results[job_id] = {'status': 'error', 'error': str(e)}
+            _job_results[job_id] = {'status': 'error', 'error': 'Job failed'}
         # Note: do NOT delete from _active_jobs here.
         # Let it remain so the frontend can poll final status.
         # It will be cleaned up on next job creation.
@@ -203,7 +205,8 @@ async def trigger_process(
 
 
 @router.post("/prices/update", response_model=JobResponse)
-async def trigger_price_update(background_tasks: BackgroundTasks, user_id: int = Depends(get_current_user_id)):
+@limiter.limit("5/minute")
+async def trigger_price_update(request: Request, background_tasks: BackgroundTasks, user_id: int = Depends(get_current_user_id)):
     """
     Trigger price update job.
     Only one update_prices job at a time; full process can run in parallel.
@@ -267,7 +270,7 @@ async def trigger_price_update(background_tasks: BackgroundTasks, user_id: int =
                 clear_stats_cache()
         except Exception as e:
             logger.error(f"Price update job {job_id} failed: {e}")
-            _job_results[job_id] = {'status': 'error', 'error': str(e)}
+            _job_results[job_id] = {'status': 'error', 'error': 'Job failed'}
     
     background_tasks.add_task(run_update)
     
@@ -335,7 +338,7 @@ async def trigger_single_card_price_update(card_id: int, background_tasks: Backg
                 clear_stats_cache()
         except Exception as e:
             logger.error(f"Single-card price update job {job_id} failed: {e}")
-            _job_results[job_id] = {"status": "error", "error": str(e)}
+            _job_results[job_id] = {"status": "error", "error": "Job failed"}
 
     background_tasks.add_task(run_update)
     logger.info(f"Created single-card price update job: {job_id}")

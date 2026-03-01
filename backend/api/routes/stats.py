@@ -125,7 +125,7 @@ async def get_stats(
                 detail="Google Sheets API quota exceeded. Please try again later.",
                 headers={"Retry-After": "60"},
             ) from e
-        raise HTTPException(status_code=500, detail=f"Failed to calculate stats: {str(e)}") from e
+        raise HTTPException(status_code=500, detail="Failed to calculate stats") from e
 
 
 def clear_stats_cache():

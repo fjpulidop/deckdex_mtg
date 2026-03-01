@@ -8,11 +8,11 @@ from loguru import logger
 class CatalogRepository:
     """PostgreSQL-backed repository for the global card catalog."""
 
-    def __init__(self, database_url: str):
-        if not database_url or not database_url.strip().startswith("postgresql"):
+    def __init__(self, database_url: str, engine=None):
+        if engine is None and (not database_url or not database_url.strip().startswith("postgresql")):
             raise ValueError("database_url must be a non-empty postgresql:// URL")
         self._url = database_url
-        self._eng = None
+        self._eng = engine
 
     def _engine(self):
         from sqlalchemy import create_engine

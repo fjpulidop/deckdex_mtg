@@ -13,6 +13,7 @@ from ..filters import filter_collection
 from .stats import clear_stats_cache
 from ..services.card_image_service import get_card_image as resolve_card_image
 from ..services.scryfall_service import suggest_card_names, resolve_card_by_name, CardNotFoundError
+from ..main import limiter
 
 router = APIRouter(prefix="/api/cards", tags=["cards"])
 
@@ -47,6 +48,7 @@ class Card(BaseModel):
         from_attributes = True
 
 @router.get("/", response_model=List[Card])
+@limiter.limit("60/minute")
 async def list_cards(
     request: Request,
     limit: int = Query(default=100, ge=1, le=10000),
@@ -99,7 +101,7 @@ async def list_cards(
                 headers={"Retry-After": "60"}
             )
         
-        raise HTTPException(status_code=500, detail=f"Failed to fetch cards: {str(e)}")
+        raise HTTPException(status_code=500, detail="Failed to fetch cards")
 
 
 @router.get("/suggest", response_model=List[str])
@@ -134,8 +136,8 @@ async def resolve_card(
         from_coll = next((c for c in collection if (c.get("name") or "").lower() == name_lower), None)
         payload = resolve_card_by_name(name.strip(), from_collection=from_coll, user_id=user_id)
         return Card(**{k: v for k, v in payload.items() if k in Card.model_fields})
-    except CardNotFoundError as e:
-        raise HTTPException(status_code=404, detail=str(e))
+    except CardNotFoundError:
+        raise HTTPException(status_code=404, detail="Card not found")
 
 
 @router.get("/{id}/image")
@@ -211,11 +213,13 @@ async def get_card(
                 detail="Google Sheets API quota exceeded. Please try again later.",
                 headers={"Retry-After": "60"},
             )
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail="Failed to fetch card")
 
 
 @router.post("/", response_model=Card, status_code=201)
+@limiter.limit("30/minute")
 async def create_card(
+    request: Request,
     card: Card,
     user_id: int = Depends(get_current_user_id)
 ):
@@ -236,11 +240,13 @@ async def create_card(
         return created
     except Exception as e:
         logger.error(f"Error creating card: {e}")
-        raise HTTPException(status_code=400, detail=str(e))
+        raise HTTPException(status_code=400, detail="Failed to create card")
 
 
 @router.put("/{id}", response_model=Card)
+@limiter.limit("30/minute")
 async def update_card(
+    request: Request,
     id: int,
     card: Card,
     user_id: int = Depends(get_current_user_id)
@@ -266,11 +272,13 @@ async def update_card(
         raise
     except Exception as e:
         logger.error(f"Error updating card {id}: {e}")
-        raise HTTPException(status_code=400, detail=str(e))
+        raise HTTPException(status_code=400, detail="Failed to update card")
 
 
 @router.patch("/{id}/quantity")
+@limiter.limit("30/minute")
 async def update_card_quantity(
+    request: Request,
     id: int,
     body: Dict[str, Any],
     user_id: int = Depends(get_current_user_id),
@@ -294,7 +302,9 @@ async def update_card_quantity(
 
 
 @router.delete("/{id}", status_code=204)
+@limiter.limit("30/minute")
 async def delete_card(
+    request: Request,
     id: int,
     user_id: int = Depends(get_current_user_id)
 ):

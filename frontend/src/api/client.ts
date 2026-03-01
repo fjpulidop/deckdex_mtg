@@ -1,21 +1,12 @@
 // API client configuration and utilities
 const API_BASE = '/api';
 
-/** Build headers with Authorization token from sessionStorage. */
-function authHeaders(extra?: HeadersInit): Headers {
-  const headers = new Headers(extra);
-  const token = sessionStorage.getItem('access_token');
-  if (token) {
-    headers.set('Authorization', `Bearer ${token}`);
-  }
-  return headers;
-}
-
-/** Wraps fetch, injects auth header, and turns network errors into a clearer message. */
+/** Wraps fetch with credentials: 'include' (sends HTTP-only cookies) and turns network errors into a clearer message. */
 async function apiFetch(url: string, init?: RequestInit): Promise<Response> {
   const merged: RequestInit = {
     ...init,
-    headers: authHeaders(init?.headers),
+    credentials: 'include',
+    headers: new Headers(init?.headers),
   };
   try {
     return await fetch(url, merged);
