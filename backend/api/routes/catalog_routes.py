@@ -1,10 +1,13 @@
 """Catalog API routes: search, autocomplete, card details, images, sync."""
 
+import asyncio
+
 from fastapi import APIRouter, Depends, HTTPException, Query, Response
 from loguru import logger
 
 from ..dependencies import get_current_user_id
 from ..services import catalog_service
+from ..websockets.progress import manager as ws_manager
 
 router = APIRouter(prefix="/api/catalog", tags=["catalog"])
 
@@ -91,6 +94,7 @@ async def trigger_sync(
 ):
     """Trigger a catalog sync job.  Returns job_id.  409 if already running."""
     from ..dependencies import get_job_repo, get_image_store, get_catalog_repo
+    from .process import _active_jobs, _job_results, _job_types
     from deckdex.config_loader import load_config
     import os
 
@@ -99,6 +103,25 @@ async def trigger_sync(
         raise HTTPException(status_code=501, detail="Catalog requires PostgreSQL (DATABASE_URL)")
 
     config = load_config(profile=os.getenv("DECKDEX_PROFILE", "default"))
+    loop = asyncio.get_event_loop()
+
+    # Async progress callback for WebSocket — will be wrapped for the sync thread
+    async def _ws_progress(event):
+        event_type = event.get("type")
+        if event_type == "progress":
+            await ws_manager.send_progress(
+                event["job_id"],
+                event.get("current", 0),
+                event.get("total", 0),
+                event.get("percentage", 0.0),
+                phase=event.get("phase", ""),
+            )
+        elif event_type == "complete":
+            await ws_manager.send_complete(
+                event["job_id"],
+                event.get("status", "unknown"),
+                event.get("summary", {}),
+            )
 
     try:
         job_id = catalog_service.start_sync(
@@ -107,9 +130,17 @@ async def trigger_sync(
             job_repo=get_job_repo(),
             bulk_data_url=config.catalog.bulk_data_url,
             image_size=config.catalog.image_size,
+            on_progress_async=_ws_progress,
+            loop=loop,
+            active_jobs=_active_jobs,
+            job_results=_job_results,
         )
     except RuntimeError:
         raise HTTPException(status_code=409, detail="A catalog sync is already running")
+
+    # Register so the WebSocket endpoint accepts connections for this job
+    _active_jobs[job_id] = None  # sentinel — no ProcessorService needed
+    _job_types[job_id] = "catalog_sync"
 
     return {"job_id": job_id}
 

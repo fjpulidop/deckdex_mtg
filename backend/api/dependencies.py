@@ -133,21 +133,6 @@ def is_admin_user(email: str) -> bool:
     return email.strip().lower() == admin_email.lower()
 
 
-async def require_admin(user: dict = Depends(get_current_user)) -> dict:
-    """FastAPI dependency that gates admin-only endpoints.
-
-    Depends on ``get_current_user`` (authentication checked first).
-    Raises 403 if the authenticated user is not the admin.
-    """
-    email = user.get("email", "")
-    if not is_admin_user(email):
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Admin access required",
-        )
-    return user
-
-
 def get_spreadsheet_client() -> SpreadsheetClient:
     """
     Get configured SpreadsheetClient instance.
@@ -391,3 +376,18 @@ async def get_current_user_id(request: Request) -> int:
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid user ID"
         )
+
+
+async def require_admin(user: dict = Depends(get_current_user)) -> dict:
+    """FastAPI dependency that gates admin-only endpoints.
+
+    Depends on ``get_current_user`` (authentication checked first).
+    Raises 403 if the authenticated user is not the admin.
+    """
+    email = user.get("email", "")
+    if not is_admin_user(email):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Admin access required",
+        )
+    return user
