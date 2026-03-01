@@ -46,6 +46,12 @@ The system SHALL provide a `FilesystemImageStore` that stores images as files on
 #### Scenario: Base directory auto-created
 - **WHEN** `FilesystemImageStore` is initialized with a `base_dir` that doesn't exist
 - **THEN** it SHALL create the directory (including parents)
+- **AND** `base_dir` SHALL be resolved to an absolute path (`Path.resolve()`)
+
+#### Scenario: Key validation prevents path traversal
+- **WHEN** any ImageStore method is called with a key containing `..`, `/`, or null bytes
+- **THEN** the method SHALL raise `ValueError`
+- **SO** path traversal attacks are prevented
 
 ### Requirement: Migrate card_image_service to use ImageStore
 The existing `card_image_service.py` SHALL use `ImageStore` instead of PostgreSQL BYTEA for storing and retrieving card images.

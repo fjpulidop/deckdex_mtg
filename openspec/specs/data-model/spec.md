@@ -8,7 +8,7 @@ The data model SHALL include a `users` entity for storing authenticated user ide
 
 #### Scenario: Users table schema
 - **WHEN** the database is set up
-- **THEN** the `users` table SHALL have columns: `id` (bigserial PK), `google_id` (text, unique, not null), `email` (text, unique, not null), `display_name` (text, nullable), `avatar_url` (text, nullable), `created_at` (timestamptz, default now), `last_login` (timestamptz, default now)
+- **THEN** the `users` table SHALL have columns: `id` (bigserial PK), `google_id` (text, unique, not null), `email` (text, unique, not null), `display_name` (text, nullable), `avatar_url` (text, nullable), `is_admin` (boolean, not null, default false), `created_at` (timestamptz, default now), `last_login` (timestamptz, default now)
 
 ### Requirement: Cards have user ownership
 Each card in the `cards` table SHALL be associated with a user via a `user_id` foreign key.

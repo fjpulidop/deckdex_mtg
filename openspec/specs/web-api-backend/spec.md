@@ -2,7 +2,7 @@
 
 FastAPI; collection data, process execution, job monitoring. **Endpoints:** GET /api/health (200 + service/version); CORS for localhost:5173. GET /api/cards (list; optional limit, offset, search, rarity, type, set_name, price_min, price_max); GET /api/cards/{id}/image (card image by id, on-demand Scryfall fetch and store); GET /api/cards/{card_name} (single). Parse prices: EU/US formats with/without thousands separators; skip invalid/N/A. GET /api/stats (total_cards, total_value, average_price, last_updated); same filter params as cards; 30s cache per filter key. POST /api/process (optional limit) → job_id, background run; POST /api/prices/update → job_id; POST /api/prices/update/{card_id} → job_id (single-card). 409 if bulk process already running. GET /api/jobs, GET /api/jobs/{id} (status, progress, errors, start_time; completed: summary). POST /api/jobs/{id}/cancel → 200 (or 404/409). POST /api/import/file — CSV/JSON to Postgres (DATABASE_URL); 400 invalid file, 501 no Postgres. GET /api/cards/suggest?q=, GET /api/cards/resolve?name= (Scryfall); GET /api/analytics/rarity, color-identity, cmc, sets (same filter params as stats).
 
-Reuse SpreadsheetClient, CardFetcher, config_loader; ProcessorService. Errors: 400 invalid params, 503 Sheets quota (Retry-After), 500 + log. Log requests (method, path, status) INFO; errors ERROR.
+Reuse SpreadsheetClient, CardFetcher, config_loader; ProcessorService. Errors: 400 invalid params, 503 Sheets quota (Retry-After), 500 sanitized (no internal details leaked) + log. Log requests (method, path, status, request_id) INFO; errors ERROR.
 
 ### Requirements (compact)
 
@@ -125,5 +125,49 @@ The backend SHALL expose `POST /api/insights/{insight_id}` that executes the spe
 
 #### Scenario: Unauthenticated request
 - **WHEN** an unauthenticated client calls `POST /api/insights/total_value`
+- **THEN** the backend SHALL return HTTP 401
+
+### Requirement: Rate limiting
+The backend SHALL enforce per-IP rate limits using slowapi (in-memory storage) to prevent abuse.
+
+#### Scenario: Auth endpoints rate limited
+- **WHEN** a client exceeds 10 requests per minute to auth endpoints (`/api/auth/google`, `/api/auth/callback`, `/api/auth/exchange`, `/api/auth/refresh`)
+- **THEN** the backend SHALL return HTTP 429 Too Many Requests
+
+#### Scenario: Normal data endpoints not rate limited by default
+- **WHEN** a client makes read requests to data endpoints (cards, stats, analytics)
+- **THEN** requests SHALL proceed without IP-level rate limiting (user scoping provides natural isolation)
+
+### Requirement: Deep health check with DB probe
+The `GET /api/health` endpoint SHALL probe database connectivity.
+
+#### Scenario: Healthy with DB
+- **WHEN** the database is connected
+- **THEN** the health endpoint SHALL return HTTP 200 with `{"status": "healthy", "database": "connected", "service": "DeckDex MTG API", "version": "..."}`
+
+#### Scenario: Degraded DB
+- **WHEN** the database probe (`SELECT 1`) fails
+- **THEN** the health endpoint SHALL return HTTP 503 with `{"status": "degraded", "database": "error"}`
+
+#### Scenario: No DB configured
+- **WHEN** no DATABASE_URL is configured
+- **THEN** the health endpoint SHALL return HTTP 200 with `{"database": "not_configured"}`
+
+### Requirement: Error response sanitization
+The backend SHALL NOT leak internal error details to clients.
+
+#### Scenario: Unhandled exception returns generic error
+- **WHEN** an unhandled exception occurs during request processing
+- **THEN** the backend SHALL return HTTP 500 with `{"detail": "Internal server error"}` and log the full stack trace server-side
+
+#### Scenario: Validation error returns structured detail
+- **WHEN** a request fails Pydantic validation
+- **THEN** the backend SHALL return HTTP 400 with `{"detail": "Validation error", "errors": [...]}`
+
+### Requirement: Settings endpoints require authentication
+The `/api/settings/scryfall-credentials` and `/api/settings/external-apis` endpoints SHALL require authentication via `Depends(get_current_user_id)`.
+
+#### Scenario: Unauthenticated settings request
+- **WHEN** an unauthenticated client calls `GET /api/settings/scryfall-credentials`
 - **THEN** the backend SHALL return HTTP 401
 

@@ -4,26 +4,33 @@ Admin access control and admin dashboard for DeckDex MTG. Provides a dedicated, 
 
 ## Requirements
 
-### Requirement: Admin identification via environment variable
+### Requirement: Admin identification via database column with env var bootstrap
 
-The system SHALL identify the admin user by comparing the authenticated user's email to the `DECKDEX_ADMIN_EMAIL` environment variable. Admin status is not stored in the database.
+The system SHALL identify the admin user primarily via the `is_admin` column in the `users` table. The `DECKDEX_ADMIN_EMAIL` environment variable serves as a bootstrap mechanism for the first admin.
 
-#### Scenario: Admin email matches
-
-- **WHEN** the `DECKDEX_ADMIN_EMAIL` environment variable is set to `admin@example.com`
-- **AND** the authenticated user's email is `admin@example.com`
+#### Scenario: Admin determined by is_admin column (primary)
+- **WHEN** a user's `is_admin` column in the `users` table is `TRUE`
 - **THEN** the system SHALL consider the user an admin
 
-#### Scenario: Admin email does not match
+#### Scenario: Bootstrap admin via environment variable (fallback)
+- **WHEN** a user's `is_admin` column is `FALSE`
+- **AND** the `DECKDEX_ADMIN_EMAIL` environment variable matches the user's email (case-insensitive)
+- **THEN** the system SHALL consider the user an admin
+- **AND** the system SHALL promote the user by setting `is_admin = TRUE` in the database (conditional UPDATE, only when `is_admin = FALSE`)
 
-- **WHEN** the `DECKDEX_ADMIN_EMAIL` environment variable is set to `admin@example.com`
-- **AND** the authenticated user's email is `user@example.com`
+#### Scenario: Admin email does not match and is_admin is FALSE
+- **WHEN** a user's `is_admin` column is `FALSE`
+- **AND** the `DECKDEX_ADMIN_EMAIL` environment variable does not match
 - **THEN** the system SHALL NOT consider the user an admin
 
-#### Scenario: Admin email not configured
-
+#### Scenario: Admin email not configured and is_admin is FALSE
 - **WHEN** the `DECKDEX_ADMIN_EMAIL` environment variable is not set or is empty
-- **THEN** the system SHALL NOT consider any user an admin
+- **AND** the user's `is_admin` column is `FALSE`
+- **THEN** the system SHALL NOT consider the user an admin
+
+#### Scenario: Migration adds is_admin column
+- **WHEN** migration 013 runs
+- **THEN** it SHALL add `is_admin BOOLEAN NOT NULL DEFAULT FALSE` to the `users` table (`ADD COLUMN IF NOT EXISTS`)
 
 ### Requirement: Backend admin dependency
 
