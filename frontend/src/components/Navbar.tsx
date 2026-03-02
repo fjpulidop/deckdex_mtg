@@ -1,13 +1,16 @@
 import { useRef, useEffect, useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { Menu, X, LogOut, User, Settings } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import { ThemeToggle } from './ThemeToggle';
+import { LanguageSwitcher } from './LanguageSwitcher';
 import { useAuth } from '../contexts/AuthContext';
 import { ProfileModal } from './ProfileModal';
 import { SettingsModal } from './SettingsModal';
 
 export function Navbar() {
   const location = useLocation();
+  const { t } = useTranslation();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [userMenuOpen, setUserMenuOpen] = useState(false);
   const [profileOpen, setProfileOpen] = useState(false);
@@ -51,10 +54,10 @@ export function Navbar() {
   }, [mobileMenuOpen, userMenuOpen]);
 
   const navLinks = [
-    { path: '/dashboard', label: 'Dashboard' },
-    { path: '/decks', label: 'Decks', badge: 'alpha' },
-    { path: '/analytics', label: 'Analytics', badge: 'beta' },
-    ...(user?.is_admin ? [{ path: '/admin', label: 'Admin' }] : []),
+    { path: '/dashboard', label: t('navbar.collection') },
+    { path: '/decks', label: t('navbar.deckBuilder'), badge: 'alpha' },
+    { path: '/analytics', label: t('navbar.analytics'), badge: 'beta' },
+    ...(user?.is_admin ? [{ path: '/admin', label: t('navbar.admin') }] : []),
   ];
 
   const LinkItem = ({ path, label, badge }: { path: string; label: string; badge?: string }) => {
@@ -109,8 +112,9 @@ export function Navbar() {
               ))}
             </div>
 
-            {/* Right side: Theme toggle, user menu and mobile menu button */}
+            {/* Right side: Theme toggle, language switcher, user menu and mobile menu button */}
             <div className="flex items-center gap-4">
+              <LanguageSwitcher />
               <ThemeToggle />
 
               {/* User Menu (Desktop) */}
@@ -140,14 +144,14 @@ export function Navbar() {
                           className="w-full text-left px-4 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-600 flex items-center gap-2"
                         >
                           <User className="w-4 h-4" />
-                          Profile
+                          {t('navbar.profile')}
                         </button>
                         <button
                           onClick={() => { setUserMenuOpen(false); setSettingsOpen(true); }}
                           className="w-full text-left px-4 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-600 flex items-center gap-2"
                         >
                           <Settings className="w-4 h-4" />
-                          Settings
+                          {t('navbar.settings')}
                         </button>
                         <div className="my-1 border-t border-gray-200 dark:border-gray-600" />
                         <button
@@ -155,7 +159,7 @@ export function Navbar() {
                           className="w-full text-left px-4 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-600 flex items-center gap-2"
                         >
                           <LogOut className="w-4 h-4" />
-                          Logout
+                          {t('navbar.logout')}
                         </button>
                       </div>
                     )}
@@ -206,22 +210,25 @@ export function Navbar() {
                       className="w-full text-left px-1 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-600 rounded flex items-center gap-2"
                     >
                       <User className="w-4 h-4" />
-                      Profile
+                      {t('navbar.profile')}
                     </button>
                     <button
                       onClick={() => { setMobileMenuOpen(false); setSettingsOpen(true); }}
                       className="w-full text-left px-1 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-600 rounded flex items-center gap-2"
                     >
                       <Settings className="w-4 h-4" />
-                      Settings
+                      {t('navbar.settings')}
                     </button>
                     <button
                       onClick={() => { logout(); setMobileMenuOpen(false); }}
                       className="w-full text-left px-1 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-600 rounded flex items-center gap-2"
                     >
                       <LogOut className="w-4 h-4" />
-                      Logout
+                      {t('navbar.logout')}
                     </button>
+                    <div className="px-1 py-2">
+                      <LanguageSwitcher />
+                    </div>
                   </div>
                 )}
               </div>

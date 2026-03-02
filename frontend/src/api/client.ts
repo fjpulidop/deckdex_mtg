@@ -53,8 +53,9 @@ async function apiFetch(url: string, init?: RequestInit): Promise<Response> {
         throw e;
       }
     }
-    // Refresh failed — redirect to login
-    window.location.href = '/login';
+    const p = window.location.pathname;
+    const PUBLIC_PATHS = new Set(['/login', '/auth/callback', '/']);
+    if (!PUBLIC_PATHS.has(p)) window.location.href = '/login';
   }
 
   return response;

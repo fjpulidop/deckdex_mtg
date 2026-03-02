@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
+import { useTranslation } from 'react-i18next';
 import { api, CatalogSyncStatus } from '../api/client';
 
 const STATUS_BADGE: Record<string, string> = {
@@ -9,15 +10,19 @@ const STATUS_BADGE: Record<string, string> = {
   failed: 'bg-red-100 text-red-700 dark:bg-red-900 dark:text-red-300',
 };
 
-function statusLabel(s: string): string {
-  switch (s) {
-    case 'syncing_data': return 'Syncing Data';
-    case 'syncing_images': return 'Syncing Images';
-    default: return s.charAt(0).toUpperCase() + s.slice(1);
-  }
-}
+// statusLabel moved inside component to use t()
 
 export function Admin() {
+  const { t } = useTranslation();
+
+  const statusLabel = (s: string): string => {
+    switch (s) {
+      case 'syncing_data': return t('admin.syncStatus.syncingData');
+      case 'syncing_images': return t('admin.syncStatus.syncingImages');
+      default: return s.charAt(0).toUpperCase() + s.slice(1);
+    }
+  };
+
   const [syncStatus, setSyncStatus] = useState<CatalogSyncStatus | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -36,7 +41,7 @@ export function Admin() {
       setSyncStatus(data);
       setError(null);
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Failed to load sync status');
+      setError(e instanceof Error ? e.message : t('admin.failedToLoad'));
     } finally {
       setLoading(false);
     }
@@ -65,7 +70,7 @@ export function Admin() {
           setSyncing(false);
           setJobId(null);
           setWsPhase(null);
-          setSuccessMsg('Catalog sync completed successfully.');
+          setSuccessMsg(t('admin.syncCompleted'));
           fetchStatus();
         } else if (data.type === 'error') {
           setError(data.message || 'Sync encountered an error');
@@ -103,7 +108,7 @@ export function Admin() {
     } catch (e) {
       const msg = e instanceof Error ? e.message : 'Failed to start sync';
       if (msg.includes('already in progress') || msg.includes('409')) {
-        setError('Sync already in progress');
+        setError(t('admin.syncAlreadyInProgress'));
       } else {
         setError(msg);
       }
@@ -117,46 +122,46 @@ export function Admin() {
   return (
     <div className="container mx-auto px-4 py-8 max-w-4xl">
       <h1 className="text-3xl font-bold text-gray-900 dark:text-white mb-8">
-        Admin Dashboard
+        {t('admin.title')}
       </h1>
 
       {/* Catalog Sync Card */}
       <div className="bg-white dark:bg-gray-800 rounded-lg shadow border border-gray-200 dark:border-gray-700 p-6">
         <h2 className="text-xl font-semibold text-gray-900 dark:text-white mb-4">
-          Catalog Sync
+          {t('admin.catalogSync')}
         </h2>
 
         {loading ? (
           <div className="flex items-center gap-2 text-gray-500 dark:text-gray-400">
             <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-indigo-500"></div>
-            Loading sync status...
+            {t('admin.loadingStatus')}
           </div>
         ) : (
           <>
             {/* Status Grid */}
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
               <div>
-                <p className="text-sm text-gray-500 dark:text-gray-400">Status</p>
+                <p className="text-sm text-gray-500 dark:text-gray-400">{t('admin.status')}</p>
                 <span className={`inline-block mt-1 text-sm font-medium px-2.5 py-0.5 rounded-full ${STATUS_BADGE[syncStatus?.status ?? 'idle'] ?? STATUS_BADGE.idle}`}>
                   {statusLabel(syncStatus?.status ?? 'idle')}
                 </span>
               </div>
               <div>
-                <p className="text-sm text-gray-500 dark:text-gray-400">Last Sync</p>
+                <p className="text-sm text-gray-500 dark:text-gray-400">{t('admin.lastSync')}</p>
                 <p className="mt-1 text-sm font-medium text-gray-900 dark:text-white">
                   {syncStatus?.last_bulk_sync
                     ? new Date(syncStatus.last_bulk_sync).toLocaleString()
-                    : 'Never'}
+                    : t('admin.never')}
                 </p>
               </div>
               <div>
-                <p className="text-sm text-gray-500 dark:text-gray-400">Total Cards</p>
+                <p className="text-sm text-gray-500 dark:text-gray-400">{t('admin.totalCards')}</p>
                 <p className="mt-1 text-sm font-medium text-gray-900 dark:text-white">
                   {(syncStatus?.total_cards ?? 0).toLocaleString()}
                 </p>
               </div>
               <div>
-                <p className="text-sm text-gray-500 dark:text-gray-400">Images Downloaded</p>
+                <p className="text-sm text-gray-500 dark:text-gray-400">{t('admin.imagesDownloaded')}</p>
                 <p className="mt-1 text-sm font-medium text-gray-900 dark:text-white">
                   {(syncStatus?.total_images_downloaded ?? 0).toLocaleString()}
                 </p>
@@ -166,7 +171,7 @@ export function Admin() {
             {/* Error display */}
             {(error || syncStatus?.status === 'failed') && (
               <div className="mb-4 p-3 rounded-lg bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 text-red-700 dark:text-red-300 text-sm">
-                {error || syncStatus?.error_message || 'Sync failed'}
+                {error || syncStatus?.error_message || t('admin.syncFailed')}
               </div>
             )}
 
@@ -181,7 +186,7 @@ export function Admin() {
             {isSyncing && wsPhase && (
               <div className="mb-4">
                 <p className="text-sm text-gray-600 dark:text-gray-400 mb-1">
-                  {wsPhase === 'data' ? 'Downloading card data...' : 'Downloading images...'}
+                  {wsPhase === 'data' ? t('admin.downloadingData') : t('admin.downloadingImages')}
                 </p>
                 <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-3">
                   <div
@@ -205,7 +210,7 @@ export function Admin() {
                   : 'bg-indigo-600 hover:bg-indigo-700 text-white'
               }`}
             >
-              {isSyncing ? 'Sync in progress...' : 'Start Sync'}
+              {isSyncing ? t('admin.syncInProgress') : t('admin.startSync')}
             </button>
           </>
         )}

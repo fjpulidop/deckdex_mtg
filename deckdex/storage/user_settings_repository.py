@@ -46,9 +46,9 @@ class UserSettingsRepository:
             conn.execute(
                 text("""
                     INSERT INTO user_settings (user_id, settings, updated_at)
-                    VALUES (:uid, :settings::jsonb, now())
+                    VALUES (:uid, CAST(:settings AS jsonb), now())
                     ON CONFLICT (user_id)
-                    DO UPDATE SET settings = :settings::jsonb, updated_at = now()
+                    DO UPDATE SET settings = CAST(:settings AS jsonb), updated_at = now()
                 """),
                 {"uid": user_id, "settings": blob},
             )

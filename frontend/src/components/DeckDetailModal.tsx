@@ -1,4 +1,5 @@
 import { useState, useCallback, useMemo, useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { BarChart, Bar, XAxis, YAxis, ResponsiveContainer, Cell } from 'recharts';
 import { api, DeckCard } from '../api/client';
@@ -73,6 +74,7 @@ interface DeckDetailModalProps {
 }
 
 export function DeckDetailModal({ deckId, onClose, onDeleted }: DeckDetailModalProps) {
+  const { t } = useTranslation();
   const queryClient = useQueryClient();
   const [pickerOpen, setPickerOpen] = useState(false);
   const [deleteDeckConfirmOpen, setDeleteDeckConfirmOpen] = useState(false);
@@ -219,9 +221,9 @@ export function DeckDetailModal({ deckId, onClose, onDeleted }: DeckDetailModalP
     return (
       <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50" onClick={onClose}>
         <div className="bg-white dark:bg-gray-800 rounded-lg p-6 max-w-md shadow-xl" onClick={(e) => e.stopPropagation()}>
-          <p className="text-red-600 dark:text-red-400">{error instanceof Error ? error.message : 'Failed to load deck'}</p>
+          <p className="text-red-600 dark:text-red-400">{error instanceof Error ? error.message : t('deckDetail.failedToLoad')}</p>
           <button type="button" onClick={onClose} className="mt-4 text-blue-600 dark:text-blue-400 hover:underline">
-            Close
+            {t('deckDetail.close')}
           </button>
         </div>
       </div>
@@ -261,11 +263,11 @@ export function DeckDetailModal({ deckId, onClose, onDeleted }: DeckDetailModalP
                     {displayName}
                   </button>
                 )}
-                {saveNamePending && <span className="text-sm text-gray-500">Saving…</span>}
+                {saveNamePending && <span className="text-sm text-gray-500">{t('deckDetail.saving')}</span>}
               </div>
               {/* Total value */}
               <div className="flex items-center shrink-0">
-                <span className="text-sm font-medium text-gray-500 dark:text-gray-400">Total</span>
+                <span className="text-sm font-medium text-gray-500 dark:text-gray-400">{t('deckDetail.total')}</span>
                 <span className="ml-1.5 text-base font-bold text-green-600 dark:text-green-400">
                   {formatDeckCurrency(totalDeckValue)}
                 </span>
@@ -304,7 +306,7 @@ export function DeckDetailModal({ deckId, onClose, onDeleted }: DeckDetailModalP
                     </BarChart>
                   </ResponsiveContainer>
                 </div>
-                <span className="text-xs text-gray-500 dark:text-gray-400 whitespace-nowrap">CMC</span>
+                <span className="text-xs text-gray-500 dark:text-gray-400 whitespace-nowrap">{t('deckDetail.cmc')}</span>
               </div>
               {/* CMC filter chip */}
               {filterByCmc != null && (
@@ -323,14 +325,14 @@ export function DeckDetailModal({ deckId, onClose, onDeleted }: DeckDetailModalP
                   onClick={() => setPickerOpen(true)}
                   className="px-3 py-1.5 rounded bg-indigo-600 text-white hover:bg-indigo-700 dark:bg-indigo-500 dark:hover:bg-indigo-600 text-sm font-medium"
                 >
-                  Add card
+                  {t('deckDetail.addCard')}
                 </button>
                 <button
                   type="button"
                   onClick={handleDelete}
                   className="px-3 py-1.5 rounded bg-red-600 text-white hover:bg-red-700 dark:bg-red-500 dark:hover:bg-red-600 text-sm font-medium"
                 >
-                  Delete Deck
+                  {t('deckDetail.deleteDeck')}
                 </button>
               </div>
             </div>
@@ -346,7 +348,7 @@ export function DeckDetailModal({ deckId, onClose, onDeleted }: DeckDetailModalP
                     onClick={() => setImageLightboxOpen(true)}
                     onKeyDown={(e) => e.key === 'Enter' && setImageLightboxOpen(true)}
                     className="cursor-zoom-in inline-block"
-                    aria-label="View image larger"
+                    aria-label={t('deckDetail.hoverCard')}
                   >
                     <img
                       src={bigImageUrl}
@@ -362,14 +364,14 @@ export function DeckDetailModal({ deckId, onClose, onDeleted }: DeckDetailModalP
                 </>
               ) : (
                 <div className="text-gray-400 dark:text-gray-500 text-sm text-center">
-                  {isLoading ? 'Loading…' : 'Hover a card'}
+                  {isLoading ? t('deckDetail.loading') : t('deckDetail.hoverCard')}
                 </div>
               )}
             </div>
             <div className="flex-1 overflow-y-auto p-4">
-              {isLoading && <p className="text-gray-500 dark:text-gray-400">Loading…</p>}
+              {isLoading && <p className="text-gray-500 dark:text-gray-400">{t('deckDetail.loading')}</p>}
               {!isLoading && sections.length === 0 && (
-                <p className="text-gray-500 dark:text-gray-400">No cards. Click Add to add cards from your collection.</p>
+                <p className="text-gray-500 dark:text-gray-400">{t('deckDetail.noCards')}</p>
               )}
               {sections.map(({ title, cards: sectionCards }) => (
                 <div key={title} className="mb-6">
@@ -410,7 +412,7 @@ export function DeckDetailModal({ deckId, onClose, onDeleted }: DeckDetailModalP
                               disabled={setCommanderPending === card.id}
                               className="flex-shrink-0 px-2 py-0.5 text-xs rounded bg-amber-100 dark:bg-amber-900/40 text-amber-800 dark:text-amber-200 hover:bg-amber-200 dark:hover:bg-amber-800/50 disabled:opacity-50"
                             >
-                              {setCommanderPending === card.id ? '…' : 'Set as Commander'}
+                              {setCommanderPending === card.id ? '…' : t('deckDetail.setAsCommander')}
                             </button>
                           )}
                           <button
@@ -444,7 +446,7 @@ export function DeckDetailModal({ deckId, onClose, onDeleted }: DeckDetailModalP
           onClick={() => setImageLightboxOpen(false)}
           role="button"
           tabIndex={0}
-          aria-label="Close enlarged image"
+          aria-label={t('deckDetail.close')}
           onKeyDown={(e) => e.key === 'Enter' && setImageLightboxOpen(false)}
         >
           <img
@@ -478,9 +480,9 @@ export function DeckDetailModal({ deckId, onClose, onDeleted }: DeckDetailModalP
 
       <ConfirmModal
         isOpen={deleteDeckConfirmOpen}
-        title="Delete deck"
-        message="Delete this deck? This cannot be undone."
-        confirmLabel="Delete"
+        title={t('deckDetail.deleteConfirmTitle')}
+        message={t('deckDetail.deleteConfirmMessage', { name: displayName })}
+        confirmLabel={t('deckDetail.deleteConfirm')}
         destructive
         onConfirm={handleDeleteDeckConfirmed}
         onCancel={() => setDeleteDeckConfirmOpen(false)}

@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Card, api } from '../api/client';
 
 interface CardTableProps {
@@ -10,6 +11,7 @@ interface CardTableProps {
 }
 
 function QuantityCell({ card, onQuantityChange }: { card: Card; onQuantityChange?: (id: number, qty: number) => void }) {
+  const { t } = useTranslation();
   const [editing, setEditing] = useState(false);
   const [value, setValue] = useState(String(card.quantity ?? 1));
   const [saving, setSaving] = useState(false);
@@ -54,7 +56,7 @@ function QuantityCell({ card, onQuantityChange }: { card: Card; onQuantityChange
     <span
       className={`inline-block min-w-[2rem] text-center font-mono text-sm cursor-pointer px-2 py-0.5 rounded hover:bg-blue-50 dark:hover:bg-blue-900/40 ${saving ? 'opacity-50' : ''}`}
       onClick={e => { e.stopPropagation(); setEditing(true); }}
-      title="Click to edit quantity"
+      title={t('cardTable.clickToEditQty')}
     >
       {card.quantity ?? 1}
     </span>
@@ -62,6 +64,7 @@ function QuantityCell({ card, onQuantityChange }: { card: Card; onQuantityChange
 }
 
 export function CardTable({ cards, isLoading, onAdd, onRowClick, onQuantityChange }: CardTableProps) {
+  const { t } = useTranslation();
   const [sortKey, setSortKey] = useState<string>('created_at');
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc');
   const [currentPage, setCurrentPage] = useState(1);
@@ -195,7 +198,7 @@ export function CardTable({ cards, isLoading, onAdd, onRowClick, onQuantityChang
             onClick={onAdd}
             className="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700 text-sm dark:bg-green-500 dark:hover:bg-green-600"
           >
-            Add card
+            {t('cardTable.addCard')}
           </button>
         </div>
       )}
@@ -206,43 +209,42 @@ export function CardTable({ cards, isLoading, onAdd, onRowClick, onQuantityChang
               <th
                 className="px-3 py-3 text-center text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-600 w-16"
                 onClick={() => handleSort('quantity')}
-                title="Quantity (click cell to edit)"
+                title={t('cardTable.clickToEditQty')}
               >
-                Qty {sortKey === 'quantity' && (sortDirection === 'asc' ? '↑' : '↓')}
+                {t('cardTable.columns.qty')} {sortKey === 'quantity' && (sortDirection === 'asc' ? '↑' : '↓')}
               </th>
               <th
                 className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-600"
                 onClick={() => handleSort('created_at')}
-                title="Date added (newest first by default)"
               >
-                Added {sortKey === 'created_at' && (sortDirection === 'asc' ? '↑' : '↓')}
+                {t('cardTable.columns.added')} {sortKey === 'created_at' && (sortDirection === 'asc' ? '↑' : '↓')}
               </th>
               <th
                 className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-600"
                 onClick={() => handleSort('name')}
               >
-                Name {sortKey === 'name' && (sortDirection === 'asc' ? '↑' : '↓')}
+                {t('cardTable.columns.name')} {sortKey === 'name' && (sortDirection === 'asc' ? '↑' : '↓')}
               </th>
               <th
                 className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-600"
                 onClick={() => handleSort('type')}
               >
-                Type {sortKey === 'type' && (sortDirection === 'asc' ? '↑' : '↓')}
+                {t('cardTable.columns.type')} {sortKey === 'type' && (sortDirection === 'asc' ? '↑' : '↓')}
               </th>
               <th
                 className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-600"
                 onClick={() => handleSort('rarity')}
               >
-                Rarity {sortKey === 'rarity' && (sortDirection === 'asc' ? '↑' : '↓')}
+                {t('cardTable.columns.rarity')} {sortKey === 'rarity' && (sortDirection === 'asc' ? '↑' : '↓')}
               </th>
               <th
                 className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-600"
                 onClick={() => handleSort('price')}
               >
-                Price {sortKey === 'price' && (sortDirection === 'asc' ? '↑' : '↓')}
+                {t('cardTable.columns.price')} {sortKey === 'price' && (sortDirection === 'asc' ? '↑' : '↓')}
               </th>
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                Set
+                {t('cardTable.columns.set')}
               </th>
             </tr>
           </thead>
@@ -299,7 +301,7 @@ export function CardTable({ cards, isLoading, onAdd, onRowClick, onQuantityChang
       {totalPages > 1 && (
         <div className="bg-gray-50 dark:bg-gray-700/50 px-6 py-4 flex items-center justify-between border-t border-gray-200 dark:border-gray-600">
           <div className="text-sm text-gray-700 dark:text-gray-300">
-            Showing {startIndex + 1} to {Math.min(startIndex + itemsPerPage, sortedCards.length)} of {sortedCards.length} cards
+            {t('cardTable.showing', { from: startIndex + 1, to: Math.min(startIndex + itemsPerPage, sortedCards.length), total: sortedCards.length })}
           </div>
           <div className="flex gap-2">
             <button
@@ -307,17 +309,17 @@ export function CardTable({ cards, isLoading, onAdd, onRowClick, onQuantityChang
               disabled={currentPage === 1}
               className="px-3 py-1 rounded bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 text-sm text-gray-900 dark:text-white disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50 dark:hover:bg-gray-600"
             >
-              Previous
+              {t('common.previous')}
             </button>
             <span className="px-3 py-1 text-sm text-gray-700 dark:text-gray-300">
-              Page {currentPage} of {totalPages}
+              {t('cardTable.page', { current: currentPage, total: totalPages })}
             </span>
             <button
               onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
               disabled={currentPage === totalPages}
               className="px-3 py-1 rounded bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 text-sm text-gray-900 dark:text-white disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50 dark:hover:bg-gray-600"
             >
-              Next
+              {t('common.next')}
             </button>
           </div>
         </div>

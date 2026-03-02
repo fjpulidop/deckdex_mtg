@@ -1,4 +1,5 @@
 import { useState, useRef, useCallback, useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
 import Cropper from 'react-easy-crop';
 import type { Area } from 'react-easy-crop';
 import { User, Camera, X } from 'lucide-react';
@@ -37,6 +38,7 @@ async function getCroppedImg(imageSrc: string, croppedAreaPixels: Area): Promise
 }
 
 export function ProfileModal({ onClose }: ProfileModalProps) {
+  const { t } = useTranslation();
   const { user, refreshUser } = useAuth();
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -97,7 +99,7 @@ export function ProfileModal({ onClose }: ProfileModalProps) {
 
   const handleSave = async () => {
     if (!displayName.trim()) {
-      setNameError('El nombre no puede estar vacío');
+      setNameError(t('profile.nameRequired'));
       return;
     }
     setNameError(null);
@@ -124,7 +126,7 @@ export function ProfileModal({ onClose }: ProfileModalProps) {
       await refreshUser();
       onClose();
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Error al guardar el perfil');
+      setError(err instanceof Error ? err.message : t('profile.saveError'));
     } finally {
       setSaving(false);
     }
@@ -138,7 +140,7 @@ export function ProfileModal({ onClose }: ProfileModalProps) {
       >
         {/* Header */}
         <div className="flex items-center justify-between mb-6">
-          <h2 className="text-lg font-semibold text-gray-900 dark:text-white">Edit Profile</h2>
+          <h2 className="text-lg font-semibold text-gray-900 dark:text-white">{t('profile.title')}</h2>
           <button
             onClick={onClose}
             className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 transition-colors"
@@ -160,7 +162,7 @@ export function ProfileModal({ onClose }: ProfileModalProps) {
             )}
             <div className="absolute inset-0 bg-black/40 flex flex-col items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
               <Camera className="w-5 h-5 text-white" />
-              <span className="text-white text-xs mt-1">Change</span>
+              <span className="text-white text-xs mt-1">{t('profile.changePhoto')}</span>
             </div>
           </button>
           <input
@@ -175,14 +177,14 @@ export function ProfileModal({ onClose }: ProfileModalProps) {
         {/* Display Name */}
         <div className="mb-6">
           <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-            Username
+            {t('profile.username')}
           </label>
           <input
             type="text"
             value={displayName}
             onChange={(e) => { setDisplayName(e.target.value); setNameError(null); }}
             className="w-full px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
-            placeholder="Your name"
+            placeholder={t('profile.namePlaceholder')}
           />
           {nameError && <p className="mt-1 text-xs text-red-500">{nameError}</p>}
         </div>
@@ -197,14 +199,14 @@ export function ProfileModal({ onClose }: ProfileModalProps) {
             onClick={onClose}
             className="px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
           >
-            Cancel
+            {t('profile.cancel')}
           </button>
           <button
             onClick={handleSave}
             disabled={saving}
             className="px-4 py-2 text-sm font-medium bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
           >
-            {saving ? 'Saving…' : 'Save'}
+            {saving ? t('profile.saving') : t('profile.save')}
           </button>
         </div>
       </div>
@@ -217,7 +219,7 @@ export function ProfileModal({ onClose }: ProfileModalProps) {
         >
           <div className="bg-white dark:bg-gray-800 rounded-xl shadow-2xl w-full max-w-sm mx-4 p-6">
             <div className="flex items-center justify-between mb-4">
-              <h3 className="text-base font-semibold text-gray-900 dark:text-white">Adjust photo</h3>
+              <h3 className="text-base font-semibold text-gray-900 dark:text-white">{t('profile.adjustPhoto')}</h3>
               <button
                 onClick={() => setCropOpen(false)}
                 className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 transition-colors"
@@ -260,13 +262,13 @@ export function ProfileModal({ onClose }: ProfileModalProps) {
                 onClick={() => setCropOpen(false)}
                 className="px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
               >
-                Cancel
+                {t('profile.cancel')}
               </button>
               <button
                 onClick={handleApplyCrop}
                 className="px-4 py-2 text-sm font-medium bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors"
               >
-                Apply
+                {t('profile.apply')}
               </button>
             </div>
           </div>

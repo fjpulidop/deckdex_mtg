@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
 
 export interface ActiveFilterChip {
   id: string;
@@ -78,6 +79,7 @@ export function Filters({
   resultCount,
   onClearFilters,
 }: FiltersProps) {
+  const { t } = useTranslation();
   const [debouncedSearch, setDebouncedSearch] = useState(search);
 
   useEffect(() => {
@@ -85,8 +87,8 @@ export function Filters({
   }, [search]);
 
   useEffect(() => {
-    const t = setTimeout(() => onSearchChange(debouncedSearch), 300);
-    return () => clearTimeout(t);
+    const timer = setTimeout(() => onSearchChange(debouncedSearch), 300);
+    return () => clearTimeout(timer);
   }, [debouncedSearch, onSearchChange]);
 
   const handlePriceMinChange = (value: string) => onPriceRangeChange(value, priceMax);
@@ -107,7 +109,7 @@ export function Filters({
         <div className="flex-1 min-w-[200px]">
           <input
             type="text"
-            placeholder="Search cards by name..."
+            placeholder={t('filters.searchPlaceholder')}
             value={debouncedSearch}
             onChange={(e) => setDebouncedSearch(e.target.value)}
             className={inputClass}
@@ -120,17 +122,17 @@ export function Filters({
             onChange={(e) => onRarityChange(e.target.value)}
             className={inputClass}
           >
-            <option value="all">All Rarities</option>
-            <option value="common">Common</option>
-            <option value="uncommon">Uncommon</option>
-            <option value="rare">Rare</option>
-            <option value="mythic">Mythic</option>
+            <option value="all">{t('filters.allRarities')}</option>
+            <option value="common">{t('filters.common')}</option>
+            <option value="uncommon">{t('filters.uncommon')}</option>
+            <option value="rare">{t('filters.rare')}</option>
+            <option value="mythic">{t('filters.mythic')}</option>
           </select>
         </div>
 
         <div className="min-w-[140px]">
           <select value={type} onChange={(e) => onTypeChange(e.target.value)} className={inputClass}>
-            <option value="all">All Types</option>
+            <option value="all">{t('filters.allTypes')}</option>
             {typeOptions.map((opt) => (
               <option key={opt} value={opt}>
                 {opt}
@@ -141,7 +143,7 @@ export function Filters({
 
         <div className="min-w-[140px]">
           <select value={set} onChange={(e) => onSetChange(e.target.value)} className={inputClass}>
-            <option value="all">All Sets</option>
+            <option value="all">{t('filters.allSets')}</option>
             {setOptions.map((opt) => (
               <option key={opt} value={opt}>
                 {opt}
@@ -153,7 +155,7 @@ export function Filters({
         <div className="flex items-center gap-2 min-w-[180px]">
           <input
             type="text"
-            placeholder="Min €"
+            placeholder={t('filters.minPrice')}
             value={priceMin}
             onChange={(e) => handlePriceMinChange(e.target.value)}
             className={`${inputClass} w-20`}
@@ -162,7 +164,7 @@ export function Filters({
           <span className="text-gray-400">–</span>
           <input
             type="text"
-            placeholder="Max €"
+            placeholder={t('filters.maxPrice')}
             value={priceMax}
             onChange={(e) => handlePriceMaxChange(e.target.value)}
             className={`${inputClass} w-20`}
@@ -174,23 +176,24 @@ export function Filters({
           onClick={onClearFilters}
           className="px-4 py-2 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-200 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600 transition"
         >
-          Clear Filters
+          {t('filters.clearFilters')}
         </button>
       </div>
 
       {/* Row 2: Color toggle bar */}
       <div className="flex flex-wrap items-center gap-2 mt-3 pt-3 border-t border-gray-100 dark:border-gray-700">
         <span className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider mr-1">
-          Color
+          {t('filters.colorFilter')}
         </span>
-        {MTG_COLORS.map(({ symbol, label, activeClass }) => {
+        {MTG_COLORS.map(({ symbol, activeClass }) => {
           const isActive = colors.includes(symbol);
+          const colorLabel = t(`filters.colors.${symbol}`);
           return (
             <button
               key={symbol}
               type="button"
               onClick={() => toggleColor(symbol)}
-              title={label}
+              title={colorLabel}
               aria-pressed={isActive}
               className={`w-8 h-8 rounded-full border-2 transition-all focus:outline-none focus:ring-2 focus:ring-offset-1 focus:ring-blue-400 flex items-center justify-center ${
                 isActive
@@ -216,14 +219,14 @@ export function Filters({
               type="button"
               onClick={chip.onRemove}
               className="ml-0.5 rounded hover:bg-blue-100 dark:hover:bg-blue-800/50 p-0.5 leading-none"
-              aria-label={`Remove ${chip.label} filter`}
+              aria-label={t('filters.removeFilter', { label: chip.label })}
             >
               ×
             </button>
           </span>
         ))}
         <span className="ml-auto text-sm text-gray-500 dark:text-gray-400">
-          Showing {resultCount} card{resultCount !== 1 ? 's' : ''}
+          {t('filters.showing', { count: resultCount })}
         </span>
       </div>
     </div>

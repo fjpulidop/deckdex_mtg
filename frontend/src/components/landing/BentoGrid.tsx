@@ -1,4 +1,5 @@
 import { motion } from 'framer-motion';
+import { useTranslation, Trans } from 'react-i18next';
 import { BentoCard } from './BentoCard';
 import { Zap, Wand2, TrendingUp, Gauge } from 'lucide-react';
 
@@ -25,6 +26,7 @@ const itemVariants = {
 };
 
 export const BentoGrid = () => {
+  const { t } = useTranslation();
   return (
     <section id="features" className="py-20 md:py-32 bg-gradient-to-b from-slate-900 to-slate-950 px-4 sm:px-6 lg:px-8">
       <div className="max-w-7xl mx-auto">
@@ -32,14 +34,20 @@ export const BentoGrid = () => {
         <div className="text-center mb-16 md:mb-24">
           <h2 className="text-4xl md:text-5xl font-bold mb-4">
             <span className="bg-gradient-to-r from-purple-300 to-pink-400 bg-clip-text text-transparent">
-              Powerful Features
+              {t('bento.sectionTitle')}
             </span>
           </h2>
           <p className="text-slate-400 text-lg max-w-2xl mx-auto mb-6">
-            Everything you need to manage, analyze, and optimize your Magic: The Gathering collection.
+            {t('bento.sectionSubtitle')}
           </p>
           <p className="text-slate-500 text-sm max-w-2xl mx-auto">
-            🤝 Missing a feature? <a href="https://github.com/yourusername/deckdex-mtg/fork" target="_blank" rel="noopener noreferrer" className="text-accent-400 hover:text-accent-300 transition-colors">Fork us</a> or submit a <a href="https://github.com/yourusername/deckdex-mtg/pulls" target="_blank" rel="noopener noreferrer" className="text-accent-400 hover:text-accent-300 transition-colors">Pull Request</a> to help us improve!
+            <Trans
+              i18nKey="bento.contribute"
+              components={{
+                1: <a href="https://github.com/yourusername/deckdex-mtg/fork" target="_blank" rel="noopener noreferrer" className="text-accent-400 hover:text-accent-300 transition-colors" />,
+                2: <a href="https://github.com/yourusername/deckdex-mtg/pulls" target="_blank" rel="noopener noreferrer" className="text-accent-400 hover:text-accent-300 transition-colors" />,
+              }}
+            />
           </p>
         </div>
 
@@ -55,8 +63,8 @@ export const BentoGrid = () => {
           <motion.div variants={itemVariants} className="md:col-span-1 lg:col-span-1">
             <BentoCard
               size="large"
-              title="Collection Management"
-              description="Organize your cards by set, rarity, and condition. Track quantities and organize your collection with powerful filtering and search."
+              title={t('bento.cards.collection.title')}
+              description={t('bento.cards.collection.desc')}
               icon={<Zap className="h-6 w-6" />}
               gradientFrom="from-blue-500/20"
               gradientTo="to-blue-600/20"
@@ -68,8 +76,8 @@ export const BentoGrid = () => {
           <motion.div variants={itemVariants} className="md:col-span-1 lg:col-span-1">
             <BentoCard
               size="large"
-              title="Deck Builder"
-              description="Design and test competitive decks with instant syntax validation. Create multiple deck versions and track your brewing progress."
+              title={t('bento.cards.deckBuilder.title')}
+              description={t('bento.cards.deckBuilder.desc')}
               icon={<Wand2 className="h-6 w-6" />}
               badge="ALPHA"
               gradientFrom="from-purple-500/20"
@@ -82,8 +90,8 @@ export const BentoGrid = () => {
           <motion.div variants={itemVariants} className="md:col-span-2 lg:col-span-1">
             <BentoCard
               size="medium"
-              title="AI Insights"
-              description="Get intelligent recommendations for card combinations, deck optimization suggestions, and meta-game analysis powered by advanced AI."
+              title={t('bento.cards.aiInsights.title')}
+              description={t('bento.cards.aiInsights.desc')}
               icon={<Wand2 className="h-6 w-6" />}
               gradientFrom="from-pink-500/20"
               gradientTo="to-rose-600/20"
@@ -95,8 +103,8 @@ export const BentoGrid = () => {
           <motion.div variants={itemVariants} className="md:col-span-1 lg:col-span-1">
             <BentoCard
               size="small"
-              title="Real-time Updates"
-              description="Price alerts, job progress tracking, and instant notifications keep you informed about your collection changes."
+              title={t('bento.cards.realtime.title')}
+              description={t('bento.cards.realtime.desc')}
               icon={<Gauge className="h-6 w-6" />}
               gradientFrom="from-amber-500/20"
               gradientTo="to-orange-600/20"
@@ -108,8 +116,8 @@ export const BentoGrid = () => {
           <motion.div variants={itemVariants} className="md:col-span-1 lg:col-span-2">
             <BentoCard
               size="medium"
-              title="Price Tracking & Analytics"
-              description="Monitor card prices across multiple vendors, track portfolio value trends, and receive alerts when prices spike or drop."
+              title={t('bento.cards.priceTracking.title')}
+              description={t('bento.cards.priceTracking.desc')}
               icon={<TrendingUp className="h-6 w-6" />}
               gradientFrom="from-green-500/20"
               gradientTo="to-emerald-600/20"

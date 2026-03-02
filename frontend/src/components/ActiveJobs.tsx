@@ -1,4 +1,5 @@
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import { api } from '../api/client';
 import { useWebSocket } from '../hooks/useApi';
 import { JobLogModal } from './JobLogModal';
@@ -102,6 +103,7 @@ interface JobEntryProps {
 }
 
 function JobEntry({ job, state, onToggleExpanded, onCancel, onComplete, onJobFinished, onViewLog, onFinish }: JobEntryProps) {
+  const { t } = useTranslation();
   const { status: wsStatus, progress, errors, complete, summary } = useWebSocket(job.jobId);
   const hasNotifiedComplete = React.useRef(false);
   const [elapsed, setElapsed] = React.useState('');
@@ -165,12 +167,12 @@ function JobEntry({ job, state, onToggleExpanded, onCancel, onComplete, onJobFin
     '🔄';
 
   const statusText =
-    isCancelled ? 'Cancelled' :
-    isError ? 'Failed' :
-    isFinished ? 'Completed' :
-    wsStatus === 'connected' ? 'Connected' :
-    wsStatus === 'connecting' ? 'Connecting...' :
-    'Disconnected';
+    isCancelled ? t('activeJobs.status.cancelled') :
+    isError ? t('activeJobs.status.failed') :
+    isFinished ? t('activeJobs.status.completed') :
+    wsStatus === 'connected' ? t('activeJobs.status.running') :
+    wsStatus === 'connecting' ? t('activeJobs.status.stopping') :
+    t('activeJobs.status.pending');
 
   const statusColor =
     isCancelled ? 'text-orange-600 dark:text-orange-400' :
@@ -207,15 +209,15 @@ function JobEntry({ job, state, onToggleExpanded, onCancel, onComplete, onJobFin
           <div className="text-xs text-gray-600 dark:text-gray-400 mt-1">
             {isFinished ? (
               <span>
-                {isCancelled ? `Stopped at ${progress.current}/${progress.total} cards` :
-                 isError ? summary?.error || 'An error occurred' :
-                 `${progress.total} cards processed`}
-                {errors.length > 0 && ` • ${errors.length} errors`}
+                {isCancelled ? t('jobLog.stoppedAt', { current: progress.current, total: progress.total }) :
+                 isError ? summary?.error || t('jobLog.errorOccurred') :
+                 t('jobLog.cardsProcessed', { total: progress.total })}
+                {errors.length > 0 && ` • ${t('activeJobs.errors', { count: errors.length })}`}
               </span>
             ) : (
               <span>
                 {progress.percentage.toFixed(0)}% — {progress.current}/{progress.total} cards
-                {state.isCancelling && ' • Stopping...'}
+                {state.isCancelling && ` • ${t('activeJobs.stopping')}`}
               </span>
             )}
           </div>
@@ -252,21 +254,21 @@ function JobEntry({ job, state, onToggleExpanded, onCancel, onComplete, onJobFin
                   : 'bg-red-600 text-white hover:bg-red-700 dark:bg-red-500 dark:hover:bg-red-600'
               }`}
             >
-              {state.isCancelling ? 'Stopping...' : 'Stop'}
+              {state.isCancelling ? t('activeJobs.stopping') : t('activeJobs.stop')}
             </button>
           )}
           <button
             onClick={onViewLog}
             className="px-3 py-1 text-xs bg-gray-100 dark:bg-gray-600 text-gray-700 dark:text-gray-200 rounded hover:bg-gray-200 dark:hover:bg-gray-500 transition"
           >
-            View log
+            {t('activeJobs.viewLog')}
           </button>
           {errors.length > 0 && (
             <button
               onClick={onToggleExpanded}
               className="px-3 py-1 text-xs bg-gray-100 dark:bg-gray-600 text-gray-700 dark:text-gray-200 rounded hover:bg-gray-200 dark:hover:bg-gray-500 transition"
             >
-              {state.expanded ? 'Hide' : 'Show'} errors
+              {state.expanded ? t('activeJobs.hideErrors') : t('activeJobs.showErrors')}
             </button>
           )}
         </div>
@@ -277,7 +279,7 @@ function JobEntry({ job, state, onToggleExpanded, onCancel, onComplete, onJobFin
         <div className="px-4 pb-3 border-t border-gray-100 dark:border-gray-600">
           <div className="mt-3 max-h-40 overflow-y-auto bg-red-50 dark:bg-red-900/30 border border-red-200 dark:border-red-800 rounded p-3">
             <h4 className="text-xs font-medium text-red-800 dark:text-red-200 mb-2">
-              Errors ({errors.length})
+              {t('activeJobs.errors', { count: errors.length })}
             </h4>
             {errors.slice(0, 20).map((error, index) => (
               <div key={index} className="text-xs text-red-700 dark:text-red-300 mb-1">
@@ -286,7 +288,7 @@ function JobEntry({ job, state, onToggleExpanded, onCancel, onComplete, onJobFin
             ))}
             {errors.length > 20 && (
               <p className="text-xs text-red-600 dark:text-red-400 mt-2">
-                ... and {errors.length - 20} more errors
+                {t('activeJobs.moreErrors', { count: errors.length - 20 })}
               </p>
             )}
           </div>

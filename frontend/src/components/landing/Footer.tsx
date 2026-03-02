@@ -1,6 +1,8 @@
+import { useTranslation } from 'react-i18next';
 import { Github, Twitter, MessageCircle } from 'lucide-react';
 
 export const Footer = () => {
+  const { t } = useTranslation();
   return (
     <footer className="bg-slate-950 border-t border-slate-800 px-4 sm:px-6 lg:px-8">
       <div className="max-w-7xl mx-auto py-12 md:py-16">
@@ -9,27 +11,27 @@ export const Footer = () => {
           {/* Product Column */}
           <div>
             <h3 className="text-white font-semibold text-sm uppercase tracking-wider mb-4">
-              Product
+              {t('footer.product')}
             </h3>
             <ul className="space-y-3">
               <li>
                 <a href="#" className="text-slate-400 hover:text-white transition-colors text-sm">
-                  Features
+                  {t('footer.features')}
                 </a>
               </li>
               <li>
                 <a href="#" className="text-slate-400 hover:text-white transition-colors text-sm">
-                  Pricing
+                  {t('footer.pricing')}
                 </a>
               </li>
               <li>
                 <a href="#" className="text-slate-400 hover:text-white transition-colors text-sm">
-                  Roadmap
+                  {t('footer.roadmap')}
                 </a>
               </li>
               <li>
                 <a href="#" className="text-slate-400 hover:text-white transition-colors text-sm">
-                  Changelog
+                  {t('footer.changelog')}
                 </a>
               </li>
             </ul>
@@ -38,27 +40,27 @@ export const Footer = () => {
           {/* Company Column */}
           <div>
             <h3 className="text-white font-semibold text-sm uppercase tracking-wider mb-4">
-              Company
+              {t('footer.company')}
             </h3>
             <ul className="space-y-3">
               <li>
                 <a href="#" className="text-slate-400 hover:text-white transition-colors text-sm">
-                  About
+                  {t('footer.about')}
                 </a>
               </li>
               <li>
                 <a href="#" className="text-slate-400 hover:text-white transition-colors text-sm">
-                  Blog
+                  {t('footer.blog')}
                 </a>
               </li>
               <li>
                 <a href="#" className="text-slate-400 hover:text-white transition-colors text-sm">
-                  Careers
+                  {t('footer.careers')}
                 </a>
               </li>
               <li>
                 <a href="#" className="text-slate-400 hover:text-white transition-colors text-sm">
-                  Press Kit
+                  {t('footer.pressKit')}
                 </a>
               </li>
             </ul>
@@ -67,27 +69,27 @@ export const Footer = () => {
           {/* Resources Column */}
           <div>
             <h3 className="text-white font-semibold text-sm uppercase tracking-wider mb-4">
-              Resources
+              {t('footer.resources')}
             </h3>
             <ul className="space-y-3">
               <li>
                 <a href="#" className="text-slate-400 hover:text-white transition-colors text-sm">
-                  Documentation
+                  {t('footer.documentation')}
                 </a>
               </li>
               <li>
                 <a href="#" className="text-slate-400 hover:text-white transition-colors text-sm">
-                  API Reference
+                  {t('footer.apiReference')}
                 </a>
               </li>
               <li>
                 <a href="#" className="text-slate-400 hover:text-white transition-colors text-sm">
-                  Community
+                  {t('footer.community')}
                 </a>
               </li>
               <li>
                 <a href="#" className="text-slate-400 hover:text-white transition-colors text-sm">
-                  Support
+                  {t('footer.support')}
                 </a>
               </li>
             </ul>
@@ -96,27 +98,27 @@ export const Footer = () => {
           {/* Legal Column */}
           <div>
             <h3 className="text-white font-semibold text-sm uppercase tracking-wider mb-4">
-              Legal
+              {t('footer.legal')}
             </h3>
             <ul className="space-y-3">
               <li>
                 <a href="#" className="text-slate-400 hover:text-white transition-colors text-sm">
-                  Privacy Policy
+                  {t('footer.privacy')}
                 </a>
               </li>
               <li>
                 <a href="#" className="text-slate-400 hover:text-white transition-colors text-sm">
-                  Terms of Service
+                  {t('footer.terms')}
                 </a>
               </li>
               <li>
                 <a href="#" className="text-slate-400 hover:text-white transition-colors text-sm">
-                  Cookie Policy
+                  {t('footer.cookies')}
                 </a>
               </li>
               <li>
                 <a href="#" className="text-slate-400 hover:text-white transition-colors text-sm">
-                  Disclaimer
+                  {t('footer.disclaimer')}
                 </a>
               </li>
             </ul>
@@ -128,7 +130,7 @@ export const Footer = () => {
           <div className="flex flex-col md:flex-row items-center justify-between gap-6">
             {/* Copyright */}
             <p className="text-slate-500 text-sm">
-              © 2026 DeckDex MTG. All rights reserved.
+              {t('footer.copyright', { year: new Date().getFullYear() })}
             </p>
 
             {/* Social Links */}

@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Card, api } from '../api/client';
 import { useCardImage } from '../hooks/useCardImage';
 import { useActiveJobs } from '../contexts/ActiveJobsContext';
@@ -58,6 +59,7 @@ export function CardDetailModal({
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
   const [imageLightboxOpen, setImageLightboxOpen] = useState(false);
   const { addJob } = useActiveJobs();
+  const { t } = useTranslation();
 
   const cardId = card.id != null ? card.id : null;
   const { src: imageUrl, loading: imageLoading, error: imageError } = useCardImage(cardId);
@@ -150,7 +152,7 @@ export function CardDetailModal({
         <div className="relative flex-shrink-0 p-4 flex items-center justify-center bg-gray-100 dark:bg-gray-900 min-h-[200px] md:min-w-[280px]">
           {imageError ? (
             <div className="text-center text-gray-500 dark:text-gray-400 text-sm p-4">
-              Image unavailable
+              {t('cardDetail.imageUnavailable')}
             </div>
           ) : imageUrl ? (
             <>
@@ -163,7 +165,7 @@ export function CardDetailModal({
                 onClick={() => imageLoaded && setImageLightboxOpen(true)}
                 onKeyDown={e => e.key === 'Enter' && imageLoaded && setImageLightboxOpen(true)}
                 className="cursor-zoom-in inline-block"
-                aria-label="View image larger"
+                aria-label={t('cardDetail.viewLarger')}
               >
                 <img
                   src={imageUrl}
@@ -177,7 +179,7 @@ export function CardDetailModal({
             <div className="absolute w-[280px] h-[390px] rounded-lg bg-gray-200 dark:bg-gray-700 animate-pulse" aria-hidden />
           ) : (
             <div className="text-center text-gray-500 dark:text-gray-400 text-sm p-4">
-              Image not available
+              {t('cardDetail.imageNotAvailable')}
             </div>
           )}
         </div>
@@ -201,7 +203,7 @@ export function CardDetailModal({
               type="button"
               onClick={onClose}
               className="flex-shrink-0 p-1 rounded hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-600 dark:text-gray-300"
-              aria-label="Close"
+              aria-label={t('cardDetail.close')}
             >
               <span className="text-xl leading-none">×</span>
             </button>
@@ -211,7 +213,7 @@ export function CardDetailModal({
             <>
               <div className="space-y-3 text-sm">
                 <div>
-                  <label className="block font-medium text-gray-700 dark:text-gray-300 mb-1">Type</label>
+                  <label className="block font-medium text-gray-700 dark:text-gray-300 mb-1">{t('cardDetail.fields.type')}</label>
                   <input
                     type="text"
                     value={editForm.type}
@@ -220,7 +222,7 @@ export function CardDetailModal({
                   />
                 </div>
                 <div>
-                  <label className="block font-medium text-gray-700 dark:text-gray-300 mb-1">Mana cost</label>
+                  <label className="block font-medium text-gray-700 dark:text-gray-300 mb-1">{t('cardDetail.fields.manaCost')}</label>
                   <input
                     type="text"
                     value={editForm.mana_cost}
@@ -229,7 +231,7 @@ export function CardDetailModal({
                   />
                 </div>
                 <div>
-                  <label className="block font-medium text-gray-700 dark:text-gray-300 mb-1">Description</label>
+                  <label className="block font-medium text-gray-700 dark:text-gray-300 mb-1">{t('cardDetail.fields.description')}</label>
                   <textarea
                     value={editForm.description}
                     onChange={e => setEditForm(f => ({ ...f, description: e.target.value }))}
@@ -239,7 +241,7 @@ export function CardDetailModal({
                 </div>
                 <div className="flex gap-4">
                   <div>
-                    <label className="block font-medium text-gray-700 dark:text-gray-300 mb-1">Power</label>
+                    <label className="block font-medium text-gray-700 dark:text-gray-300 mb-1">{t('cardDetail.fields.power')}</label>
                     <input
                       type="text"
                       value={editForm.power}
@@ -248,7 +250,7 @@ export function CardDetailModal({
                     />
                   </div>
                   <div>
-                    <label className="block font-medium text-gray-700 dark:text-gray-300 mb-1">Toughness</label>
+                    <label className="block font-medium text-gray-700 dark:text-gray-300 mb-1">{t('cardDetail.fields.toughness')}</label>
                     <input
                       type="text"
                       value={editForm.toughness}
@@ -258,7 +260,7 @@ export function CardDetailModal({
                   </div>
                 </div>
                 <div>
-                  <label className="block font-medium text-gray-700 dark:text-gray-300 mb-1">Set</label>
+                  <label className="block font-medium text-gray-700 dark:text-gray-300 mb-1">{t('cardDetail.fields.set')}</label>
                   <input
                     type="text"
                     value={editForm.set_name}
@@ -267,7 +269,7 @@ export function CardDetailModal({
                   />
                 </div>
                 <div>
-                  <label className="block font-medium text-gray-700 dark:text-gray-300 mb-1">Set number</label>
+                  <label className="block font-medium text-gray-700 dark:text-gray-300 mb-1">{t('cardDetail.fields.setNumber')}</label>
                   <input
                     type="text"
                     value={editForm.number}
@@ -276,7 +278,7 @@ export function CardDetailModal({
                   />
                 </div>
                 <div>
-                  <label className="block font-medium text-gray-700 dark:text-gray-300 mb-1">Rarity</label>
+                  <label className="block font-medium text-gray-700 dark:text-gray-300 mb-1">{t('cardDetail.fields.rarity')}</label>
                   <input
                     type="text"
                     value={editForm.rarity}
@@ -285,7 +287,7 @@ export function CardDetailModal({
                   />
                 </div>
                 <div>
-                  <label className="block font-medium text-gray-700 dark:text-gray-300 mb-1">Price</label>
+                  <label className="block font-medium text-gray-700 dark:text-gray-300 mb-1">{t('cardDetail.fields.price')}</label>
                   <input
                     type="text"
                     value={editForm.price}
@@ -329,12 +331,12 @@ export function CardDetailModal({
 
               <div className="space-y-1 text-sm text-gray-600 dark:text-gray-400 border-t border-gray-200 dark:border-gray-600 pt-4 mt-4">
                 {displayCard.set_name && (
-                  <p><span className="font-medium text-gray-700 dark:text-gray-300">Set:</span> {displayCard.set_name}{displayCard.number ? ` #${displayCard.number}` : ''}</p>
+                  <p><span className="font-medium text-gray-700 dark:text-gray-300">{t('cardDetail.fields.set')}:</span> {displayCard.set_name}{displayCard.number ? ` #${displayCard.number}` : ''}</p>
                 )}
                 {displayCard.rarity && (
-                  <p><span className="font-medium text-gray-700 dark:text-gray-300">Rarity:</span> {displayCard.rarity}</p>
+                  <p><span className="font-medium text-gray-700 dark:text-gray-300">{t('cardDetail.fields.rarity')}:</span> {displayCard.rarity}</p>
                 )}
-                <p><span className="font-medium text-gray-700 dark:text-gray-300">Price:</span> {displayPriceStr}</p>
+                <p><span className="font-medium text-gray-700 dark:text-gray-300">{t('cardDetail.fields.price')}:</span> {displayPriceStr}</p>
               </div>
             </>
           )}
@@ -349,7 +351,7 @@ export function CardDetailModal({
                     onClick={handleSave}
                     className="px-4 py-2 rounded-lg bg-green-600 hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed text-white text-sm font-medium"
                   >
-                    {savePending ? 'Saving…' : 'Save'}
+                    {savePending ? t('cardDetail.saving') : t('cardDetail.save')}
                   </button>
                   <button
                     type="button"
@@ -357,7 +359,7 @@ export function CardDetailModal({
                     onClick={handleCancel}
                     className="px-4 py-2 rounded-lg bg-gray-500 hover:bg-gray-600 disabled:opacity-50 text-white text-sm font-medium"
                   >
-                    Cancel
+                    {t('cardDetail.cancel')}
                   </button>
                 </>
               ) : (
@@ -367,7 +369,7 @@ export function CardDetailModal({
                     onClick={() => setIsEditing(true)}
                     className="px-4 py-2 rounded-lg bg-gray-600 hover:bg-gray-700 text-white text-sm font-medium"
                   >
-                    Edit
+                    {t('cardDetail.edit')}
                   </button>
                   <button
                     type="button"
@@ -375,7 +377,7 @@ export function CardDetailModal({
                     onClick={handleDelete}
                     className="px-4 py-2 rounded-lg bg-red-600 hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed text-white text-sm font-medium"
                   >
-                    {deletePending ? 'Deleting…' : 'Delete'}
+                    {deletePending ? t('cardDetail.deleting') : t('cardDetail.delete')}
                   </button>
                   <button
                     type="button"
@@ -394,7 +396,7 @@ export function CardDetailModal({
                     }}
                     className="px-4 py-2 rounded-lg bg-blue-600 hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed text-white text-sm font-medium"
                   >
-                    {updatePricePending ? 'Starting…' : 'Update price'}
+                    {updatePricePending ? t('cardDetail.starting') : t('cardDetail.updatePrice')}
                   </button>
                 </>
               )}
@@ -405,9 +407,9 @@ export function CardDetailModal({
 
       <ConfirmModal
         isOpen={deleteConfirmOpen}
-        title="Delete card"
-        message="Are you sure you want to delete this card? This cannot be undone."
-        confirmLabel="Delete"
+        title={t('cardDetail.deleteConfirmTitle')}
+        message={t('cardDetail.deleteConfirmMessage', { name: displayName })}
+        confirmLabel={t('cardDetail.deleteConfirm')}
         destructive
         onConfirm={handleDeleteConfirmed}
         onCancel={() => setDeleteConfirmOpen(false)}
@@ -423,7 +425,7 @@ export function CardDetailModal({
           }}
           role="button"
           tabIndex={0}
-          aria-label="Close enlarged image"
+          aria-label={t('cardDetail.close')}
           onKeyDown={e => e.key === 'Enter' && setImageLightboxOpen(false)}
         >
           <img
