@@ -1,4 +1,5 @@
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import { useWebSocket } from '../hooks/useApi';
 
 interface JobLogModalProps {
@@ -9,6 +10,7 @@ interface JobLogModalProps {
 }
 
 export function JobLogModal({ jobId, jobType, startedAt, onClose }: JobLogModalProps) {
+  const { t } = useTranslation();
   const { status: wsStatus, progress, errors, complete, summary } = useWebSocket(jobId);
   const [elapsed, setElapsed] = React.useState('');
 
@@ -32,12 +34,12 @@ export function JobLogModal({ jobId, jobType, startedAt, onClose }: JobLogModalP
   const isCancelled = summary?.status === 'cancelled';
   const isError = summary?.status === 'error';
   const statusText =
-    isCancelled ? 'Cancelled' :
-    isError ? 'Failed' :
-    complete ? 'Completed' :
-    wsStatus === 'connected' ? 'Connected' :
-    wsStatus === 'connecting' ? 'Connecting...' :
-    'Disconnected';
+    isCancelled ? t('jobLog.status.cancelled') :
+    isError ? t('jobLog.status.failed') :
+    complete ? t('jobLog.status.completed') :
+    wsStatus === 'connected' ? t('jobLog.status.connected') :
+    wsStatus === 'connecting' ? t('jobLog.status.connecting') :
+    t('jobLog.status.disconnected');
 
   return (
     <div
@@ -51,7 +53,7 @@ export function JobLogModal({ jobId, jobType, startedAt, onClose }: JobLogModalP
         <div className="p-4 border-b border-gray-200 dark:border-gray-600 flex justify-between items-center">
           <div>
             <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
-              {jobType} — Progress & log
+              {jobType} — {t('jobLog.title')}
             </h2>
             <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
               {statusText} · ⏱ {elapsed}
@@ -62,15 +64,15 @@ export function JobLogModal({ jobId, jobType, startedAt, onClose }: JobLogModalP
             onClick={onClose}
             className="px-3 py-1 text-sm text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded"
           >
-            Close
+            {t('jobLog.close')}
           </button>
         </div>
 
         <div className="p-4 overflow-y-auto flex-1 space-y-4">
           <div>
             <div className="flex justify-between text-sm text-gray-600 dark:text-gray-400 mb-1">
-              <span>Progress</span>
-              <span>{progress.percentage.toFixed(0)}% — {progress.current} / {progress.total} cards</span>
+              <span>{t('jobLog.progress')}</span>
+              <span>{progress.percentage.toFixed(0)}% — {t('jobLog.progressCount', { current: progress.current, total: progress.total })}</span>
             </div>
             <div className="h-2 bg-gray-200 dark:bg-gray-600 rounded-full overflow-hidden">
               <div
@@ -82,16 +84,16 @@ export function JobLogModal({ jobId, jobType, startedAt, onClose }: JobLogModalP
 
           {complete && (
             <div className="text-sm text-gray-700 dark:text-gray-300">
-              {isCancelled && <p>Stopped at {progress.current}/{progress.total} cards.</p>}
-              {isError && <p className="text-red-600 dark:text-red-400">{summary?.error || 'An error occurred'}</p>}
-              {!isCancelled && !isError && <p>{progress.total} cards processed.</p>}
+              {isCancelled && <p>{t('jobLog.stoppedAt', { current: progress.current, total: progress.total })}</p>}
+              {isError && <p className="text-red-600 dark:text-red-400">{summary?.error || t('jobLog.errorOccurred')}</p>}
+              {!isCancelled && !isError && <p>{t('jobLog.cardsProcessed', { total: progress.total })}</p>}
             </div>
           )}
 
           {errors.length > 0 && (
             <div>
               <h3 className="text-sm font-medium text-gray-900 dark:text-white mb-2">
-                Errors ({errors.length})
+                {t('jobLog.errors', { count: errors.length })}
               </h3>
               <div className="max-h-48 overflow-y-auto bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded p-3 text-xs text-red-800 dark:text-red-200">
                 {errors.map((err, i) => (

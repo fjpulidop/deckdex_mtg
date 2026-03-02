@@ -1,4 +1,5 @@
 import { useState, useMemo, useCallback } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import {
@@ -105,6 +106,7 @@ function colorIdentityShort(ci: string): string {
 // Component
 // ---------------------------------------------------------------------------
 export function Analytics() {
+  const { t } = useTranslation();
   const { theme } = useTheme();
   const isDark = theme === 'dark';
   const [drillDown, setDrillDown] = useState<DrillDown>({});
@@ -188,10 +190,10 @@ export function Analytics() {
 
   // Active filter chips
   const activeChips: { key: string; label: string }[] = [];
-  if (drillDown.rarity) activeChips.push({ key: 'rarity', label: `Rarity: ${drillDown.rarity}` });
-  if (drillDown.color_identity) activeChips.push({ key: 'color_identity', label: `Color: ${colorIdentityLabel(drillDown.color_identity)}` });
-  if (drillDown.cmc) activeChips.push({ key: 'cmc', label: `CMC: ${drillDown.cmc}` });
-  if (drillDown.set_name) activeChips.push({ key: 'set_name', label: `Set: ${drillDown.set_name}` });
+  if (drillDown.rarity) activeChips.push({ key: 'rarity', label: t('analytics.filterRarity', { value: drillDown.rarity }) });
+  if (drillDown.color_identity) activeChips.push({ key: 'color_identity', label: t('analytics.filterColor', { value: colorIdentityLabel(drillDown.color_identity) }) });
+  if (drillDown.cmc) activeChips.push({ key: 'cmc', label: t('analytics.filterCmc', { value: drillDown.cmc }) });
+  if (drillDown.set_name) activeChips.push({ key: 'set_name', label: t('analytics.filterSet', { value: drillDown.set_name }) });
 
   const removeChip = useCallback((key: string) => {
     setDrillDown(prev => ({ ...prev, [key]: undefined }));
@@ -209,13 +211,13 @@ export function Analytics() {
         {/* Header */}
         <div className="mb-8">
           <h1 className="text-4xl font-bold text-gray-900 dark:text-white mb-2">
-            Analytics
+            {t('analytics.title')}
             <span className="ml-3 text-sm font-medium bg-indigo-100 dark:bg-indigo-900 text-indigo-700 dark:text-indigo-300 px-2.5 py-0.5 rounded-full align-middle">
-              beta
+              {t('analytics.beta')}
             </span>
           </h1>
           <p className="text-gray-600 dark:text-gray-400">
-            Insights about your Magic: The Gathering collection
+            {t('analytics.subtitle')}
           </p>
         </div>
 
@@ -224,17 +226,17 @@ export function Analytics() {
           <button
             onClick={clearFilters}
             className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700 border border-gray-200 dark:border-gray-600 transition-colors"
-            title="Reset all chart filters and restore original view"
+            title={t('analytics.resetChartsTitle')}
           >
             <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" /></svg>
-            Reset Charts
+            {t('analytics.resetCharts')}
           </button>
         </div>
 
         {/* Active drill-down chips */}
         {hasFilters && (
           <div className="mb-6 flex flex-wrap items-center gap-2">
-            <span className="text-sm text-gray-500 dark:text-gray-400 mr-1">Filtered by:</span>
+            <span className="text-sm text-gray-500 dark:text-gray-400 mr-1">{t('analytics.filteredBy')}</span>
             {activeChips.map(chip => (
               <button
                 key={chip.key}
@@ -249,7 +251,7 @@ export function Analytics() {
               onClick={clearFilters}
               className="text-sm text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 underline ml-2"
             >
-              View all
+              {t('analytics.viewAll')}
             </button>
           </div>
         )}
@@ -258,9 +260,9 @@ export function Analytics() {
         {isEmpty && (
           <div className="text-center py-20">
             <div className="text-6xl mb-4">📊</div>
-            <h2 className="text-xl font-semibold text-gray-700 dark:text-gray-300 mb-2">No cards in your collection yet</h2>
-            <p className="text-gray-500 dark:text-gray-400 mb-6">Add some cards to see analytics about your library.</p>
-            <Link to="/" className="text-indigo-600 dark:text-indigo-400 hover:underline font-medium">Go to Dashboard</Link>
+            <h2 className="text-xl font-semibold text-gray-700 dark:text-gray-300 mb-2">{t('analytics.emptyTitle')}</h2>
+            <p className="text-gray-500 dark:text-gray-400 mb-6">{t('analytics.emptyDesc')}</p>
+            <Link to="/" className="text-indigo-600 dark:text-indigo-400 hover:underline font-medium">{t('analytics.goToDashboard')}</Link>
           </div>
         )}
 
@@ -277,21 +279,21 @@ export function Analytics() {
                 ))
               ) : statsError ? (
                 <div className="col-span-3 bg-red-50 dark:bg-red-900/20 rounded-xl p-6 text-center">
-                  <p className="text-red-600 dark:text-red-400 mb-2">Failed to load statistics</p>
-                  <button onClick={() => window.location.reload()} className="text-sm text-red-500 hover:underline">Retry</button>
+                  <p className="text-red-600 dark:text-red-400 mb-2">{t('analytics.failedToLoad')}</p>
+                  <button onClick={() => window.location.reload()} className="text-sm text-red-500 hover:underline">{t('analytics.retry')}</button>
                 </div>
               ) : stats && (
                 <>
                   <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-6 border border-gray-100 dark:border-gray-700">
-                    <div className="text-sm font-medium text-gray-500 dark:text-gray-400 mb-1">Total Cards</div>
+                    <div className="text-sm font-medium text-gray-500 dark:text-gray-400 mb-1">{t('analytics.kpis.totalCards')}</div>
                     <div className="text-3xl font-bold text-gray-900 dark:text-white">{stats.total_cards.toLocaleString()}</div>
                   </div>
                   <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-6 border border-gray-100 dark:border-gray-700">
-                    <div className="text-sm font-medium text-gray-500 dark:text-gray-400 mb-1">Total Value</div>
+                    <div className="text-sm font-medium text-gray-500 dark:text-gray-400 mb-1">{t('analytics.kpis.totalValue')}</div>
                     <div className="text-3xl font-bold text-green-600 dark:text-green-400">{formatCurrency(stats.total_value)}</div>
                   </div>
                   <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-6 border border-gray-100 dark:border-gray-700">
-                    <div className="text-sm font-medium text-gray-500 dark:text-gray-400 mb-1">Average Price</div>
+                    <div className="text-sm font-medium text-gray-500 dark:text-gray-400 mb-1">{t('analytics.kpis.avgPrice')}</div>
                     <div className="text-3xl font-bold text-indigo-600 dark:text-indigo-400">{formatCurrency(stats.average_price)}</div>
                   </div>
                 </>
@@ -301,7 +303,7 @@ export function Analytics() {
             {/* Charts grid */}
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
               {/* Rarity Distribution */}
-              <ChartCard title="Distribution by Rarity" isLoading={rarityLoading} error={rarityError} onRetry={refetchRarity}>
+              <ChartCard title={t('analytics.charts.byRarity')} isLoading={rarityLoading} error={rarityError} onRetry={refetchRarity}>
                 {rarityData && rarityData.length > 0 && (
                   <ResponsiveContainer width="100%" height={300}>
                     <BarChart data={rarityData} margin={{ top: 10, right: 20, bottom: 20, left: 0 }}>
@@ -336,7 +338,7 @@ export function Analytics() {
               </ChartCard>
 
               {/* Color Identity */}
-              <ChartCard title="Distribution by Color Identity" isLoading={colorLoading} error={colorError} onRetry={refetchColor}>
+              <ChartCard title={t('analytics.charts.byColor')} isLoading={colorLoading} error={colorError} onRetry={refetchColor}>
                 {colorData && colorData.length > 0 && (() => {
                   // Limit to top 8 slices; group the rest as "Other"
                   const MAX_SLICES = 8;
@@ -399,7 +401,7 @@ export function Analytics() {
               </ChartCard>
 
               {/* CMC Curve */}
-              <ChartCard title="Mana Curve (CMC)" isLoading={cmcLoading} error={cmcError} onRetry={refetchCmc}>
+              <ChartCard title={t('analytics.charts.manaCurve')} isLoading={cmcLoading} error={cmcError} onRetry={refetchCmc}>
                 {cmcData && cmcData.length > 0 && (
                   <ResponsiveContainer width="100%" height={300}>
                     <BarChart data={cmcData} margin={{ top: 10, right: 20, bottom: 20, left: 0 }}>
@@ -434,7 +436,7 @@ export function Analytics() {
               </ChartCard>
 
               {/* Top Sets */}
-              <ChartCard title="Top Sets by Card Count" isLoading={setsLoading} error={setsError} onRetry={refetchSets}>
+              <ChartCard title={t('analytics.charts.topSets')} isLoading={setsLoading} error={setsError} onRetry={refetchSets}>
                 {setsData && setsData.length > 0 && (
                   <ResponsiveContainer width="100%" height={300}>
                     <BarChart data={setsData} layout="vertical" margin={{ top: 10, right: 20, bottom: 10, left: 10 }}>
@@ -497,6 +499,7 @@ function ChartCard({
   onRetry?: () => void;
   children: React.ReactNode;
 }) {
+  const { t } = useTranslation();
   return (
     <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 p-6">
       <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-4">{title}</h3>
@@ -510,10 +513,10 @@ function ChartCard({
         </div>
       ) : error ? (
         <div className="h-[300px] flex flex-col items-center justify-center text-center">
-          <p className="text-red-500 dark:text-red-400 mb-2 text-sm">Failed to load data</p>
+          <p className="text-red-500 dark:text-red-400 mb-2 text-sm">{t('analytics.failedToLoadData')}</p>
           {onRetry && (
             <button onClick={() => onRetry()} className="text-sm text-indigo-600 dark:text-indigo-400 hover:underline">
-              Retry
+              {t('analytics.retry')}
             </button>
           )}
         </div>

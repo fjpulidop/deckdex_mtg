@@ -1,4 +1,5 @@
 import { motion } from 'framer-motion';
+import { useTranslation } from 'react-i18next';
 import { ArrowRight } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { redirectToGoogleLogin } from '@/utils/auth';
@@ -8,6 +9,7 @@ const handleGoogleLogin = () => {
 };
 
 export const Hero = ({ onDemoClick }: { onDemoClick: () => void }) => {
+  const { t } = useTranslation();
   const { isAuthenticated } = useAuth();
   return (
     <section className="min-h-screen pt-20 pb-16 bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 flex items-center">
@@ -23,19 +25,19 @@ export const Hero = ({ onDemoClick }: { onDemoClick: () => void }) => {
             {/* Badge */}
             <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-gradient-to-r from-accent-500/10 to-primary-500/10 text-slate-300 text-sm font-medium mb-6">
               <span className="text-lg">✨</span>
-              <span>100% Open Source • Community-Driven</span>
+              <span>{t('hero.badge')}</span>
             </div>
 
             {/* Main Headline */}
             <h1 className="text-5xl md:text-6xl font-bold leading-tight">
               <span className="bg-gradient-to-r from-purple-300 via-purple-400 to-pink-500 bg-clip-text text-transparent">
-                Your MTG Collection, Supercharged
+                {t('hero.headline')}
               </span>
             </h1>
 
             {/* Subheadline */}
             <p className="text-xl text-slate-300 leading-relaxed max-w-xl">
-              Track prices in real-time, build competitive decks with AI insights, and manage your collection with ease. Community-driven, always evolving.
+              {t('hero.subtitle')}
             </p>
 
             {/* CTA Buttons */}
@@ -45,7 +47,7 @@ export const Hero = ({ onDemoClick }: { onDemoClick: () => void }) => {
                   href="/dashboard"
                   className="inline-flex items-center justify-center px-8 py-3 rounded-lg bg-gradient-to-r from-primary-500 to-accent-500 text-white font-semibold hover:shadow-lg hover:shadow-primary-500/50 transition-all duration-300 hover:scale-105"
                 >
-                  Go to Dashboard <ArrowRight className="ml-2 h-5 w-5" />
+                  {t('hero.goToDashboard')} <ArrowRight className="ml-2 h-5 w-5" />
                 </a>
               ) : (
                 <button
@@ -62,14 +64,14 @@ export const Hero = ({ onDemoClick }: { onDemoClick: () => void }) => {
                     <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="white" />
                     <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="white" />
                   </svg>
-                  Sign in
+                  {t('hero.signIn')}
                 </button>
               )}
               <button
                 onClick={onDemoClick}
                 className="inline-flex items-center justify-center px-8 py-3 rounded-lg border-2 border-slate-600 text-white font-semibold hover:bg-slate-800/50 hover:border-slate-500 transition-all duration-300"
               >
-                Try Demo <ArrowRight className="ml-2 h-5 w-5" />
+                {t('hero.tryDemo')} <ArrowRight className="ml-2 h-5 w-5" />
               </button>
             </div>
           </motion.div>

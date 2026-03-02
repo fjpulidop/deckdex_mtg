@@ -108,7 +108,6 @@ def create_jwt(user: Dict[str, Any]) -> str:
         "sub": str(user.get("id")),
         "email": user.get("email"),
         "display_name": user.get("display_name"),
-        "picture": user.get("picture"),
         "jti": str(uuid.uuid4()),
         "exp": datetime.utcnow() + timedelta(hours=JWT_EXPIRY_HOURS)
     }
@@ -301,7 +300,7 @@ async def oauth_callback(request: Request, code: str = None, error: str = None):
 
 @router.get("/exchange")
 @limiter.limit("10/minute")
-async def exchange_auth_code(request: Request, response: Response, code: str = ""):
+async def exchange_auth_code(request: Request, code: str = ""):
     """Exchange a one-time auth code for a JWT set as HTTP-only cookie."""
     entry = _auth_codes.pop(code, None)
     if entry is None:
@@ -315,10 +314,13 @@ async def exchange_auth_code(request: Request, response: Response, code: str = "
     except JWTError:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid token")
 
-    # Set JWT as HTTP-only cookie
-    _set_jwt_cookie(response, jwt_token)
-
-    return {"ok": True}
+    # Return a JSONResponse directly so the Set-Cookie header is guaranteed to
+    # be included in the HTTP response (FastAPI response-injection + slowapi can
+    # silently drop injected headers).
+    from fastapi.responses import JSONResponse
+    resp = JSONResponse({"ok": True})
+    _set_jwt_cookie(resp, jwt_token)
+    return resp
 
 
 @router.get("/me", response_model=Optional[UserPayload])
@@ -548,6 +550,32 @@ async def get_avatar(user_id: int, request: Request):
 
     if cache_path.exists():
         ct = ct_path.read_text().strip() if ct_path.exists() else "image/jpeg"
+        return FileResponse(cache_path, media_type=ct)
+
+    # Handle data URLs (base64-encoded image stored directly in DB)
+    if avatar_url.startswith("data:"):
+        try:
+            import base64
+            header, b64data = avatar_url.split(",", 1)
+            ct = header.split(";")[0].split(":", 1)[1]  # e.g. "image/jpeg"
+            img_bytes = base64.b64decode(b64data)
+        except Exception:
+            raise HTTPException(status_code=502, detail="Failed to decode avatar")
+        import tempfile
+        fd, tmp = tempfile.mkstemp(dir=_AVATAR_CACHE_DIR)
+        try:
+            os.write(fd, img_bytes)
+            os.close(fd)
+            os.replace(tmp, cache_path)
+        except Exception:
+            try:
+                os.close(fd)
+            except OSError:
+                pass
+            if os.path.exists(tmp):
+                os.unlink(tmp)
+            raise
+        ct_path.write_text(ct)
         return FileResponse(cache_path, media_type=ct)
 
     # Validate domain against allowlist before downloading

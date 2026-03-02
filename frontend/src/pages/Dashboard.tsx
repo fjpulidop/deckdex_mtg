@@ -1,4 +1,5 @@
 import { useCallback } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useSearchParams } from 'react-router-dom';
 import { useQueryClient } from '@tanstack/react-query';
 import { useCards } from '../hooks/useApi';
@@ -11,6 +12,7 @@ import { api, Card } from '../api/client';
 import { useState } from 'react';
 
 export function Dashboard() {
+  const { t } = useTranslation();
   const queryClient = useQueryClient();
   const [searchParams, setSearchParams] = useSearchParams();
   const [cardModal, setCardModal] = useState<null | 'add'>(null);
@@ -169,16 +171,16 @@ export function Dashboard() {
     return (
       <div className="min-h-screen bg-gray-100 dark:bg-gray-900 flex items-center justify-center">
         <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-8 max-w-lg">
-          <h1 className="text-2xl font-bold text-red-600 dark:text-red-400 mb-4">Backend Connection Error</h1>
+          <h1 className="text-2xl font-bold text-red-600 dark:text-red-400 mb-4">{t('dashboard.backendError')}</h1>
           <p className="text-gray-700 dark:text-gray-300 mb-4">
-            Cannot connect to the backend API. Start it in one of these ways:
+            {t('dashboard.backendErrorDesc')}
           </p>
           <div className="space-y-3 text-sm">
-            <p className="font-medium text-gray-800 dark:text-gray-200">Docker (all services):</p>
+            <p className="font-medium text-gray-800 dark:text-gray-200">{t('dashboard.dockerHint')}</p>
             <pre className="bg-gray-100 dark:bg-gray-700 p-3 rounded overflow-x-auto text-gray-900 dark:text-gray-100">
 docker compose up --build
             </pre>
-            <p className="font-medium text-gray-800 dark:text-gray-200 mt-2">Or run backend only (from repo root):</p>
+            <p className="font-medium text-gray-800 dark:text-gray-200 mt-2">{t('dashboard.backendHint')}</p>
             <pre className="bg-gray-100 dark:bg-gray-700 p-3 rounded overflow-x-auto text-gray-900 dark:text-gray-100">
 cd backend{'\n'}
 uvicorn api.main:app --reload --port 8000
@@ -188,7 +190,7 @@ uvicorn api.main:app --reload --port 8000
             onClick={() => window.location.reload()}
             className="mt-4 px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 dark:bg-blue-500 dark:hover:bg-blue-600"
           >
-            Retry Connection
+            {t('dashboard.retryConnection')}
           </button>
         </div>
       </div>

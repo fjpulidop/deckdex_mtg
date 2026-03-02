@@ -6,6 +6,7 @@
  * Auto-expands when a new active job is detected.
  */
 import React, { useState, useEffect, useRef } from 'react';
+import { useTranslation } from 'react-i18next';
 import { api, JobHistoryItem } from '../api/client';
 import { useActiveJobs } from '../contexts/ActiveJobsContext';
 import { useWebSocket } from '../hooks/useApi';
@@ -23,6 +24,7 @@ interface ActiveJobEntryProps {
 }
 
 function ActiveJobEntry({ jobId, type, startedAt, onComplete, onFinished }: ActiveJobEntryProps) {
+  const { t } = useTranslation();
   const { status: wsStatus, progress, complete, summary } = useWebSocket(jobId);
   const hasNotified = useRef(false);
   const [elapsed, setElapsed] = useState('');
@@ -60,7 +62,7 @@ function ActiveJobEntry({ jobId, type, startedAt, onComplete, onFinished }: Acti
   };
 
   const borderColor = isCancelled ? 'border-orange-500' : isError ? 'border-red-500' : isFinished ? 'border-green-500' : 'border-blue-500';
-  const statusText = isCancelled ? 'Cancelado' : isError ? 'Error' : isFinished ? 'Completado' : `${Math.round(progress.percentage)}% — ${progress.current}/${progress.total}`;
+  const statusText = isCancelled ? t('jobsBar.cancelled') : isError ? t('activeJobs.status.failed') : isFinished ? t('jobsBar.completed') : `${Math.round(progress.percentage)}% — ${progress.current}/${progress.total}`;
 
   return (
     <div className={`border-l-4 ${borderColor} bg-white dark:bg-gray-700 rounded px-3 py-2 flex items-center gap-3`}>
@@ -78,7 +80,7 @@ function ActiveJobEntry({ jobId, type, startedAt, onComplete, onFinished }: Acti
         <button
           onClick={handleCancel}
           className="text-xs text-red-500 hover:text-red-700 dark:text-red-400"
-        >Stop</button>
+        >{t('jobsBar.stop')}</button>
       )}
     </div>
   );
@@ -88,6 +90,7 @@ function ActiveJobEntry({ jobId, type, startedAt, onComplete, onFinished }: Acti
 // History item row
 // ---------------------------------------------------------------------------
 function HistoryRow({ item, onViewLog }: { item: JobHistoryItem; onViewLog: (item: JobHistoryItem) => void }) {
+  const { t } = useTranslation();
   const statusIcon = item.status === 'complete' ? '✓' : item.status === 'error' ? '✗' : item.status === 'cancelled' ? '⊗' : '○';
   const statusColor = item.status === 'complete' ? 'text-green-600 dark:text-green-400' : item.status === 'error' ? 'text-red-500' : 'text-gray-400';
   const date = item.created_at ? new Date(item.created_at).toLocaleString(undefined, { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }) : '';
@@ -103,7 +106,7 @@ function HistoryRow({ item, onViewLog }: { item: JobHistoryItem; onViewLog: (ite
         onClick={() => onViewLog(item)}
         className="text-xs text-blue-500 hover:text-blue-700 dark:text-blue-400 shrink-0"
       >
-        Ver log
+        {t('jobsBar.viewLog')}
       </button>
     </div>
   );
@@ -113,6 +116,7 @@ function HistoryRow({ item, onViewLog }: { item: JobHistoryItem; onViewLog: (ite
 // Main component
 // ---------------------------------------------------------------------------
 export function JobsBottomBar() {
+  const { t } = useTranslation();
   const { jobs, removeJob } = useActiveJobs();
   const [expanded, setExpanded] = useState(false);
   const [tab, setTab] = useState<'active' | 'history'>('active');
@@ -151,13 +155,13 @@ export function JobsBottomBar() {
           <div className="w-96 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 rounded-xl shadow-2xl overflow-hidden">
             {/* Tabs */}
             <div className="flex border-b border-gray-200 dark:border-gray-600">
-              {(['active', 'history'] as const).map(t => (
+              {(['active', 'history'] as const).map(tabKey => (
                 <button
-                  key={t}
-                  onClick={() => setTab(t)}
-                  className={`flex-1 py-2 text-sm font-medium capitalize transition ${tab === t ? 'text-blue-600 dark:text-blue-400 border-b-2 border-blue-600 dark:border-blue-400' : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200'}`}
+                  key={tabKey}
+                  onClick={() => setTab(tabKey)}
+                  className={`flex-1 py-2 text-sm font-medium capitalize transition ${tab === tabKey ? 'text-blue-600 dark:text-blue-400 border-b-2 border-blue-600 dark:border-blue-400' : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200'}`}
                 >
-                  {t === 'active' ? `Active${jobs.length > 0 ? ` (${jobs.length})` : ''}` : 'History'}
+                  {tabKey === 'active' ? `${t('jobsBar.activeTab')}${jobs.length > 0 ? ` (${jobs.length})` : ''}` : t('jobsBar.historyTab')}
                 </button>
               ))}
             </div>
@@ -166,7 +170,7 @@ export function JobsBottomBar() {
             <div className="max-h-72 overflow-y-auto p-2 space-y-2">
               {tab === 'active' && (
                 jobs.length === 0
-                  ? <p className="text-center text-sm text-gray-400 py-6">No active jobs</p>
+                  ? <p className="text-center text-sm text-gray-400 py-6">{t('jobsBar.noActiveJobs')}</p>
                   : jobs.map(job => (
                     <ActiveJobEntry
                       key={job.jobId}
@@ -179,9 +183,9 @@ export function JobsBottomBar() {
               )}
               {tab === 'history' && (
                 loadingHistory
-                  ? <p className="text-center text-sm text-gray-400 py-6">Loading…</p>
+                  ? <p className="text-center text-sm text-gray-400 py-6">{t('jobsBar.loading')}</p>
                   : history.length === 0
-                    ? <p className="text-center text-sm text-gray-400 py-6">No job history yet</p>
+                    ? <p className="text-center text-sm text-gray-400 py-6">{t('jobsBar.noHistory')}</p>
                     : history.map(item => (
                       <HistoryRow key={item.job_id} item={item} onViewLog={handleViewHistoryLog} />
                     ))
@@ -196,7 +200,7 @@ export function JobsBottomBar() {
           className={`flex items-center gap-2 px-4 py-2 rounded-full shadow-lg text-sm font-medium transition ${jobs.length > 0 ? 'bg-blue-600 text-white hover:bg-blue-700' : 'bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-200 border border-gray-200 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700'}`}
         >
           {jobs.length > 0 && <span className="w-2 h-2 rounded-full bg-white animate-pulse" />}
-          Jobs {jobs.length > 0 ? `(${jobs.length})` : ''} {expanded ? '▼' : '▲'}
+          {t('jobsBar.jobs')} {jobs.length > 0 ? `(${jobs.length})` : ''} {expanded ? '▼' : '▲'}
         </button>
       </div>
 

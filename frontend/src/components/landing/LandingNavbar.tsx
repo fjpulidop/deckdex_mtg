@@ -1,9 +1,11 @@
 import { useState, useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Menu, X, Github, Sparkles } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { redirectToGoogleLogin } from '@/utils/auth';
 
 export const LandingNavbar = () => {
+  const { t } = useTranslation();
   const [isOpen, setIsOpen] = useState(false);
   const [hasScrolled, setHasScrolled] = useState(false);
   const [showGithubModal, setShowGithubModal] = useState(false);
@@ -61,7 +63,7 @@ export const LandingNavbar = () => {
               className="text-slate-100 hover:text-white transition-colors flex items-center gap-2"
             >
               <Sparkles className="h-5 w-5" />
-              <span>Features</span>
+              <span>{t('landingNav.features')}</span>
             </button>
           </div>
 
@@ -72,7 +74,7 @@ export const LandingNavbar = () => {
               className="text-slate-100 hover:text-white transition-colors flex items-center gap-2"
             >
               <Github className="h-5 w-5" />
-              <span>Source Code</span>
+              <span>{t('landingNav.sourceCode')}</span>
             </button>
           </div>
 
@@ -101,7 +103,7 @@ export const LandingNavbar = () => {
               className="block w-full text-left px-3 py-2 rounded-md text-slate-100 hover:text-white hover:bg-slate-700 transition-colors flex items-center gap-2"
             >
               <Sparkles className="h-5 w-5" />
-              <span>Features</span>
+              <span>{t('landingNav.features')}</span>
             </button>
             <button
               onClick={() => {
@@ -111,7 +113,7 @@ export const LandingNavbar = () => {
               className="block w-full text-left px-3 py-2 rounded-md text-slate-100 hover:text-white hover:bg-slate-700 transition-colors flex items-center gap-2"
             >
               <Github className="h-5 w-5" />
-              <span>Source Code</span>
+              <span>{t('landingNav.sourceCode')}</span>
             </button>
           </div>
         </div>
@@ -133,10 +135,10 @@ export const LandingNavbar = () => {
             </button>
             <div className="flex items-center gap-3 mb-4">
               <Github className="h-8 w-8 text-white" />
-              <h3 className="text-2xl font-bold text-white">DeckDex MTG</h3>
+              <h3 className="text-2xl font-bold text-white">{t('landingNav.repoTitle')}</h3>
             </div>
             <p className="text-slate-300 mb-6">
-              Check out the source code on GitHub. We welcome contributions, forks, and community improvements!
+              {t('landingNav.repoDesc')}
             </p>
             <a
               href="https://github.com/fjpulidop/deckdex_mtg"
@@ -146,7 +148,7 @@ export const LandingNavbar = () => {
               className="inline-flex items-center justify-center w-full px-6 py-3 rounded-lg bg-gradient-to-r from-primary-500 to-accent-500 text-white font-semibold hover:shadow-lg hover:shadow-primary-500/50 transition-all duration-300 hover:scale-105"
             >
               <Github className="h-5 w-5 mr-2" />
-              Open GitHub Repository
+              {t('landingNav.openRepo')}
             </a>
           </div>
         </div>

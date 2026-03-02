@@ -1,26 +1,10 @@
 import { useState, useCallback, useEffect, useMemo } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useQuery } from '@tanstack/react-query';
 import { api, Card } from '../api/client';
 import { ManaText } from './ManaText';
 
-const TYPE_OPTIONS = [
-  { value: '', label: 'Any type' },
-  { value: 'Creature', label: 'Creature' },
-  { value: 'Instant', label: 'Instant' },
-  { value: 'Sorcery', label: 'Sorcery' },
-  { value: 'Enchantment', label: 'Enchantment' },
-  { value: 'Artifact', label: 'Artifact' },
-  { value: 'Planeswalker', label: 'Planeswalker' },
-  { value: 'Land', label: 'Land' },
-];
-
-const COLOR_OPTIONS: { id: string; title: string }[] = [
-  { id: 'W', title: 'White' },
-  { id: 'U', title: 'Blue' },
-  { id: 'B', title: 'Black' },
-  { id: 'R', title: 'Red' },
-  { id: 'G', title: 'Green' },
-];
+const COLOR_IDS = ['W', 'U', 'B', 'R', 'G'] as const;
 
 interface DeckCardPickerModalProps {
   deckId: number;
@@ -31,12 +15,24 @@ interface DeckCardPickerModalProps {
 type SortBy = 'name' | 'cmc_asc' | 'cmc_desc';
 
 export function DeckCardPickerModal({ deckId, onClose, onAdded }: DeckCardPickerModalProps) {
+  const { t } = useTranslation();
   const [search, setSearch] = useState('');
   const [filterType, setFilterType] = useState('');
   const [filterColors, setFilterColors] = useState<Set<string>>(new Set());
   const [sortBy, setSortBy] = useState<SortBy>('name');
   const [selected, setSelected] = useState<Set<number>>(new Set());
   const [addPending, setAddPending] = useState(false);
+
+  const TYPE_OPTIONS = [
+    { value: '', label: t('deckCardPicker.anyType') },
+    { value: 'Creature', label: t('deckCardPicker.types.creature') },
+    { value: 'Instant', label: t('deckCardPicker.types.instant') },
+    { value: 'Sorcery', label: t('deckCardPicker.types.sorcery') },
+    { value: 'Enchantment', label: t('deckCardPicker.types.enchantment') },
+    { value: 'Artifact', label: t('deckCardPicker.types.artifact') },
+    { value: 'Planeswalker', label: t('deckCardPicker.types.planeswalker') },
+    { value: 'Land', label: t('deckCardPicker.types.land') },
+  ];
 
   const colorIdentityParam =
     filterColors.size > 0 ? Array.from(filterColors).sort().join(',') : undefined;
@@ -119,20 +115,20 @@ export function DeckCardPickerModal({ deckId, onClose, onAdded }: DeckCardPicker
       >
         <div className="p-4 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between gap-4">
           <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
-            Add cards from collection
+            {t('deckCardPicker.title')}
           </h2>
           <button
             type="button"
             onClick={onClose}
             className="px-3 py-1.5 rounded border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700"
           >
-            Cancel
+            {t('deckCardPicker.cancel')}
           </button>
         </div>
         <div className="p-4 border-b border-gray-200 dark:border-gray-700 space-y-3">
           <input
             type="text"
-            placeholder="Search cards..."
+            placeholder={t('deckCardPicker.searchPlaceholder')}
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             className="w-full border border-gray-300 dark:border-gray-600 rounded px-3 py-2 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
@@ -140,7 +136,7 @@ export function DeckCardPickerModal({ deckId, onClose, onAdded }: DeckCardPicker
           <div className="flex flex-wrap items-center gap-3">
             <div className="flex items-center gap-2">
               <label htmlFor="picker-type" className="text-sm font-medium text-gray-600 dark:text-gray-400">
-                Type
+                {t('deckCardPicker.typeLabel')}
               </label>
               <select
                 id="picker-type"
@@ -156,15 +152,15 @@ export function DeckCardPickerModal({ deckId, onClose, onAdded }: DeckCardPicker
               </select>
             </div>
             <div className="flex items-center gap-2">
-              <span className="text-sm font-medium text-gray-600 dark:text-gray-400">Colors</span>
+              <span className="text-sm font-medium text-gray-600 dark:text-gray-400">{t('deckCardPicker.colorsLabel')}</span>
               <div className="picker-color-symbols flex items-center gap-1">
-                {COLOR_OPTIONS.map(({ id, title }) => {
+                {COLOR_IDS.map((id) => {
                   const active = filterColors.has(id);
                   return (
                     <button
                       key={id}
                       type="button"
-                      title={title}
+                      title={t(`filters.colors.${id}`)}
                       onClick={() => toggleColor(id)}
                       className={`inline-flex items-center justify-center p-0.5 rounded transition-opacity cursor-pointer focus:outline-none focus:ring-2 focus:ring-indigo-500 ${
                         active ? 'opacity-100 ring-2 ring-gray-800 dark:ring-gray-200' : 'opacity-50 hover:opacity-75'
@@ -182,13 +178,13 @@ export function DeckCardPickerModal({ deckId, onClose, onAdded }: DeckCardPicker
                   onClick={() => setFilterColors(new Set())}
                   className="text-xs text-gray-500 dark:text-gray-400 hover:underline"
                 >
-                  Clear
+                  {t('deckCardPicker.clear')}
                 </button>
               )}
             </div>
             <div className="flex items-center gap-2">
               <label htmlFor="picker-sort" className="text-sm font-medium text-gray-600 dark:text-gray-400">
-                Sort by
+                {t('deckCardPicker.sortLabel')}
               </label>
               <select
                 id="picker-sort"
@@ -196,15 +192,15 @@ export function DeckCardPickerModal({ deckId, onClose, onAdded }: DeckCardPicker
                 onChange={(e) => setSortBy(e.target.value as SortBy)}
                 className="border border-gray-300 dark:border-gray-600 rounded px-2 py-1.5 bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm"
               >
-                <option value="name">Name</option>
-                <option value="cmc_asc">Mana cost (low → high)</option>
-                <option value="cmc_desc">Mana cost (high → low)</option>
+                <option value="name">{t('deckCardPicker.sortOptions.name')}</option>
+                <option value="cmc_asc">{t('deckCardPicker.sortOptions.manaCostAsc')}</option>
+                <option value="cmc_desc">{t('deckCardPicker.sortOptions.manaCostDesc')}</option>
               </select>
             </div>
           </div>
         </div>
         <div className="flex-1 overflow-y-auto p-4 min-h-0">
-          {isLoading && <p className="text-gray-500 dark:text-gray-400">Loading…</p>}
+          {isLoading && <p className="text-gray-500 dark:text-gray-400">{t('deckCardPicker.loading')}</p>}
           <ul className="space-y-1">
             {cards.map((card: Card) => {
               const id = card.id ?? 0;
@@ -242,7 +238,7 @@ export function DeckCardPickerModal({ deckId, onClose, onAdded }: DeckCardPicker
         </div>
         <div className="p-4 border-t border-gray-200 dark:border-gray-700 flex items-center justify-between">
           <span className="text-sm text-gray-500 dark:text-gray-400">
-            {selected.size} selected
+            {t('deckCardPicker.selected', { count: selected.size })}
           </span>
           <button
             type="button"
@@ -250,7 +246,7 @@ export function DeckCardPickerModal({ deckId, onClose, onAdded }: DeckCardPicker
             disabled={selected.size === 0 || addPending}
             className="px-4 py-2 rounded bg-indigo-600 text-white hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed dark:bg-indigo-500 dark:hover:bg-indigo-600"
           >
-            {addPending ? 'Adding…' : 'Add to deck'}
+            {addPending ? t('deckCardPicker.adding') : t('deckCardPicker.addToDeck')}
           </button>
         </div>
       </div>

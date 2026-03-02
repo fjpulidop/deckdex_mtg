@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Card, InsightCatalogEntry, InsightResponse as InsightResponseType } from '../api/client';
 import { useInsightsCatalog, useInsightsSuggestions, useInsightExecute } from '../hooks/useApi';
 import { InsightResponse } from './insights/InsightResponse';
@@ -15,6 +16,7 @@ function fuzzyMatch(query: string, entry: InsightCatalogEntry): boolean {
 }
 
 export function CollectionInsights({ onCardClick }: Props) {
+  const { t } = useTranslation();
   const [searchValue, setSearchValue] = useState('');
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const [activeResult, setActiveResult] = useState<InsightResponseType | null>(null);
@@ -63,13 +65,8 @@ export function CollectionInsights({ onCardClick }: Props) {
     }
   };
 
-  const CATEGORY_LABELS: Record<string, string> = {
-    summary: 'Summary',
-    distribution: 'Distribution',
-    ranking: 'Ranking',
-    patterns: 'Patterns',
-    activity: 'Activity',
-  };
+  const getCategoryLabel = (cat: string) =>
+    t(`insights.categories.${cat}`, { defaultValue: cat });
 
   // Group dropdown results by category
   const grouped = filteredResults.reduce<Record<string, InsightCatalogEntry[]>>((acc, entry) => {
@@ -82,7 +79,7 @@ export function CollectionInsights({ onCardClick }: Props) {
   return (
     <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-4 mb-6">
       <h2 className="text-sm font-medium text-gray-600 dark:text-gray-400 mb-3">
-        Collection Insights
+        {t('insights.title')}
       </h2>
 
       {/* Search input */}
@@ -90,7 +87,7 @@ export function CollectionInsights({ onCardClick }: Props) {
         <input
           ref={inputRef}
           type="text"
-          placeholder="Ask a question about your collection…"
+          placeholder={t('insights.placeholder')}
           value={searchValue}
           onChange={e => handleInputChange(e.target.value)}
           onFocus={() => { if (searchValue.trim()) setDropdownOpen(true); }}
@@ -106,7 +103,7 @@ export function CollectionInsights({ onCardClick }: Props) {
             {Object.entries(grouped).map(([category, entries]) => (
               <div key={category}>
                 <div className="px-3 py-1.5 text-xs font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider bg-gray-50 dark:bg-gray-700/50">
-                  {CATEGORY_LABELS[category] ?? category}
+                  {getCategoryLabel(category)}
                 </div>
                 {entries.map(entry => (
                   <button
@@ -129,7 +126,7 @@ export function CollectionInsights({ onCardClick }: Props) {
             ref={dropdownRef}
             className="absolute top-full left-0 right-0 mt-1 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 rounded-lg shadow-xl z-50 px-4 py-3 text-sm text-gray-500 dark:text-gray-400"
           >
-            No matching questions found
+            {t('insights.noMatches')}
           </div>
         )}
       </div>
@@ -165,7 +162,7 @@ export function CollectionInsights({ onCardClick }: Props) {
       {execute.isPending && executingId === null && (
         <div className="mt-4 flex items-center gap-2 text-sm text-gray-500 dark:text-gray-400">
           <span className="w-4 h-4 border-2 border-indigo-400 border-t-transparent rounded-full animate-spin" />
-          <span>Running insight…</span>
+          <span>{t('insights.running')}</span>
         </div>
       )}
 
@@ -173,7 +170,7 @@ export function CollectionInsights({ onCardClick }: Props) {
       {execute.isError && (
         <div className="mt-4 p-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg">
           <p className="text-sm text-red-700 dark:text-red-400">
-            {execute.error?.message ?? 'Failed to run insight'}
+            {execute.error?.message ?? t('insights.failed')}
           </p>
         </div>
       )}

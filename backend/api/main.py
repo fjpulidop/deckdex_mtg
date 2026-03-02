@@ -68,7 +68,7 @@ app.add_middleware(
 # Global exception handler for unhandled exceptions — NO internal details leaked
 @app.exception_handler(Exception)
 async def global_exception_handler(request: Request, exc: Exception):
-    logger.error(f"Unhandled exception on {request.method} {request.url.path}: {exc}", exc_info=True)
+    logger.opt(exception=True).error("Unhandled exception on {} {}: {}", request.method, request.url.path, repr(exc))
     return JSONResponse(
         status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
         content={"detail": "Internal server error"}

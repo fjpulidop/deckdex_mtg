@@ -3,6 +3,7 @@
  * Route: /import (ProtectedRoute)
  */
 import { useState, useRef } from 'react';
+import { useTranslation, Trans } from 'react-i18next';
 import { useNavigate } from 'react-router-dom';
 import { api } from '../api/client';
 import { useActiveJobs } from '../contexts/ActiveJobsContext';
@@ -25,17 +26,20 @@ interface ImportResult {
   format: string;
 }
 
-const FORMAT_LABELS: Record<string, string> = {
+const FORMAT_PROPER_NAMES: Record<string, string> = {
   moxfield: 'Moxfield',
   tappedout: 'TappedOut',
   mtgo: 'MTGO',
-  generic: 'CSV genérico',
 };
 
 export default function Import() {
+  const { t } = useTranslation();
   const navigate = useNavigate();
   const { addJob } = useActiveJobs();
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const getFormatLabel = (format: string) =>
+    FORMAT_PROPER_NAMES[format] ?? (format === 'generic' ? t('import.formatGeneric') : format);
 
   const [step, setStep] = useState<Step>('upload');
   const [inputMode, setInputMode] = useState<InputMode>('file');
@@ -58,7 +62,7 @@ export default function Import() {
       setPreview(p);
       setStep('preview');
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Error parsing file');
+      setError(e instanceof Error ? e.message : t('import.errorParsingFile'));
     } finally {
       setLoading(false);
     }
@@ -80,7 +84,7 @@ export default function Import() {
       setPreview(p);
       setStep('preview');
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Error al analizar el texto');
+      setError(e instanceof Error ? e.message : t('import.errorParsingText'));
     } finally {
       setLoading(false);
     }
@@ -97,13 +101,13 @@ export default function Import() {
       const res = inputMode === 'text'
         ? await api.importExternalText(pastedText, mode)
         : await api.importExternal(file!, mode);
-      addJob(res.job_id, `Import (${FORMAT_LABELS[res.format] ?? res.format})`, () => {
+      addJob(res.job_id, `Import (${getFormatLabel(res.format)})`, () => {
         // job finished callback — update step to result
       });
       setResult({ imported: res.card_count, skipped: 0, not_found: [], mode: res.mode, format: res.format });
       setStep('result');
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Import failed');
+      setError(e instanceof Error ? e.message : t('import.errorParsingFile'));
       setStep('mode');
     } finally {
       setLoading(false);
@@ -126,10 +130,10 @@ export default function Import() {
       <div className="max-w-xl mx-auto">
         <div className="mb-8">
           <button onClick={() => navigate('/dashboard')} className="text-sm text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200">
-            ← Volver al dashboard
+            {t('import.backToDashboard')}
           </button>
-          <h1 className="mt-2 text-2xl font-bold text-gray-900 dark:text-white">Importar colección</h1>
-          <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">Importa cartas desde Moxfield, TappedOut, MTGO u otros formatos CSV.</p>
+          <h1 className="mt-2 text-2xl font-bold text-gray-900 dark:text-white">{t('import.title')}</h1>
+          <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">{t('import.subtitle')}</p>
         </div>
 
         {/* Step indicator */}
@@ -157,13 +161,13 @@ export default function Import() {
                 onClick={() => setInputMode('file')}
                 className={`flex-1 py-2 text-sm font-medium transition ${inputMode === 'file' ? 'bg-blue-600 text-white' : 'bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700'}`}
               >
-                Subir archivo
+                {t('import.tabFile')}
               </button>
               <button
                 onClick={() => setInputMode('text')}
                 className={`flex-1 py-2 text-sm font-medium transition ${inputMode === 'text' ? 'bg-blue-600 text-white' : 'bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700'}`}
               >
-                Pegar texto
+                {t('import.tabText')}
               </button>
             </div>
 
@@ -174,10 +178,10 @@ export default function Import() {
                 className="border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-xl p-12 text-center hover:border-blue-400 transition"
               >
                 <div className="text-4xl mb-4">📁</div>
-                <p className="text-gray-600 dark:text-gray-300 mb-4">Arrastra tu archivo aquí o</p>
+                <p className="text-gray-600 dark:text-gray-300 mb-4">{t('import.dropzone')}</p>
                 <label className="cursor-pointer">
                   <span className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition text-sm">
-                    {loading ? 'Cargando…' : 'Seleccionar archivo'}
+                    {loading ? t('common.loading') : t('import.selectFile')}
                   </span>
                   <input
                     ref={fileInputRef}
@@ -187,24 +191,26 @@ export default function Import() {
                     onChange={e => { const f = e.target.files?.[0]; if (f) handleFileSelect(f); }}
                   />
                 </label>
-                <p className="mt-4 text-xs text-gray-400">Formatos: Moxfield CSV, TappedOut CSV, MTGO .txt, CSV genérico</p>
+                <p className="mt-4 text-xs text-gray-400">{t('import.formatHints')}</p>
               </div>
             ) : (
               <div className="space-y-3">
                 <textarea
                   value={pastedText}
                   onChange={e => setPastedText(e.target.value)}
-                  placeholder={"Pega tu listado de cartas aquí. Formato:\n4 Lightning Bolt\n2 Black Lotus\n1 Sol Ring"}
+                  placeholder={t('import.pastePlaceholder')}
                   rows={10}
                   className="w-full rounded-xl border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-sm text-gray-800 dark:text-gray-100 p-4 font-mono resize-none focus:outline-none focus:ring-2 focus:ring-blue-500"
                 />
-                <p className="text-xs text-gray-400">Formato: una carta por línea con cantidad. Ej: <code className="bg-gray-100 dark:bg-gray-700 px-1 rounded">4 Lightning Bolt</code></p>
+                <p className="text-xs text-gray-400">
+                  <Trans i18nKey="import.pasteHint" components={{ 1: <code className="bg-gray-100 dark:bg-gray-700 px-1 rounded" /> }} />
+                </p>
                 <button
                   onClick={handleTextPreview}
                   disabled={loading || !pastedText.trim()}
                   className="w-full py-2 bg-blue-600 text-white rounded-lg text-sm hover:bg-blue-700 disabled:opacity-50 transition"
                 >
-                  {loading ? 'Analizando…' : 'Continuar →'}
+                  {loading ? t('import.analyzing') : t('import.continue')}
                 </button>
               </div>
             )}
@@ -216,25 +222,25 @@ export default function Import() {
           <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-600 p-6 space-y-4">
             <div className="flex items-center gap-3">
               <span className="px-3 py-1 bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300 rounded-full text-sm font-medium">
-                {FORMAT_LABELS[preview.detected_format] ?? preview.detected_format}
+                {getFormatLabel(preview.detected_format)}
               </span>
-              <span className="text-gray-600 dark:text-gray-300 text-sm">{preview.card_count} cartas detectadas</span>
+              <span className="text-gray-600 dark:text-gray-300 text-sm">{t('import.cardsDetected', { count: preview.card_count })}</span>
             </div>
             <div>
-              <p className="text-xs text-gray-400 mb-2 uppercase tracking-wider">Muestra</p>
+              <p className="text-xs text-gray-400 mb-2 uppercase tracking-wider">{t('import.preview')}</p>
               <ul className="space-y-1">
                 {preview.sample.map((name, i) => (
                   <li key={i} className="text-sm text-gray-700 dark:text-gray-300">• {name}</li>
                 ))}
               </ul>
             </div>
-            <p className="text-xs text-gray-400">¿No coincide el formato? Selecciona otro archivo.</p>
+            <p className="text-xs text-gray-400">{t('import.noFormatMatch')}</p>
             <div className="flex gap-3 pt-2">
               <button onClick={reset} className="px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700">
-                Atrás
+                {t('import.back')}
               </button>
               <button onClick={() => setStep('mode')} className="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm hover:bg-blue-700">
-                Continuar →
+                {t('import.continue')}
               </button>
             </div>
           </div>
@@ -247,25 +253,23 @@ export default function Import() {
               <label key={m} className={`block border-2 rounded-xl p-5 cursor-pointer transition ${mode === m ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20' : 'border-gray-200 dark:border-gray-600 hover:border-gray-300'}`}>
                 <input type="radio" name="mode" value={m} checked={mode === m} onChange={() => setMode(m)} className="sr-only" />
                 <div className="font-semibold text-gray-900 dark:text-white capitalize mb-1">
-                  {m === 'merge' ? '🔀 Merge (recomendado)' : '🔄 Replace'}
+                  {m === 'merge' ? t('import.mergeRecommended') : t('import.replaceLabel')}
                 </div>
                 <p className="text-sm text-gray-500 dark:text-gray-400">
-                  {m === 'merge'
-                    ? 'Añade las cartas importadas a tu colección existente. Las cantidades se suman.'
-                    : 'Reemplaza toda tu colección con este archivo. Esta acción no se puede deshacer.'}
+                  {m === 'merge' ? t('import.mergeDesc') : t('import.replaceDesc')}
                 </p>
               </label>
             ))}
             <div className="flex gap-3 pt-2">
               <button onClick={() => setStep('preview')} className="px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700">
-                Atrás
+                {t('import.back')}
               </button>
               <button
                 onClick={handleImport}
                 disabled={loading}
                 className="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm hover:bg-blue-700 disabled:opacity-50"
               >
-                {loading ? 'Iniciando…' : 'Importar →'}
+                {loading ? t('import.starting') : t('import.importBtn')}
               </button>
             </div>
           </div>
@@ -277,8 +281,8 @@ export default function Import() {
             <div className="flex justify-center">
               <div className="w-10 h-10 border-4 border-gray-200 dark:border-gray-600 border-t-blue-600 rounded-full animate-spin" />
             </div>
-            <p className="text-gray-700 dark:text-gray-300">Enriqueciendo cartas vía Scryfall…</p>
-            <p className="text-sm text-gray-400">Puedes ver el progreso en la barra de Jobs ↘</p>
+            <p className="text-gray-700 dark:text-gray-300">{t('import.enriching')}</p>
+            <p className="text-sm text-gray-400">{t('import.enrichingHint')}</p>
           </div>
         )}
 
@@ -288,14 +292,14 @@ export default function Import() {
             <div className="flex items-center gap-3">
               <span className="text-3xl">✅</span>
               <div>
-                <p className="font-semibold text-gray-900 dark:text-white">Importación iniciada</p>
-                <p className="text-sm text-gray-500 dark:text-gray-400">{result.card_count ?? result.imported} cartas en proceso — sigue el progreso en Jobs</p>
+                <p className="font-semibold text-gray-900 dark:text-white">{t('import.importStarted')}</p>
+                <p className="text-sm text-gray-500 dark:text-gray-400">{t('import.importedCards', { count: result.card_count ?? result.imported })}</p>
               </div>
             </div>
             {result.not_found?.length > 0 && (
               <div>
                 <button onClick={() => setShowNotFound(s => !s)} className="text-sm text-orange-600 dark:text-orange-400 hover:underline">
-                  {result.not_found.length} cartas no encontradas {showNotFound ? '▲' : '▼'}
+                  {t('import.notFound', { count: result.not_found.length })} {showNotFound ? '▲' : '▼'}
                 </button>
                 {showNotFound && (
                   <ul className="mt-2 text-xs text-gray-500 dark:text-gray-400 space-y-0.5 max-h-32 overflow-y-auto">
@@ -306,10 +310,10 @@ export default function Import() {
             )}
             <div className="flex gap-3 pt-2">
               <button onClick={() => navigate('/dashboard')} className="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm hover:bg-blue-700">
-                Ir a colección
+                {t('import.goToCollection')}
               </button>
               <button onClick={reset} className="px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700">
-                Importar otro archivo
+                {t('import.importAnother')}
               </button>
             </div>
           </div>

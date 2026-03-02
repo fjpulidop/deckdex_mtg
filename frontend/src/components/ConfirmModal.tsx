@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 
 interface ConfirmModalProps {
   isOpen: boolean;
@@ -17,14 +18,17 @@ export function ConfirmModal({
   isOpen,
   title,
   message,
-  confirmLabel = 'Confirm',
-  cancelLabel = 'Cancel',
+  confirmLabel,
+  cancelLabel,
   destructive = false,
   promptLabel,
   promptDefault = '',
   onConfirm,
   onCancel,
 }: ConfirmModalProps) {
+  const { t } = useTranslation();
+  const resolvedConfirmLabel = confirmLabel ?? t('confirmModal.confirm');
+  const resolvedCancelLabel = cancelLabel ?? t('confirmModal.cancel');
   const [promptValue, setPromptValue] = useState(promptDefault);
   const confirmRef = useRef<HTMLButtonElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -37,11 +41,11 @@ export function ConfirmModal({
   // Focus confirm button or prompt input on open
   useEffect(() => {
     if (!isOpen) return;
-    const t = setTimeout(() => {
+    const timer = setTimeout(() => {
       if (promptLabel) inputRef.current?.focus();
       else confirmRef.current?.focus();
     }, 0);
-    return () => clearTimeout(t);
+    return () => clearTimeout(timer);
   }, [isOpen, promptLabel]);
 
   // Escape to cancel
@@ -104,7 +108,7 @@ export function ConfirmModal({
             onClick={onCancel}
             className="px-4 py-2 rounded-lg bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-200 hover:bg-gray-200 dark:hover:bg-gray-600 text-sm font-medium"
           >
-            {cancelLabel}
+            {resolvedCancelLabel}
           </button>
           <button
             ref={confirmRef}
@@ -116,7 +120,7 @@ export function ConfirmModal({
                 : 'bg-blue-600 hover:bg-blue-700'
             }`}
           >
-            {confirmLabel}
+            {resolvedConfirmLabel}
           </button>
         </div>
       </div>

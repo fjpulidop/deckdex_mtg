@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router-dom';
 import { X } from 'lucide-react';
 import { api } from '../api/client';
@@ -10,6 +11,7 @@ interface SettingsModalProps {
 }
 
 export function SettingsModal({ onClose }: SettingsModalProps) {
+  const { t } = useTranslation();
   const { addJob } = useActiveJobs();
   const navigate = useNavigate();
   const [importFileLoading, setImportFileLoading] = useState(false);
@@ -47,14 +49,14 @@ export function SettingsModal({ onClose }: SettingsModalProps) {
         try {
           credentials = JSON.parse(raw) as object;
         } catch {
-          setError('Invalid JSON. Paste a valid Scryfall credentials JSON.');
+          setError(t('settings.invalidJson'));
           setScryfallLoading(false);
           return;
         }
       }
       const r = await api.setScryfallCredentials(credentials);
       setScryfallConfigured(r.configured);
-      setScryfallMessage(r.configured ? 'Scryfall credentials saved. The backend will use them next time.' : 'Scryfall credentials cleared.');
+      setScryfallMessage(r.configured ? t('settings.credentialsSaved') : t('settings.credentialsCleared'));
       if (r.configured) setScryfallJson('');
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Failed to save Scryfall credentials');
@@ -72,7 +74,7 @@ export function SettingsModal({ onClose }: SettingsModalProps) {
       const parsed = JSON.parse(text) as object;
       setScryfallJson(JSON.stringify(parsed, null, 2));
     } catch {
-      setError('The selected file is not valid JSON.');
+      setError(t('settings.invalidJsonFile'));
     }
     e.target.value = '';
   };
@@ -85,7 +87,7 @@ export function SettingsModal({ onClose }: SettingsModalProps) {
     setImportFileLoading(true);
     try {
       const r = await api.importFromFile(file);
-      setImportFileResult(`Imported ${r.imported} cards.`);
+      setImportFileResult(t('settings.importedCards', { count: r.imported }));
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Import failed');
     } finally {
@@ -102,7 +104,7 @@ export function SettingsModal({ onClose }: SettingsModalProps) {
       >
         {/* Header */}
         <div className="flex items-center justify-between p-6 border-b border-gray-200 dark:border-gray-700 sticky top-0 bg-white dark:bg-gray-800 z-10">
-          <h2 className="text-lg font-semibold text-gray-900 dark:text-white">Settings</h2>
+          <h2 className="text-lg font-semibold text-gray-900 dark:text-white">{t('settings.title')}</h2>
           <button
             onClick={onClose}
             className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 transition-colors"
@@ -117,9 +119,9 @@ export function SettingsModal({ onClose }: SettingsModalProps) {
           )}
 
           <section>
-            <h3 className="text-base font-semibold mb-3 text-gray-900 dark:text-white">Scryfall API credentials</h3>
+            <h3 className="text-base font-semibold mb-3 text-gray-900 dark:text-white">{t('settings.scryfallSection')}</h3>
             <p className="mb-2 text-sm text-gray-600 dark:text-gray-400">
-              Paste the Scryfall credentials JSON below or upload a .json file. The backend stores it internally and will use it the next time you run price updates.
+              {t('settings.scryfallDesc')}
             </p>
             <div className="flex flex-col gap-2">
               <textarea
@@ -142,7 +144,7 @@ export function SettingsModal({ onClose }: SettingsModalProps) {
                   disabled={scryfallLoading}
                   className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 disabled:opacity-50 dark:bg-blue-500 dark:hover:bg-blue-600"
                 >
-                  {scryfallLoading ? 'Saving…' : 'Save credentials'}
+                  {scryfallLoading ? t('settings.saving') : t('settings.saveCredentials')}
                 </button>
                 {scryfallConfigured && (
                   <button
@@ -152,32 +154,32 @@ export function SettingsModal({ onClose }: SettingsModalProps) {
                       try {
                         await api.setScryfallCredentials(null);
                         setScryfallConfigured(false);
-                        setScryfallMessage('Credentials cleared.');
+                        setScryfallMessage(t('settings.credentialsCleared2'));
                       } catch (e) {
                         setError(e instanceof Error ? e.message : 'Failed to clear credentials');
                       }
                     }}
                     className="px-4 py-2 border border-gray-300 dark:border-gray-600 rounded hover:bg-gray-50 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-200"
                   >
-                    Clear
+                    {t('settings.clearCredentials')}
                   </button>
                 )}
               </div>
             </div>
-            {scryfallConfigured && <p className="mt-2 text-green-700 dark:text-green-400 text-sm">Scryfall credentials are stored and will be used by the backend.</p>}
+            {scryfallConfigured && <p className="mt-2 text-green-700 dark:text-green-400 text-sm">{t('settings.scryfallStored')}</p>}
             {scryfallMessage && <p className="mt-2 text-green-700 dark:text-green-400 text-sm">{scryfallMessage}</p>}
           </section>
 
           <section>
-            <h3 className="text-base font-semibold mb-3 text-gray-900 dark:text-white">APIs externas</h3>
+            <h3 className="text-base font-semibold mb-3 text-gray-900 dark:text-white">{t('settings.externalApis')}</h3>
             <p className="mb-3 text-sm text-gray-600 dark:text-gray-400">
-              Controla qué APIs externas puede consultar la aplicación. Cuando están desactivadas, solo se usa el catálogo local.
+              {t('settings.externalApisDesc')}
             </p>
             <div className="flex items-center justify-between py-2">
               <div>
-                <p className="text-sm font-medium text-gray-900 dark:text-white">Scryfall</p>
+                <p className="text-sm font-medium text-gray-900 dark:text-white">{t('settings.scryfallToggleLabel')}</p>
                 <p className="text-xs text-gray-500 dark:text-gray-400">
-                  Permite consultar la API de Scryfall cuando una carta no se encuentra en el catálogo local.
+                  {t('settings.scryfallToggleDesc')}
                 </p>
               </div>
               <button
@@ -213,24 +215,24 @@ export function SettingsModal({ onClose }: SettingsModalProps) {
           </section>
 
           <section>
-            <h3 className="text-base font-semibold mb-3 text-gray-900 dark:text-white">Importar colección</h3>
+            <h3 className="text-base font-semibold mb-3 text-gray-900 dark:text-white">{t('settings.importCollection')}</h3>
             <p className="mb-3 text-sm text-gray-600 dark:text-gray-400">
-              Importa tu colección desde Moxfield, TappedOut, MTGO u otros formatos CSV, con enriquecimiento automático via Scryfall.
+              {t('settings.importCollectionDesc')}
             </p>
             <button
               type="button"
               onClick={() => { onClose(); navigate('/import'); }}
               className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm dark:bg-blue-500 dark:hover:bg-blue-600"
             >
-              Ir a importación →
+              {t('settings.goToImport')}
             </button>
             <details className="mt-4">
               <summary className="text-sm text-gray-500 dark:text-gray-400 cursor-pointer hover:text-gray-700 dark:hover:text-gray-200">
-                Importación rápida (CSV/JSON básico)
+                {t('settings.quickImport')}
               </summary>
               <div className="mt-2">
                 <p className="mb-2 text-sm text-gray-600 dark:text-gray-400">
-                  Reemplaza tu colección con un CSV o JSON simple (sin enriquecimiento Scryfall).
+                  {t('settings.quickImportDesc')}
                 </p>
                 <input
                   type="file"
@@ -247,7 +249,7 @@ export function SettingsModal({ onClose }: SettingsModalProps) {
           </section>
 
           <section>
-            <h3 className="text-base font-semibold mb-3 text-gray-900 dark:text-white">Deck Actions</h3>
+            <h3 className="text-base font-semibold mb-3 text-gray-900 dark:text-white">{t('settings.deckActions')}</h3>
             <ActionButtons onJobStarted={addJob} inline />
           </section>
         </div>

@@ -1,4 +1,5 @@
 import { useState, useCallback } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { api, DeckListItem } from '../api/client';
 import { useCardImage } from '../hooks/useCardImage';
@@ -6,6 +7,7 @@ import { DeckDetailModal } from '../components/DeckDetailModal';
 import { ConfirmModal } from '../components/ConfirmModal';
 
 function DeckCardButton({ deck, onClick }: { deck: DeckListItem; onClick: () => void }) {
+  const { t } = useTranslation();
   const { src: commanderImageUrl } = useCardImage(deck.commander_card_id ?? null);
   return (
     <button
@@ -43,13 +45,14 @@ function DeckCardButton({ deck, onClick }: { deck: DeckListItem; onClick: () => 
             : 'text-gray-500 dark:text-gray-400'
         }`}
       >
-        {deck.card_count ?? 0} cards
+        {t('deckBuilder.cards', { count: deck.card_count ?? 0 })}
       </span>
     </button>
   );
 }
 
 export function DeckBuilder() {
+  const { t } = useTranslation();
   const queryClient = useQueryClient();
   const [selectedDeckId, setSelectedDeckId] = useState<number | null>(null);
   const [createError, setCreateError] = useState<string | null>(null);
@@ -83,7 +86,7 @@ export function DeckBuilder() {
       await queryClient.invalidateQueries({ queryKey: ['decks'] });
       setSelectedDeckId(deck.id);
     } catch (e) {
-      setCreateError(e instanceof Error ? e.message : 'Failed to create deck');
+      setCreateError(e instanceof Error ? e.message : t('deckBuilder.createFailed'));
     }
   }, [queryClient]);
 
@@ -100,13 +103,13 @@ export function DeckBuilder() {
             DeckDex MTG
           </h1>
           <p className="text-gray-600 dark:text-gray-400">
-            Commander decks (alpha)
+            {t('deckBuilder.title')}
           </p>
         </div>
 
         {decksUnavailable && (
           <div className="mb-6 p-4 rounded-lg bg-amber-100 dark:bg-amber-900/30 text-amber-800 dark:text-amber-200">
-            Decks require Postgres. Set DATABASE_URL to use the deck builder.
+            {t('deckBuilder.postgresRequired')}
           </div>
         )}
 
@@ -117,7 +120,7 @@ export function DeckBuilder() {
         )}
 
         {isLoading && (
-          <p className="text-gray-500 dark:text-gray-400">Loading decks...</p>
+          <p className="text-gray-500 dark:text-gray-400">{t('deckBuilder.loadingDecks')}</p>
         )}
 
         {!decksUnavailable && !isLoading && (
@@ -129,7 +132,7 @@ export function DeckBuilder() {
               type="button"
               onClick={handleAddDeck}
               className="flex items-center justify-center rounded-xl border-2 border-dashed border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-500 dark:text-gray-400 hover:border-indigo-500 hover:text-indigo-600 dark:hover:border-indigo-400 dark:hover:text-indigo-300 transition-colors min-h-[120px]"
-              aria-label="Add deck"
+              aria-label={t('deckBuilder.addDeckAriaLabel')}
             >
               <span className="text-3xl font-light">+</span>
             </button>
@@ -154,11 +157,11 @@ export function DeckBuilder() {
 
       <ConfirmModal
         isOpen={newDeckModalOpen}
-        title="New Deck"
-        message="Enter a name for your new deck."
-        promptLabel="Deck name"
-        promptDefault="Unnamed Deck"
-        confirmLabel="Create"
+        title={t('deckBuilder.newDeck')}
+        message={t('deckBuilder.newDeckPrompt')}
+        promptLabel={t('deckBuilder.deckNameLabel')}
+        promptDefault={t('deckBuilder.unnamedDeck')}
+        confirmLabel={t('deckBuilder.create')}
         onConfirm={handleCreateDeck}
         onCancel={() => setNewDeckModalOpen(false)}
       />
