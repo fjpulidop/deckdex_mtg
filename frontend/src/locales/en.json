@@ -402,7 +402,8 @@
     "subtitle": "Track prices in real-time, build competitive decks with AI insights, and manage your collection with ease. Community-driven, always evolving.",
     "goToDashboard": "Go to Dashboard",
     "signIn": "Sign in",
-    "tryDemo": "Try Demo"
+    "tryDemo": "Try Demo",
+    "tryLiveDemo": "Try live demo"
   },
   "bento": {
     "sectionTitle": "Powerful Features",
@@ -436,7 +437,8 @@
     "body": "Join the community of Magic players using DeckDex to organize, analyze, and optimize their collections. Free, open source, and community-driven.",
     "contribute": "Have ideas for improvements? <1>Contribute on GitHub</1> and help shape the future of DeckDex!",
     "goToDashboard": "Go to Dashboard",
-    "signInFree": "Sign in Free"
+    "signInFree": "Sign in Free",
+    "tryLiveDemo": "Try live demo"
   },
   "footer": {
     "product": "Product",

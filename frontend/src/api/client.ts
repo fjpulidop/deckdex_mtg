@@ -54,7 +54,7 @@ async function apiFetch(url: string, init?: RequestInit): Promise<Response> {
       }
     }
     const p = window.location.pathname;
-    const PUBLIC_PATHS = new Set(['/login', '/auth/callback', '/']);
+    const PUBLIC_PATHS = new Set(['/login', '/auth/callback', '/', '/demo']);
     if (!PUBLIC_PATHS.has(p)) window.location.href = '/login';
   }
 

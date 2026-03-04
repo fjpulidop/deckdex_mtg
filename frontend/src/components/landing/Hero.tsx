@@ -8,7 +8,7 @@ const handleGoogleLogin = () => {
   redirectToGoogleLogin();
 };
 
-export const Hero = ({ onDemoClick }: { onDemoClick: () => void }) => {
+export const Hero = () => {
   const { t } = useTranslation();
   const { isAuthenticated } = useAuth();
   return (
@@ -67,12 +67,14 @@ export const Hero = ({ onDemoClick }: { onDemoClick: () => void }) => {
                   {t('hero.signIn')}
                 </button>
               )}
-              <button
-                onClick={onDemoClick}
-                className="inline-flex items-center justify-center px-8 py-3 rounded-lg border-2 border-slate-600 text-white font-semibold hover:bg-slate-800/50 hover:border-slate-500 transition-all duration-300"
-              >
-                {t('hero.tryDemo')} <ArrowRight className="ml-2 h-5 w-5" />
-              </button>
+              {!isAuthenticated && (
+                <a
+                  href="/demo"
+                  className="inline-flex items-center justify-center px-8 py-3 rounded-lg border-2 border-slate-600 text-white font-semibold hover:bg-slate-800/50 hover:border-slate-500 transition-all duration-300"
+                >
+                  {t('hero.tryLiveDemo')} <ArrowRight className="ml-2 h-5 w-5" />
+                </a>
+              )}
             </div>
           </motion.div>
 
@@ -84,13 +86,20 @@ export const Hero = ({ onDemoClick }: { onDemoClick: () => void }) => {
             className="flex justify-center"
           >
             <div className="relative w-full max-w-xl aspect-[3/2] rounded-lg overflow-hidden shadow-2xl shadow-purple-500/20 border border-slate-700/50">
-              {/* Gradient Placeholder */}
-              <div className="absolute inset-0 bg-gradient-to-br from-purple-600/20 via-slate-900 to-slate-900 flex items-center justify-center">
-                <div className="text-center space-y-3">
-                  <div className="h-32 w-32 mx-auto rounded-lg bg-gradient-to-br from-purple-500/30 to-pink-500/30 blur-xl" />
-                  <p className="text-slate-400 text-sm font-medium">Dashboard Preview (1200x800px)</p>
-                  <p className="text-slate-500 text-xs">Replace with actual screenshot</p>
-                </div>
+              <img
+                src="/dashboard-preview.png"
+                alt="DeckDex dashboard preview"
+                className="absolute inset-0 w-full h-full object-cover object-top"
+                onError={(e) => {
+                  const target = e.currentTarget;
+                  target.style.display = 'none';
+                  const fallback = target.nextElementSibling as HTMLElement | null;
+                  if (fallback) fallback.style.display = 'flex';
+                }}
+              />
+              {/* Gradient fallback (hidden when screenshot loads) */}
+              <div className="absolute inset-0 bg-gradient-to-br from-purple-600/20 via-slate-900 to-slate-900 items-center justify-center hidden">
+                <div className="h-32 w-32 rounded-lg bg-gradient-to-br from-purple-500/30 to-pink-500/30 blur-xl" />
               </div>
             </div>
           </motion.div>

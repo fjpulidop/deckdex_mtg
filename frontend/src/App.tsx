@@ -16,6 +16,7 @@ import AdminRoute from './components/AdminRoute'
 import { JobsBottomBar } from './components/JobsBottomBar'
 import Import from './pages/Import'
 import { Admin } from './pages/Admin'
+import { Demo } from './pages/Demo'
 
 const Landing = lazy(() => import('./pages/Landing').then(m => ({ default: m.Landing })))
 
@@ -23,11 +24,12 @@ function AppContent() {
   const location = useLocation();
   const isLoginPage = location.pathname === '/login';
   const isLandingPage = location.pathname === '/';
+  const isDemoPage = location.pathname === '/demo';
 
   return (
     <>
       {isLandingPage && <LandingNavbar />}
-      {!isLandingPage && !isLoginPage && <Navbar />}
+      {!isLandingPage && !isLoginPage && !isDemoPage && <Navbar />}
       <Routes>
         <Route
           path="/"
@@ -37,6 +39,7 @@ function AppContent() {
             </Suspense>
           }
         />
+        <Route path="/demo" element={<Demo />} />
         <Route path="/login" element={<Login />} />
         <Route path="/auth/callback" element={<AuthCallback />} />
         <Route
@@ -88,7 +91,7 @@ function AppContent() {
           }
         />
       </Routes>
-      <JobsBottomBar />
+      {!isLandingPage && !isLoginPage && !isDemoPage && <JobsBottomBar />}
     </>
   );
 }
