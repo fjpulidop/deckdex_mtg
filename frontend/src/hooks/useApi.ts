@@ -1,6 +1,8 @@
 import React from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api, Card, Stats, JobResponse, InsightCatalogEntry, InsightSuggestion, InsightResponse } from '../api/client';
+import { useDemoMode } from '../contexts/DemoContext';
+import { DEMO_CARDS, DEMO_CATALOG, DEMO_SUGGESTIONS } from '../data/demoData';
 
 // Params for cards list (same filter shape as dashboard; map to API snake_case in getCards)
 export interface CardsParams {
@@ -17,8 +19,9 @@ export interface CardsParams {
 
 // Hook for fetching cards; pass current dashboard filters so list and stats match
 export function useCards(params?: CardsParams) {
+  const { isDemoMode } = useDemoMode();
   const apiParams =
-    params
+    !isDemoMode && params
       ? {
           limit: params.limit,
           offset: params.offset,
@@ -31,11 +34,23 @@ export function useCards(params?: CardsParams) {
           color_identity: params.colorIdentity,
         }
       : undefined;
-  return useQuery({
+  const query = useQuery({
     queryKey: ['cards', apiParams],
     queryFn: () => api.getCards(apiParams),
     staleTime: 30000, // 30 seconds
+    enabled: !isDemoMode,
   });
+  if (isDemoMode) {
+    const search = (params?.search ?? '').toLowerCase();
+    const rar = params?.rarity;
+    const filtered = DEMO_CARDS.filter(c => {
+      const matchesSearch = !search || (c.name ?? '').toLowerCase().includes(search) || (c.set_id ?? '').toLowerCase().includes(search);
+      const matchesRarity = !rar || c.rarity === rar;
+      return matchesSearch && matchesRarity;
+    });
+    return { data: filtered as Card[], isLoading: false, error: null };
+  }
+  return query;
 }
 
 // Hook for fetching single card
@@ -218,20 +233,32 @@ export function useWebSocket(jobId: string | null) {
 
 // Hook for fetching insights catalog
 export function useInsightsCatalog() {
-  return useQuery<InsightCatalogEntry[]>({
+  const { isDemoMode } = useDemoMode();
+  const query = useQuery<InsightCatalogEntry[]>({
     queryKey: ['insights', 'catalog'],
     queryFn: () => api.getInsightsCatalog(),
     staleTime: 5 * 60 * 1000, // 5 minutes — catalog rarely changes
+    enabled: !isDemoMode,
   });
+  if (isDemoMode) {
+    return { data: DEMO_CATALOG as InsightCatalogEntry[], isLoading: false, error: null };
+  }
+  return query;
 }
 
 // Hook for fetching contextual insight suggestions
 export function useInsightsSuggestions() {
-  return useQuery<InsightSuggestion[]>({
+  const { isDemoMode } = useDemoMode();
+  const query = useQuery<InsightSuggestion[]>({
     queryKey: ['insights', 'suggestions'],
     queryFn: () => api.getInsightsSuggestions(),
     staleTime: 30000,
+    enabled: !isDemoMode,
   });
+  if (isDemoMode) {
+    return { data: DEMO_SUGGESTIONS as InsightSuggestion[], isLoading: false, error: null };
+  }
+  return query;
 }
 
 // Hook for executing an insight

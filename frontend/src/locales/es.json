@@ -402,7 +402,8 @@
     "subtitle": "Sigue los precios en tiempo real, construye mazos competitivos con IA y gestiona tu colección con facilidad. Impulsado por la comunidad, siempre evolucionando.",
     "goToDashboard": "Ir al panel",
     "signIn": "Iniciar sesión",
-    "tryDemo": "Probar demo"
+    "tryDemo": "Probar demo",
+    "tryLiveDemo": "Probar demo en vivo"
   },
   "bento": {
     "sectionTitle": "Funcionalidades potentes",
@@ -436,7 +437,8 @@
     "body": "Únete a la comunidad de jugadores de Magic que usan DeckDex para organizar, analizar y optimizar sus colecciones. Gratuito, código abierto e impulsado por la comunidad.",
     "contribute": "¿Tienes ideas para mejorar? <1>Contribuye en GitHub</1> y ayuda a dar forma al futuro de DeckDex.",
     "goToDashboard": "Ir al panel",
-    "signInFree": "Regístrate gratis"
+    "signInFree": "Regístrate gratis",
+    "tryLiveDemo": "Probar demo en vivo"
   },
   "footer": {
     "product": "Producto",

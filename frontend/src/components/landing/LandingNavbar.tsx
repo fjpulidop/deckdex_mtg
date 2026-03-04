@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { Menu, X, Github, Sparkles } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { redirectToGoogleLogin } from '@/utils/auth';
+import { LanguageSwitcher } from '@/components/LanguageSwitcher';
 
 export const LandingNavbar = () => {
   const { t } = useTranslation();
@@ -67,8 +68,9 @@ export const LandingNavbar = () => {
             </button>
           </div>
 
-          {/* Source Code - Right */}
+          {/* Right side: Language switcher + Source Code */}
           <div className="hidden md:flex items-center gap-4">
+            <LanguageSwitcher />
             <button
               onClick={() => setShowGithubModal(true)}
               className="text-slate-100 hover:text-white transition-colors flex items-center gap-2"
@@ -115,6 +117,9 @@ export const LandingNavbar = () => {
               <Github className="h-5 w-5" />
               <span>{t('landingNav.sourceCode')}</span>
             </button>
+            <div className="px-3 py-2">
+              <LanguageSwitcher />
+            </div>
           </div>
         </div>
       )}
