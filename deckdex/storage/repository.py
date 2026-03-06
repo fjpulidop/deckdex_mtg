@@ -555,7 +555,7 @@ class PostgresCollectionRepository(CollectionRepository):
             if price_min and str(price_min).strip():
                 try:
                     params["price_min"] = float(str(price_min).replace(",", "."))
-                    conditions.append("CASE WHEN price_eur ~ '^[0-9]+\.?[0-9]*$' THEN CAST(price_eur AS numeric) ELSE NULL END >= :price_min")
+                    conditions.append(r"CASE WHEN price_eur ~ '^[0-9]+\.?[0-9]*$' THEN CAST(price_eur AS numeric) ELSE NULL END >= :price_min")
                 except (ValueError, TypeError):
                     pass
 
@@ -563,7 +563,7 @@ class PostgresCollectionRepository(CollectionRepository):
             if price_max and str(price_max).strip():
                 try:
                     params["price_max"] = float(str(price_max).replace(",", "."))
-                    conditions.append("CASE WHEN price_eur ~ '^[0-9]+\.?[0-9]*$' THEN CAST(price_eur AS numeric) ELSE NULL END <= :price_max")
+                    conditions.append(r"CASE WHEN price_eur ~ '^[0-9]+\.?[0-9]*$' THEN CAST(price_eur AS numeric) ELSE NULL END <= :price_max")
                 except (ValueError, TypeError):
                     pass
 
@@ -622,7 +622,7 @@ class PostgresCollectionRepository(CollectionRepository):
         engine = self._get_engine()
         where, params = self._build_filter_clauses(filters, user_id)
         # Use NULLIF to skip non-numeric price values like 'N/A' before casting
-        safe_price = "CASE WHEN price_eur ~ '^[0-9]+\.?[0-9]*$' THEN CAST(price_eur AS numeric) ELSE NULL END"
+        safe_price = r"CASE WHEN price_eur ~ '^[0-9]+\.?[0-9]*$' THEN CAST(price_eur AS numeric) ELSE NULL END"
         sql = f"""
             SELECT
                 COALESCE(SUM(quantity), 0)::bigint AS total_cards,
