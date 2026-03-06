@@ -149,3 +149,27 @@ When the user hovers over a card row in the deck detail modal, the large preview
 
 - **WHEN** the user hovers over a card row in the deck detail modal
 - **THEN** the large preview area shows that card's image and the card's price displayed below the image
+
+### Requirement: Export deck to clipboard
+
+The deck detail modal SHALL provide an "Export" button in the header action row. When clicked, the system SHALL serialize the current deck to MTGO-style plain text (one line per card: `<qty> <name>`; sections prefixed with `//Commander` and `//Mainboard`) and copy it to the clipboard. After a successful copy, the button SHALL briefly display a "Copied!" label (approximately 2 seconds) as feedback before reverting.
+
+#### Scenario: Export copies to clipboard
+- **WHEN** the user clicks the Export button in the deck detail modal
+- **THEN** the deck list is formatted as MTGO-style text and copied to the clipboard, and the button briefly shows "Copied!" feedback
+
+### Requirement: Import deck from text modal
+
+The deck detail modal SHALL provide an "Import" button in the header action row. When clicked, a modal opens with a textarea where the user can paste a deck list (MTGO/Arena text format). The user SHALL be able to submit the pasted text to import matched cards into the current deck. After import, the modal SHALL display a result summary: number of cards imported, and a list of any card names that were skipped (not found in collection). The user SHALL be able to close the import modal without importing (Cancel or Escape).
+
+#### Scenario: Open import modal
+- **WHEN** the user clicks the Import button in the deck detail modal
+- **THEN** the import modal opens with an empty textarea and an Import button
+
+#### Scenario: Successful import with skipped cards
+- **WHEN** the user pastes a deck list and submits
+- **THEN** matched cards (found in user's collection) are added to the deck, skipped cards (not in collection) are shown by name with a "not in collection" note, and the import count is displayed
+
+#### Scenario: Cancel import
+- **WHEN** the user closes the import modal without submitting (Cancel or Escape)
+- **THEN** no cards are added and the deck detail modal remains open unchanged

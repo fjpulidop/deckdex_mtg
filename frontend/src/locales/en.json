@@ -46,6 +46,9 @@
   },
   "cardTable": {
     "addCard": "Add card",
+    "importList": "Import list",
+    "updatePrices": "Update Prices",
+    "starting": "Starting...",
     "columns": {
       "qty": "Qty",
       "added": "Added",
@@ -56,6 +59,7 @@
       "set": "Set"
     },
     "clickToEditQty": "Click to edit quantity",
+    "editQtyLabel": "Edit quantity (currently {{qty}})",
     "showing": "Showing {{from}} to {{to}} of {{total}} cards",
     "page": "Page {{current}} of {{total}}",
     "noCards": "No cards found"
@@ -117,6 +121,9 @@
     "total": "Total",
     "cmc": "CMC",
     "addCard": "Add card",
+    "export": "Export",
+    "copied": "Copied!",
+    "import": "Import",
     "deleteDeck": "Delete Deck",
     "hoverCard": "Hover a card to preview",
     "loading": "Loading…",
@@ -129,6 +136,17 @@
     "deleteConfirmMessage": "Are you sure you want to delete \"{{name}}\"? This cannot be undone.",
     "deleteConfirm": "Delete",
     "deleteCancel": "Cancel"
+  },
+  "deckImport": {
+    "title": "Import Deck List",
+    "placeholder": "Paste your deck list here...\n1 Lightning Bolt\n2 Counterspell\n//Commander\n1 Atraxa, Praetors' Voice",
+    "submit": "Import",
+    "cancel": "Cancel",
+    "loading": "Importing...",
+    "success": "{{count}} cards imported",
+    "skippedTitle": "Not in your collection ({{count}}):",
+    "done": "Done",
+    "notInCollection": "not in collection"
   },
   "confirmModal": {
     "confirm": "Confirm",
@@ -219,7 +237,8 @@
     "credentialsCleared2": "Credentials cleared.",
     "invalidJsonFile": "The selected file is not valid JSON.",
     "importedCards_one": "Imported {{count}} card.",
-    "importedCards_other": "Imported {{count}} cards."
+    "importedCards_other": "Imported {{count}} cards.",
+    "scryfallCredentialsLabel": "Scryfall credentials JSON"
   },
   "insights": {
     "title": "Collection Insights",
@@ -227,6 +246,9 @@
     "noMatches": "No matching questions found",
     "running": "Running insight…",
     "failed": "Failed to run insight",
+    "pin": "Pin",
+    "unpin": "Unpin",
+    "dismiss": "Dismiss",
     "categories": {
       "summary": "Summary",
       "distribution": "Distribution",
@@ -304,7 +326,32 @@
     "notFound_other": "{{count}} cards not found",
     "pasteHint": "Format: one card per line with quantity. E.g.: <1>4 Lightning Bolt</1>",
     "errorParsingFile": "Error parsing file",
-    "errorParsingText": "Error parsing text"
+    "errorParsingText": "Error parsing text",
+    "resolving": "Resolving card names…",
+    "resolvingHint": "Checking cards against catalog and Scryfall",
+    "reviewTitle": "Review cards",
+    "reviewMatched_one": "{{count}} card matched",
+    "reviewMatched_other": "{{count}} cards matched",
+    "reviewUnresolved_one": "{{count}} card needs attention",
+    "reviewUnresolved_other": "{{count}} cards need attention",
+    "reviewNeedsAttention": "Needs attention",
+    "reviewMatchedSection": "Matched cards",
+    "reviewNoSuggestions": "No suggestions found",
+    "reviewTypeName": "Type card name…",
+    "reviewSkip": "Skip",
+    "reviewAcceptAll": "Accept all suggestions",
+    "reviewSkipAll": "Skip all unresolved",
+    "reviewAllMatched": "All cards matched! Ready to import."
+  },
+  "importListModal": {
+    "title": "Import list",
+    "fileTab": "File",
+    "textTab": "Text",
+    "dragDrop": "Drag & drop a .csv or .txt file here",
+    "selectFile": "Select file",
+    "textPlaceholder": "Paste your card list here…\ne.g. 4 Lightning Bolt\n1 Counterspell",
+    "continue": "Continue",
+    "resolving": "Resolving cards…"
   },
   "dashboard": {
     "backendError": "Backend Connection Error",
@@ -329,17 +376,22 @@
     "filterColor": "Color: {{value}}",
     "filterCmc": "CMC: {{value}}",
     "filterSet": "Set: {{value}}",
+    "filterType": "Type: {{value}}",
     "kpis": {
       "totalCards": "Total Cards",
       "totalValue": "Total Value",
-      "avgPrice": "Average Price"
+      "avgPrice": "Average Price",
+      "mythicRares": "Mythic Rares"
     },
     "charts": {
       "byRarity": "Distribution by Rarity",
       "byColor": "Distribution by Color Identity",
       "manaCurve": "Mana Curve (CMC)",
-      "topSets": "Top Sets by Card Count"
+      "topSets": "Top Sets by Card Count",
+      "byType": "Distribution by Card Type"
     },
+    "avgCmc": "Avg CMC",
+    "colorless": "Colorless: {{count}}",
     "failedToLoad": "Failed to load statistics",
     "failedToLoadData": "Failed to load data",
     "retry": "Retry"

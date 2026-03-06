@@ -2,12 +2,14 @@ import { useState, useCallback, useMemo, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { BarChart, Bar, XAxis, YAxis, ResponsiveContainer, Cell } from 'recharts';
-import { api, DeckCard } from '../api/client';
+import { api, DeckCard, DeckImportResponse } from '../api/client';
 import { useCardImage } from '../hooks/useCardImage';
 import { DeckCardPickerModal } from './DeckCardPickerModal';
 import { CardDetailModal } from './CardDetailModal';
 import { ConfirmModal } from './ConfirmModal';
 import { ManaText } from './ManaText';
+import { DeckImportModal } from './DeckImportModal';
+import { AccessibleModal } from './AccessibleModal';
 
 function parsePrice(price: string | undefined): number {
   if (price == null || price === '' || price === 'N/A') return 0;
@@ -77,6 +79,8 @@ export function DeckDetailModal({ deckId, onClose, onDeleted }: DeckDetailModalP
   const { t } = useTranslation();
   const queryClient = useQueryClient();
   const [pickerOpen, setPickerOpen] = useState(false);
+  const [importOpen, setImportOpen] = useState(false);
+  const [copyFeedback, setCopyFeedback] = useState(false);
   const [deleteDeckConfirmOpen, setDeleteDeckConfirmOpen] = useState(false);
   const [hoverCardId, setHoverCardId] = useState<number | null>(null);
   const [detailCard, setDetailCard] = useState<DeckCard | null>(null);
@@ -184,6 +188,45 @@ export function DeckDetailModal({ deckId, onClose, onDeleted }: DeckDetailModalP
     refetch();
   }, [refetch]);
 
+  const handleExport = useCallback(() => {
+    if (!deck?.cards) return;
+
+    const commanders = deck.cards.filter((c) => c.is_commander);
+    const mainboard = deck.cards.filter((c) => !c.is_commander);
+
+    const lines: string[] = [];
+    if (commanders.length > 0) {
+      lines.push('//Commander');
+      for (const c of commanders) {
+        lines.push(`${c.quantity ?? 1} ${c.name}`);
+      }
+      lines.push('');
+    }
+    if (mainboard.length > 0) {
+      lines.push('//Mainboard');
+      for (const c of mainboard) {
+        lines.push(`${c.quantity ?? 1} ${c.name}`);
+      }
+    }
+
+    const text = lines.join('\n');
+    navigator.clipboard.writeText(text).then(() => {
+      setCopyFeedback(true);
+      setTimeout(() => setCopyFeedback(false), 2000);
+    });
+  }, [deck?.cards]);
+
+  const handleImported = useCallback(
+    (result: DeckImportResponse) => {
+      // Update the deck detail cache immediately with the returned data
+      queryClient.setQueryData(['deck', deckId], result.deck);
+      // Refresh the deck list to update card counts
+      queryClient.invalidateQueries({ queryKey: ['decks'] });
+      setImportOpen(false);
+    },
+    [deckId, queryClient]
+  );
+
   const handleSetCommander = useCallback(
     async (e: React.MouseEvent, cardId: number) => {
       e.stopPropagation();
@@ -219,26 +262,22 @@ export function DeckDetailModal({ deckId, onClose, onDeleted }: DeckDetailModalP
 
   if (error) {
     return (
-      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50" onClick={onClose}>
-        <div className="bg-white dark:bg-gray-800 rounded-lg p-6 max-w-md shadow-xl" onClick={(e) => e.stopPropagation()}>
-          <p className="text-red-600 dark:text-red-400">{error instanceof Error ? error.message : t('deckDetail.failedToLoad')}</p>
+      <AccessibleModal isOpen titleId="deck-detail-error-title" onClose={onClose} className="z-50">
+        <div className="bg-white dark:bg-gray-800 rounded-lg p-6 max-w-md shadow-xl">
+          <p id="deck-detail-error-title" role="alert" className="text-red-600 dark:text-red-400">{error instanceof Error ? error.message : t('deckDetail.failedToLoad')}</p>
           <button type="button" onClick={onClose} className="mt-4 text-blue-600 dark:text-blue-400 hover:underline">
             {t('deckDetail.close')}
           </button>
         </div>
-      </div>
+      </AccessibleModal>
     );
   }
 
   return (
     <>
-      <div
-        className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
-        onClick={onClose}
-      >
+      <AccessibleModal isOpen titleId="deck-detail-modal-title" onClose={onClose} className="z-50">
         <div
           className="bg-white dark:bg-gray-800 rounded-xl shadow-xl max-w-4xl w-full max-h-[90vh] flex flex-col overflow-hidden"
-          onClick={(e) => e.stopPropagation()}
         >
           <div className="border-b border-gray-200 dark:border-gray-700 p-4">
             <div className="flex flex-wrap items-center gap-3 sm:gap-4">
@@ -246,6 +285,7 @@ export function DeckDetailModal({ deckId, onClose, onDeleted }: DeckDetailModalP
               <div className="flex items-center gap-2 min-w-0 shrink-0">
                 {nameEdit !== null ? (
                   <input
+                    id="deck-detail-modal-title"
                     type="text"
                     value={nameEdit}
                     onChange={(e) => setNameEdit(e.target.value)}
@@ -256,6 +296,7 @@ export function DeckDetailModal({ deckId, onClose, onDeleted }: DeckDetailModalP
                   />
                 ) : (
                   <button
+                    id="deck-detail-modal-title"
                     type="button"
                     onClick={() => deck && setNameEdit(deck.name)}
                     className="text-lg font-semibold text-gray-900 dark:text-white hover:underline truncate"
@@ -320,6 +361,20 @@ export function DeckDetailModal({ deckId, onClose, onDeleted }: DeckDetailModalP
               )}
               {/* Buttons */}
               <div className="flex items-center gap-2 shrink-0 ml-auto">
+                <button
+                  type="button"
+                  onClick={handleExport}
+                  className="px-3 py-1.5 rounded bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-200 hover:bg-gray-200 dark:hover:bg-gray-600 text-sm font-medium"
+                >
+                  {copyFeedback ? t('deckDetail.copied') : t('deckDetail.export')}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setImportOpen(true)}
+                  className="px-3 py-1.5 rounded bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-200 hover:bg-gray-200 dark:hover:bg-gray-600 text-sm font-medium"
+                >
+                  {t('deckDetail.import')}
+                </button>
                 <button
                   type="button"
                   onClick={() => setPickerOpen(true)}
@@ -419,7 +474,7 @@ export function DeckDetailModal({ deckId, onClose, onDeleted }: DeckDetailModalP
                             type="button"
                             onClick={(e) => {
                               e.stopPropagation();
-                              card.id != null && handleRemoveCard(card.id);
+                              if (card.id != null) handleRemoveCard(card.id);
                             }}
                             className="opacity-0 group-hover:opacity-100 text-red-600 hover:text-red-700 dark:text-red-400 p-1 rounded flex-shrink-0"
                             aria-label={`Remove ${card.name}`}
@@ -437,7 +492,7 @@ export function DeckDetailModal({ deckId, onClose, onDeleted }: DeckDetailModalP
             </div>
           </div>
         </div>
-      </div>
+      </AccessibleModal>
 
       {/* Lightbox: image large, click or Escape to close */}
       {imageLightboxOpen && bigImageUrl && (
@@ -463,6 +518,14 @@ export function DeckDetailModal({ deckId, onClose, onDeleted }: DeckDetailModalP
           deckId={deckId}
           onClose={() => setPickerOpen(false)}
           onAdded={handleCardsAdded}
+        />
+      )}
+
+      {importOpen && (
+        <DeckImportModal
+          deckId={deckId}
+          onClose={() => setImportOpen(false)}
+          onImported={handleImported}
         />
       )}
 

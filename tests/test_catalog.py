@@ -30,6 +30,7 @@ class TestScryfallCardParsing(unittest.TestCase):
     def _parse(self, card_dict):
         """Helper to call the parser without a full job instance."""
         from deckdex.catalog.sync_job import CatalogSyncJob
+
         # Create a minimal instance (repos won't be used)
         job = CatalogSyncJob.__new__(CatalogSyncJob)
         return job._parse_scryfall_card(card_dict)

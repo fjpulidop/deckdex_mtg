@@ -3,7 +3,6 @@
 import asyncio
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Response
-from loguru import logger
 
 from ..dependencies import get_current_user_id
 from ..services import catalog_service
@@ -15,6 +14,7 @@ router = APIRouter(prefix="/api/catalog", tags=["catalog"])
 def _get_catalog_repo():
     """Lazy import to avoid circular deps; returns CatalogRepository or raises 501."""
     from ..dependencies import get_catalog_repo
+
     repo = get_catalog_repo()
     if repo is None:
         raise HTTPException(status_code=501, detail="Catalog requires PostgreSQL (DATABASE_URL)")
@@ -24,6 +24,7 @@ def _get_catalog_repo():
 def _get_stores():
     """Return (catalog_repo, image_store) or raise 501."""
     from ..dependencies import get_catalog_repo, get_image_store
+
     repo = get_catalog_repo()
     if repo is None:
         raise HTTPException(status_code=501, detail="Catalog requires PostgreSQL (DATABASE_URL)")
@@ -33,6 +34,7 @@ def _get_stores():
 # ------------------------------------------------------------------
 # Search & lookup
 # ------------------------------------------------------------------
+
 
 @router.get("/search")
 async def search_cards(
@@ -88,15 +90,18 @@ async def get_card_image(
 # Sync
 # ------------------------------------------------------------------
 
+
 @router.post("/sync")
 async def trigger_sync(
     user_id: int = Depends(get_current_user_id),
 ):
     """Trigger a catalog sync job.  Returns job_id.  409 if already running."""
-    from ..dependencies import get_job_repo, get_image_store, get_catalog_repo
-    from .process import _active_jobs, _job_results, _job_types
-    from deckdex.config_loader import load_config
     import os
+
+    from deckdex.config_loader import load_config
+
+    from ..dependencies import get_catalog_repo, get_image_store, get_job_repo
+    from .process import _active_jobs, _job_results, _job_types
 
     repo = get_catalog_repo()
     if repo is None:

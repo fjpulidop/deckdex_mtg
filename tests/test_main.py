@@ -2,13 +2,17 @@
 """Test suite for DeckDex MTG main CLI and configuration."""
 
 import unittest
-from unittest.mock import patch, MagicMock
+from unittest.mock import MagicMock, patch
+
 from deckdex.config import (
-    ProcessorConfig, ClientFactory,
-    ProcessingConfig, ScryfallConfig, OpenAIConfig, GoogleSheetsConfig,
+    ClientFactory,
+    OpenAIConfig,
+    ProcessingConfig,
+    ProcessorConfig,
+    ScryfallConfig,
 )
-from deckdex.magic_card_processor import MagicCardProcessor
 from deckdex.dry_run_client import DryRunClient
+from deckdex.magic_card_processor import MagicCardProcessor
 
 
 class TestProcessorConfig(unittest.TestCase):
@@ -115,7 +119,9 @@ class TestClientFactory(unittest.TestCase):
     @patch("os.path.isfile", return_value=True)
     @patch("dotenv.load_dotenv")
     @patch.dict("os.environ", {"GOOGLE_API_CREDENTIALS": "/path/to/creds.json"})
-    def test_factory_returns_spreadsheet_client_when_dry_run_false(self, _mock_load_dotenv, mock_isfile, mock_spreadsheet_class):
+    def test_factory_returns_spreadsheet_client_when_dry_run_false(
+        self, _mock_load_dotenv, mock_isfile, mock_spreadsheet_class
+    ):
         """Test ClientFactory returns SpreadsheetClient when dry_run=False."""
         config = ProcessorConfig(dry_run=False)
 
@@ -197,9 +203,9 @@ class TestBackwardsCompatibility(unittest.TestCase):
         config = ProcessorConfig()
         processor = MagicCardProcessor(config)
 
-        self.assertEqual(processor.config.processing.batch_size, 20)   # Old BATCH_SIZE
-        self.assertEqual(processor.config.processing.max_workers, 4)   # Old hardcoded value
-        self.assertEqual(processor.config.scryfall.max_retries, 3)     # Current default
+        self.assertEqual(processor.config.processing.batch_size, 20)  # Old BATCH_SIZE
+        self.assertEqual(processor.config.processing.max_workers, 4)  # Old hardcoded value
+        self.assertEqual(processor.config.scryfall.max_retries, 3)  # Current default
         # Note: api_delay changed from 0.05 to 0.1 (intentional improvement)
 
     @patch("deckdex.config.ClientFactory.create_spreadsheet_client")

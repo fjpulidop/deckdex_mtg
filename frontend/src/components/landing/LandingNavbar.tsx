@@ -1,8 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Menu, X, Github, Sparkles } from 'lucide-react';
-import { useAuth } from '@/contexts/AuthContext';
-import { redirectToGoogleLogin } from '@/utils/auth';
+
 import { LanguageSwitcher } from '@/components/LanguageSwitcher';
 
 export const LandingNavbar = () => {
@@ -10,7 +9,6 @@ export const LandingNavbar = () => {
   const [isOpen, setIsOpen] = useState(false);
   const [hasScrolled, setHasScrolled] = useState(false);
   const [showGithubModal, setShowGithubModal] = useState(false);
-  const { isAuthenticated } = useAuth();
 
   useEffect(() => {
     const handleScroll = () => {
@@ -27,10 +25,6 @@ export const LandingNavbar = () => {
       element.scrollIntoView({ behavior: 'smooth' });
       setIsOpen(false);
     }
-  };
-
-  const handleGoogleLogin = () => {
-    redirectToGoogleLogin();
   };
 
   const handleLogoClick = () => {

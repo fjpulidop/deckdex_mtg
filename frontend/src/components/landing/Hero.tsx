@@ -12,7 +12,7 @@ export const Hero = () => {
   const { t } = useTranslation();
   const { isAuthenticated } = useAuth();
   return (
-    <section className="min-h-screen pt-20 pb-16 bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 flex items-center">
+    <section className="min-h-screen pt-20 pb-16 bg-gradient-to-br from-slate-900/80 via-purple-900/60 to-slate-900/80 flex items-center">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 w-full">
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
           {/* Left Column - Text */}

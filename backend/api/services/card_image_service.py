@@ -4,6 +4,7 @@ Card image service: resolve card image by id, using filesystem ImageStore keyed 
 Catalog-first: checks ImageStore (includes catalog-synced images) before
 falling back to Scryfall download (only when the user has enabled Scryfall).
 """
+
 import os
 import sys
 from typing import Optional, Tuple
@@ -16,8 +17,8 @@ if project_root not in sys.path:
 import requests
 from loguru import logger
 
-from deckdex.config_loader import load_config
 from deckdex.card_fetcher import CardFetcher
+from deckdex.config_loader import load_config
 from deckdex.storage.image_store import ImageStore
 
 
@@ -76,8 +77,7 @@ def get_card_image(
 
     if not scryfall_enabled:
         raise FileNotFoundError(
-            f"Image not found in local store for card '{name}'. "
-            "Enable Scryfall in Settings to download images online."
+            f"Image not found in local store for card '{name}'. Enable Scryfall in Settings to download images online."
         )
 
     # 4) Fetch from Scryfall to get scryfall_id + image URL
@@ -130,7 +130,7 @@ def get_card_image(
         logger.warning(f"Failed to download image from Scryfall: {e}")
         raise FileNotFoundError(f"Could not download image for '{name}'") from e
 
-    content_type = resp.headers.get('content-type', 'image/jpeg')
+    content_type = resp.headers.get("content-type", "image/jpeg")
     if scryfall_id:
         try:
             image_store.put(scryfall_id, data, content_type)

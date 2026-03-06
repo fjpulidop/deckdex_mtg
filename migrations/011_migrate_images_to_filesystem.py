@@ -4,6 +4,7 @@
 Idempotent: skips if card_image_cache table does not exist.
 After migrating all rows, drops the card_image_cache table.
 """
+
 import os
 import sys
 
@@ -16,6 +17,7 @@ from loguru import logger
 
 def run(database_url: str = None):
     from sqlalchemy import create_engine, text
+
     from deckdex.config_loader import load_config
     from deckdex.storage.image_store import FilesystemImageStore
 
@@ -35,10 +37,9 @@ def run(database_url: str = None):
 
     with engine.connect() as conn:
         # Check if card_image_cache table exists
-        exists = conn.execute(text(
-            "SELECT EXISTS (SELECT 1 FROM information_schema.tables "
-            "WHERE table_name = 'card_image_cache')"
-        )).scalar()
+        exists = conn.execute(
+            text("SELECT EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'card_image_cache')")
+        ).scalar()
         if not exists:
             logger.info("card_image_cache table does not exist, skipping migration 011")
             return
@@ -49,9 +50,7 @@ def run(database_url: str = None):
 
         # Iterate and write to filesystem
         migrated = 0
-        rows = conn.execute(text(
-            "SELECT scryfall_id, content_type, data FROM card_image_cache"
-        ))
+        rows = conn.execute(text("SELECT scryfall_id, content_type, data FROM card_image_cache"))
         for row in rows:
             scryfall_id, content_type, data = row[0], row[1], row[2]
             if not scryfall_id or not data:

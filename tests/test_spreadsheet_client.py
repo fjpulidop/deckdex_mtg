@@ -1,8 +1,10 @@
 import unittest
-from unittest.mock import patch, MagicMock
-from deckdex.spreadsheet_client import SpreadsheetClient
-from deckdex.config import GoogleSheetsConfig
+from unittest.mock import MagicMock, patch
+
 from google.oauth2.service_account import Credentials
+
+from deckdex.config import GoogleSheetsConfig
+from deckdex.spreadsheet_client import SpreadsheetClient
 
 
 class TestSpreadsheetClient(unittest.TestCase):

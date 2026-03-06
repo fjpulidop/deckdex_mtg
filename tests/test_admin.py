@@ -5,16 +5,16 @@ backend dependencies (cryptography, gspread, etc.) that may not be fully
 available in every test environment.
 """
 
-import os
 import asyncio
+import os
 import unittest
 from unittest.mock import patch
-
 
 # ---------------------------------------------------------------------------
 # Inline implementation of the admin helpers (mirrors backend/api/dependencies.py)
 # to allow testing without importing the full module chain.
 # ---------------------------------------------------------------------------
+
 
 def _is_admin_user(email: str) -> bool:
     """Mirrors backend.api.dependencies.is_admin_user."""
@@ -41,6 +41,7 @@ async def _require_admin(user: dict) -> dict:
 # ---------------------------------------------------------------------------
 # Tests
 # ---------------------------------------------------------------------------
+
 
 class TestIsAdminUser(unittest.TestCase):
     """Test the is_admin_user helper function."""
@@ -120,8 +121,9 @@ class TestUserPayloadIsAdmin(unittest.TestCase):
     """Test that UserPayload model includes is_admin field."""
 
     def test_default_false(self):
-        from pydantic import BaseModel
         from typing import Optional
+
+        from pydantic import BaseModel
 
         class UserPayload(BaseModel):
             id: int
@@ -134,8 +136,9 @@ class TestUserPayloadIsAdmin(unittest.TestCase):
         self.assertFalse(payload.is_admin)
 
     def test_explicit_true(self):
-        from pydantic import BaseModel
         from typing import Optional
+
+        from pydantic import BaseModel
 
         class UserPayload(BaseModel):
             id: int
@@ -148,8 +151,9 @@ class TestUserPayloadIsAdmin(unittest.TestCase):
         self.assertTrue(payload.is_admin)
 
     def test_serialization_includes_is_admin(self):
-        from pydantic import BaseModel
         from typing import Optional
+
+        from pydantic import BaseModel
 
         class UserPayload(BaseModel):
             id: int

@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Card, api } from '../api/client';
+import { AccessibleModal } from './AccessibleModal';
 
 const DEBOUNCE_MS = 280;
 const MIN_QUERY_LENGTH = 2;
@@ -138,7 +139,7 @@ export function CardFormModal({ title, mode, initial, onSubmit, onClose }: CardF
     } finally {
       setSaving(false);
     }
-  }, []);
+  }, [t]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -209,14 +210,15 @@ export function CardFormModal({ title, mode, initial, onSubmit, onClose }: CardF
   }, []);
 
   return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50" onClick={onClose}>
-      <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl max-w-md w-full mx-4 p-6" onClick={e => e.stopPropagation()}>
-        <h2 className="text-lg font-semibold mb-4 text-gray-900 dark:text-white">{title}</h2>
-        {error && <div className="mb-4 text-red-600 dark:text-red-400 text-sm">{error}</div>}
+    <AccessibleModal isOpen titleId="card-form-modal-title" onClose={onClose}>
+      <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl max-w-md w-full mx-4 p-6">
+        <h2 id="card-form-modal-title" className="text-lg font-semibold mb-4 text-gray-900 dark:text-white">{title}</h2>
+        {error && <div role="alert" className="mb-4 text-red-600 dark:text-red-400 text-sm">{error}</div>}
         <form onSubmit={handleSubmit} className="space-y-4">
           <div ref={dropdownRef} className="relative">
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{t('cardForm.title')}</label>
+            <label htmlFor="card-form-name" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{t('cardForm.title')}</label>
             <input
+              id="card-form-name"
               ref={inputRef}
               type="text"
               value={name}
@@ -244,7 +246,7 @@ export function CardFormModal({ title, mode, initial, onSubmit, onClose }: CardF
                 {collectionSuggestions.length > 0 && (
                   <>
                     <li className="px-3 py-1.5 text-xs font-medium text-gray-500 dark:text-gray-400 bg-gray-100 dark:bg-gray-600 sticky top-0">{t('cardForm.inYourCollection')}</li>
-                    {collectionSuggestions.map((item, i) => {
+                    {collectionSuggestions.map((item) => {
                       const idx = allSuggestions.indexOf(item);
                       return (
                         <li
@@ -264,7 +266,7 @@ export function CardFormModal({ title, mode, initial, onSubmit, onClose }: CardF
                 {(showCatalog || catalogSuggestions.length > 0) && (
                   <>
                     <li className="px-3 py-1.5 text-xs font-medium text-gray-500 dark:text-gray-400 bg-gray-100 dark:bg-gray-600 sticky top-0">{t('cardForm.otherCards')}</li>
-                    {catalogSuggestions.map((item, i) => {
+                    {catalogSuggestions.map((item) => {
                       const idx = allSuggestions.indexOf(item);
                       return (
                         <li
@@ -299,8 +301,9 @@ export function CardFormModal({ title, mode, initial, onSubmit, onClose }: CardF
           {!isAdd && (
             <>
               <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{t('cardForm.type')}</label>
+                <label htmlFor="card-form-type" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{t('cardForm.type')}</label>
                 <input
+                  id="card-form-type"
                   type="text"
                   value={type}
                   onChange={e => setType(e.target.value)}
@@ -308,8 +311,9 @@ export function CardFormModal({ title, mode, initial, onSubmit, onClose }: CardF
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{t('cardForm.rarity')}</label>
+                <label htmlFor="card-form-rarity" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{t('cardForm.rarity')}</label>
                 <input
+                  id="card-form-rarity"
                   type="text"
                   value={rarity}
                   onChange={e => setRarity(e.target.value)}
@@ -317,8 +321,9 @@ export function CardFormModal({ title, mode, initial, onSubmit, onClose }: CardF
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{t('cardForm.price')}</label>
+                <label htmlFor="card-form-price" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{t('cardForm.price')}</label>
                 <input
+                  id="card-form-price"
                   type="text"
                   value={price}
                   onChange={e => setPrice(e.target.value)}
@@ -326,8 +331,9 @@ export function CardFormModal({ title, mode, initial, onSubmit, onClose }: CardF
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{t('cardForm.set')}</label>
+                <label htmlFor="card-form-set" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{t('cardForm.set')}</label>
                 <input
+                  id="card-form-set"
                   type="text"
                   value={setNameVal}
                   onChange={e => setSetNameVal(e.target.value)}
@@ -347,6 +353,6 @@ export function CardFormModal({ title, mode, initial, onSubmit, onClose }: CardF
           </div>
         </form>
       </div>
-    </div>
+    </AccessibleModal>
   );
 }

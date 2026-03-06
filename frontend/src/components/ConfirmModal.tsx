@@ -35,6 +35,7 @@ export function ConfirmModal({
 
   // Reset prompt value when opened
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- intentional: reset form state when modal opens
     if (isOpen) setPromptValue(promptDefault);
   }, [isOpen, promptDefault]);
 

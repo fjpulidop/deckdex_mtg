@@ -2,13 +2,15 @@
 Statistics API routes
 Endpoints for collection statistics and aggregations
 """
-from typing import Optional, Any
-from datetime import datetime
-from fastapi import APIRouter, HTTPException, Query, Depends, Request
-from pydantic import BaseModel
-from loguru import logger
 
-from ..dependencies import get_cached_collection, get_current_user_id
+from datetime import datetime
+from typing import Any, Optional
+
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
+from loguru import logger
+from pydantic import BaseModel
+
+from ..dependencies import get_cached_collection, get_collection_repo, get_current_user_id
 from ..filters import filter_collection, parse_price
 
 router = APIRouter(prefix="/api/stats", tags=["stats"])
@@ -18,32 +20,44 @@ router = APIRouter(prefix="/api/stats", tags=["stats"])
 _stats_cache: dict[tuple, dict[str, Any]] = {}
 _STATS_TTL = 30  # seconds
 
+
 class Stats(BaseModel):
     """Collection statistics model"""
+
     total_cards: int
     total_value: float
     average_price: float
     last_updated: str
-    
+
     class Config:
         from_attributes = True
 
+
 def _cache_key(
+    user_id: int,
     search: Optional[str],
     rarity: Optional[str],
     type_: Optional[str],
     set_name: Optional[str],
     price_min: Optional[str],
     price_max: Optional[str],
+    color_identity: Optional[str] = None,
+    cmc: Optional[str] = None,
 ) -> tuple:
-    """Canonical cache key from filter params (normalized, so same filters hit same key)."""
+    """Canonical cache key from filter params (normalized, so same filters hit same key).
+
+    Includes user_id to prevent cross-user cache leakage.
+    """
     return (
+        user_id,
         (search or "").strip(),
         (rarity or "").strip().lower(),
         (type_ or "").strip(),
         (set_name or "").strip(),
         (price_min or "").strip(),
         (price_max or "").strip(),
+        (color_identity or "").strip(),
+        (cmc or "").strip(),
     )
 
 
@@ -88,15 +102,19 @@ async def get_stats(
     set_name: Optional[str] = Query(default=None),
     price_min: Optional[str] = Query(default=None),
     price_max: Optional[str] = Query(default=None),
-    user_id: int = Depends(get_current_user_id)
+    color_identity: Optional[str] = Query(default=None),
+    cmc: Optional[str] = Query(default=None),
+    user_id: int = Depends(get_current_user_id),
 ):
     """
     Get collection statistics, optionally filtered by query params.
 
-    Optional query params: search, rarity, type, set_name, price_min, price_max.
+    Optional query params: search, rarity, type, set_name, price_min, price_max, color_identity, cmc.
     Returns statistics with 30-second cache per filter combination.
+    For Postgres: uses a single SQL aggregation query (no full collection load).
+    For Google Sheets: uses cached collection + Python aggregation.
     """
-    key = _cache_key(search, rarity, type_filter, set_name, price_min, price_max)
+    key = _cache_key(user_id, search, rarity, type_filter, set_name, price_min, price_max, color_identity, cmc)
     logger.info("GET /api/stats %s - user=%s", key, user_id)
 
     try:
@@ -108,11 +126,40 @@ async def get_stats(
                 logger.debug("Returning cached stats (key=%s, age=%.1fs)", key, age)
                 return entry["data"]
 
-        collection = get_cached_collection(user_id=user_id)
-        filtered = filter_collection(
-            collection, search, rarity, type_filter, set_name, price_min, price_max
-        )
-        stats = calculate_stats(filtered)
+        repo = get_collection_repo()
+        if repo is not None:
+            # Postgres path: single SQL aggregation query — no full collection load
+            filters = {
+                "search": search,
+                "rarity": rarity,
+                "type_": type_filter,
+                "color_identity": color_identity,
+                "set_name": set_name,
+                "price_min": price_min,
+                "price_max": price_max,
+                "cmc": cmc,
+            }
+            agg = repo.get_cards_stats(user_id=user_id, filters=filters)
+            stats = {
+                **agg,
+                "last_updated": datetime.now().isoformat(),
+            }
+        else:
+            # Google Sheets path: in-memory aggregation
+            collection = get_cached_collection(user_id=user_id)
+            filtered = filter_collection(
+                collection,
+                search=search,
+                rarity=rarity,
+                type_=type_filter,
+                color_identity=color_identity,
+                set_name=set_name,
+                price_min=price_min,
+                price_max=price_max,
+                cmc=cmc,
+            )
+            stats = calculate_stats(filtered)
+
         _stats_cache[key] = {"data": stats, "timestamp": now}
         logger.info("Stats: %s", stats)
         return stats

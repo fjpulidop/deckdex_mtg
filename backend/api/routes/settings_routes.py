@@ -2,14 +2,15 @@
 Settings API: Scryfall credentials, external API toggles, and other app settings.
 Credentials are stored as JSON internally; per-user settings in PostgreSQL.
 """
+
 from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel
 
+from ..dependencies import get_current_user_id, get_user_settings_repo
 from ..settings_store import (
     get_scryfall_credentials,
     set_scryfall_credentials,
 )
-from ..dependencies import get_current_user_id, get_user_settings_repo
 
 router = APIRouter(prefix="/api/settings", tags=["settings"])
 

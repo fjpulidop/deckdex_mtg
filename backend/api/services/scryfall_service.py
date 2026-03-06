@@ -4,9 +4,10 @@ Scryfall service: card name suggestions (autocomplete) and resolve card by name.
 Catalog-first: queries the local catalog first, falls back to Scryfall only
 when the user has enabled it in their external API settings.
 """
+
 import os
 import sys
-from typing import List, Dict, Any, Optional
+from typing import Any, Dict, List, Optional
 
 project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), "../../../"))
 if project_root not in sys.path:
@@ -14,8 +15,8 @@ if project_root not in sys.path:
 
 from loguru import logger
 
-from deckdex.config_loader import load_config
 from deckdex.card_fetcher import CardFetcher
+from deckdex.config_loader import load_config
 
 
 def _get_fetcher() -> CardFetcher:
@@ -26,6 +27,7 @@ def _get_fetcher() -> CardFetcher:
 def _is_scryfall_enabled(user_id: int) -> bool:
     """Check if the user has enabled Scryfall fallback."""
     from ..dependencies import get_user_settings_repo
+
     repo = get_user_settings_repo()
     if repo is None:
         return False
@@ -36,6 +38,7 @@ def _is_scryfall_enabled(user_id: int) -> bool:
 def _get_catalog_repo():
     """Get catalog repo (may be None)."""
     from ..dependencies import get_catalog_repo
+
     return get_catalog_repo()
 
 
@@ -160,6 +163,4 @@ def resolve_card_by_name(
             "color_identity": color_identity,
         }
 
-    raise CardNotFoundError(
-        f"Card not found in catalog: {name}. Enable Scryfall in Settings to search online."
-    )
+    raise CardNotFoundError(f"Card not found in catalog: {name}. Enable Scryfall in Settings to search online.")

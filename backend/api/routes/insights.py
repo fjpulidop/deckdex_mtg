@@ -5,7 +5,8 @@ GET  /api/insights/catalog       — Full list of available insight questions
 GET  /api/insights/suggestions   — Contextual suggestion chips for current user
 POST /api/insights/{insight_id}  — Execute an insight computation
 """
-from fastapi import APIRouter, HTTPException, Depends, Request, status
+
+from fastapi import APIRouter, Depends, HTTPException
 from loguru import logger
 
 from ..dependencies import get_cached_collection, get_current_user_id

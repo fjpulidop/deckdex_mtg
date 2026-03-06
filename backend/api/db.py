@@ -16,6 +16,7 @@ def get_database_url() -> Optional[str]:
     """Resolve DATABASE_URL from config or environment."""
     try:
         from deckdex.config_loader import load_config
+
         config = load_config(profile=os.getenv("DECKDEX_PROFILE", "default"))
         if config.database is not None and getattr(config.database, "url", None):
             return config.database.url
@@ -38,6 +39,7 @@ def get_engine():
         return None
 
     from sqlalchemy import create_engine
+
     _engine = create_engine(
         url,
         pool_size=20,

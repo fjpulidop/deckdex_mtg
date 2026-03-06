@@ -1,0 +1,40 @@
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = [
+    "--strict-markers",
+    "--tb=short",
+    "-q",
+]
+markers = [
+    "slow: tests that hit external services or take >1s",
+    "integration: API integration tests requiring TestClient",
+]
+
+[tool.coverage.run]
+source = ["backend", "deckdex"]
+omit = ["*/tests/*", "*/migrations/*"]
+
+[tool.coverage.report]
+show_missing = true
+fail_under = 40
+exclude_lines = [
+    "pragma: no cover",
+    "if TYPE_CHECKING:",
+    "if __name__",
+]
+
+[tool.ruff]
+target-version = "py311"
+line-length = 120
+extend-exclude = [".cursor", ".claude/worktrees"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "W"]
+# E501: line too long (handled by formatter)
+# E402: module import not at top (pattern used for sys.path setup before imports)
+# F841: unused variable (pre-existing test patterns using assignment to assert side effects)
+# W293: blank line contains whitespace (occurs in multiline strings, safe to ignore)
+ignore = ["E501", "E402", "F841", "W293"]
+
+[tool.ruff.format]
+quote-style = "double"

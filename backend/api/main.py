@@ -2,17 +2,19 @@
 DeckDex MTG - FastAPI Backend
 Main application entry point
 """
+
 import os
+import sys
 import uuid
+
 from fastapi import FastAPI, Request, status
+from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
-from fastapi.exceptions import RequestValidationError
 from loguru import logger
 from slowapi import Limiter, _rate_limit_exceeded_handler
-from slowapi.util import get_remote_address
 from slowapi.errors import RateLimitExceeded
-import sys
+from slowapi.util import get_remote_address
 
 # Configure loguru logger
 logger.remove()  # Remove default handler
@@ -43,9 +45,7 @@ limiter = Limiter(key_func=get_remote_address)
 
 # Initialize FastAPI app
 app = FastAPI(
-    title="DeckDex MTG API",
-    description="REST API for DeckDex MTG card collection management",
-    version="0.1.0"
+    title="DeckDex MTG API", description="REST API for DeckDex MTG card collection management", version="0.1.0"
 )
 
 # Attach limiter to app state (required by slowapi)
@@ -65,26 +65,22 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+
 # Global exception handler for unhandled exceptions — NO internal details leaked
 @app.exception_handler(Exception)
 async def global_exception_handler(request: Request, exc: Exception):
     logger.opt(exception=True).error("Unhandled exception on {} {}: {}", request.method, request.url.path, repr(exc))
-    return JSONResponse(
-        status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-        content={"detail": "Internal server error"}
-    )
+    return JSONResponse(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, content={"detail": "Internal server error"})
+
 
 # Validation error handler
 @app.exception_handler(RequestValidationError)
 async def validation_exception_handler(request: Request, exc: RequestValidationError):
     logger.warning(f"Validation error: {exc.errors()}")
     return JSONResponse(
-        status_code=status.HTTP_400_BAD_REQUEST,
-        content={
-            "detail": "Validation error",
-            "errors": exc.errors()
-        }
+        status_code=status.HTTP_400_BAD_REQUEST, content={"detail": "Validation error", "errors": exc.errors()}
     )
+
 
 # ---------------------------------------------------------------------------
 # Global request body size limit (25 MB)
@@ -150,9 +146,11 @@ async def health_check():
     }
     try:
         from .db import get_engine
+
         engine = get_engine()
         if engine is not None:
             from sqlalchemy import text
+
             with engine.connect() as conn:
                 conn.execute(text("SELECT 1"))
             result["database"] = "connected"
@@ -165,8 +163,21 @@ async def health_check():
         return JSONResponse(status_code=503, content=result)
     return result
 
+
 # Import and include routers
-from .routes import cards, stats, process, import_routes, settings_routes, analytics, decks, auth, insights, catalog_routes, admin_routes
+from .routes import (
+    admin_routes,
+    analytics,
+    auth,
+    cards,
+    catalog_routes,
+    decks,
+    import_routes,
+    insights,
+    process,
+    settings_routes,
+    stats,
+)
 from .websockets import progress
 
 app.include_router(auth.router)
@@ -182,14 +193,17 @@ app.include_router(catalog_routes.router)
 app.include_router(admin_routes.router)
 app.include_router(progress.router)
 
+
 @app.on_event("startup")
 async def startup_event():
     """Application startup tasks"""
     logger.info("API startup complete")
 
+
 @app.on_event("shutdown")
 async def shutdown_event():
     """Application shutdown tasks"""
     from .db import dispose_engine
+
     dispose_engine()
     logger.info("API shutting down")

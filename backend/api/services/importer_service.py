@@ -12,8 +12,8 @@ project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), "../../..
 if project_root not in sys.path:
     sys.path.insert(0, project_root)
 
-from deckdex.importers.base import ParsedCard
 from deckdex.config_loader import load_config
+from deckdex.importers.base import ParsedCard
 
 
 class ImporterService:
@@ -45,13 +45,15 @@ class ImporterService:
         pct = (current / total * 100) if total else 0
         if self._loop and self._progress_callback:
             asyncio.run_coroutine_threadsafe(
-                self._progress_callback({
-                    "type": "progress",
-                    "job_id": self._job_id,
-                    "current": current,
-                    "total": total,
-                    "percentage": pct,
-                }),
+                self._progress_callback(
+                    {
+                        "type": "progress",
+                        "job_id": self._job_id,
+                        "current": current,
+                        "total": total,
+                        "percentage": pct,
+                    }
+                ),
                 self._loop,
             )
 
@@ -61,8 +63,10 @@ class ImporterService:
         Catalog-first: tries to enrich from the local catalog before falling
         back to Scryfall (only when the user has Scryfall enabled).
         """
-        from deckdex.card_fetcher import CardFetcher
         from sqlalchemy import text
+
+        from deckdex.card_fetcher import CardFetcher
+
         from ..dependencies import get_catalog_repo, get_user_settings_repo
 
         config = load_config(profile=os.getenv("DECKDEX_PROFILE", "default"))
@@ -120,6 +124,7 @@ class ImporterService:
             with engine.connect() as conn:
                 for card in enriched_cards:
                     from deckdex.storage.repository import _card_to_row
+
                     row = _card_to_row(card)
                     name = row.get("name") or ""
                     set_id = row.get("set_id") or ""
@@ -139,7 +144,9 @@ class ImporterService:
 
                     if existing:
                         conn.execute(
-                            text("UPDATE cards SET quantity = quantity + :qty, updated_at = NOW() AT TIME ZONE 'utc' WHERE id = :id"),
+                            text(
+                                "UPDATE cards SET quantity = quantity + :qty, updated_at = NOW() AT TIME ZONE 'utc' WHERE id = :id"
+                            ),
                             {"qty": qty, "id": existing[0]},
                         )
                     else:
@@ -186,12 +193,14 @@ class ImporterService:
         try:
             result = await self._loop.run_in_executor(executor, self._run_import, parsed_cards)
             if self._progress_callback:
-                await self._progress_callback({
-                    "type": "complete",
-                    "job_id": self._job_id,
-                    "status": "complete",
-                    "summary": result,
-                })
+                await self._progress_callback(
+                    {
+                        "type": "complete",
+                        "job_id": self._job_id,
+                        "status": "complete",
+                        "summary": result,
+                    }
+                )
             return result
         except Exception as e:
             logger.error(f"ImporterService error: {e}")
@@ -202,10 +211,12 @@ class ImporterService:
                 except Exception:
                     pass
             if self._progress_callback:
-                await self._progress_callback({
-                    "type": "complete",
-                    "job_id": self._job_id,
-                    "status": "error",
-                    "summary": err_result,
-                })
+                await self._progress_callback(
+                    {
+                        "type": "complete",
+                        "job_id": self._job_id,
+                        "status": "error",
+                        "summary": err_result,
+                    }
+                )
             raise

@@ -1,10 +1,8 @@
 import { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
-import { useNavigate } from 'react-router-dom';
 import { X } from 'lucide-react';
 import { api } from '../api/client';
-import { ActionButtons } from './ActionButtons';
-import { useActiveJobs } from '../contexts/ActiveJobsContext';
+import { AccessibleModal } from './AccessibleModal';
 
 interface SettingsModalProps {
   onClose: () => void;
@@ -12,8 +10,6 @@ interface SettingsModalProps {
 
 export function SettingsModal({ onClose }: SettingsModalProps) {
   const { t } = useTranslation();
-  const { addJob } = useActiveJobs();
-  const navigate = useNavigate();
   const [importFileLoading, setImportFileLoading] = useState(false);
   const [importFileResult, setImportFileResult] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -30,13 +26,6 @@ export function SettingsModal({ onClose }: SettingsModalProps) {
     api.getScryfallCredentials().then((r) => setScryfallConfigured(r.configured)).catch(() => setScryfallConfigured(false));
     api.getExternalApisSettings().then((r) => setScryfallEnabled(r.scryfall_enabled)).catch(() => {});
   }, []);
-
-  // ESC to close
-  useEffect(() => {
-    const handler = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
-    document.addEventListener('keydown', handler);
-    return () => document.removeEventListener('keydown', handler);
-  }, [onClose]);
 
   const handleSaveScryfallCredentials = async () => {
     setError(null);
@@ -97,16 +86,16 @@ export function SettingsModal({ onClose }: SettingsModalProps) {
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50" onClick={onClose}>
+    <AccessibleModal isOpen titleId="settings-modal-title" onClose={onClose} className="z-50 items-start pt-16">
       <div
         className="relative bg-white dark:bg-gray-800 rounded-xl shadow-2xl w-full max-w-2xl mx-4 max-h-[90vh] overflow-y-auto"
-        onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
         <div className="flex items-center justify-between p-6 border-b border-gray-200 dark:border-gray-700 sticky top-0 bg-white dark:bg-gray-800 z-10">
-          <h2 className="text-lg font-semibold text-gray-900 dark:text-white">{t('settings.title')}</h2>
+          <h2 id="settings-modal-title" className="text-lg font-semibold text-gray-900 dark:text-white">{t('settings.title')}</h2>
           <button
             onClick={onClose}
+            aria-label={t('common.close')}
             className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 transition-colors"
           >
             <X className="w-5 h-5" />
@@ -115,7 +104,7 @@ export function SettingsModal({ onClose }: SettingsModalProps) {
 
         <div className="p-6 space-y-6">
           {error && (
-            <div className="bg-red-50 dark:bg-red-900/30 text-red-700 dark:text-red-300 p-3 rounded">{error}</div>
+            <div role="alert" className="bg-red-50 dark:bg-red-900/30 text-red-700 dark:text-red-300 p-3 rounded">{error}</div>
           )}
 
           <section>
@@ -124,7 +113,9 @@ export function SettingsModal({ onClose }: SettingsModalProps) {
               {t('settings.scryfallDesc')}
             </p>
             <div className="flex flex-col gap-2">
+              <label htmlFor="settings-scryfall-json" className="sr-only">{t('settings.scryfallCredentialsLabel')}</label>
               <textarea
+                id="settings-scryfall-json"
                 value={scryfallJson}
                 onChange={(e) => setScryfallJson(e.target.value)}
                 placeholder='{"type": "service_account", ...}'
@@ -219,41 +210,23 @@ export function SettingsModal({ onClose }: SettingsModalProps) {
             <p className="mb-3 text-sm text-gray-600 dark:text-gray-400">
               {t('settings.importCollectionDesc')}
             </p>
-            <button
-              type="button"
-              onClick={() => { onClose(); navigate('/import'); }}
-              className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm dark:bg-blue-500 dark:hover:bg-blue-600"
-            >
-              {t('settings.goToImport')}
-            </button>
-            <details className="mt-4">
-              <summary className="text-sm text-gray-500 dark:text-gray-400 cursor-pointer hover:text-gray-700 dark:hover:text-gray-200">
-                {t('settings.quickImport')}
-              </summary>
-              <div className="mt-2">
-                <p className="mb-2 text-sm text-gray-600 dark:text-gray-400">
-                  {t('settings.quickImportDesc')}
-                </p>
-                <input
-                  type="file"
-                  accept=".csv,.json"
-                  onChange={handleFileChange}
-                  disabled={importFileLoading}
-                  className="block w-full text-sm text-gray-500 dark:text-gray-400 file:mr-4 file:py-2 file:px-4 file:rounded file:border-0 file:bg-blue-50 dark:file:bg-blue-900/50 file:text-blue-700 dark:file:text-blue-300"
-                />
-                {importFileResult && (
-                  <p className="mt-2 text-green-700 dark:text-green-400">{importFileResult}</p>
-                )}
-              </div>
-            </details>
+            <p className="mb-2 text-sm text-gray-600 dark:text-gray-400">
+              {t('settings.quickImportDesc')}
+            </p>
+            <input
+              type="file"
+              accept=".csv,.json"
+              onChange={handleFileChange}
+              disabled={importFileLoading}
+              className="block w-full text-sm text-gray-500 dark:text-gray-400 file:mr-4 file:py-2 file:px-4 file:rounded file:border-0 file:bg-blue-50 dark:file:bg-blue-900/50 file:text-blue-700 dark:file:text-blue-300"
+            />
+            {importFileResult && (
+              <p className="mt-2 text-green-700 dark:text-green-400">{importFileResult}</p>
+            )}
           </section>
 
-          <section>
-            <h3 className="text-base font-semibold mb-3 text-gray-900 dark:text-white">{t('settings.deckActions')}</h3>
-            <ActionButtons onJobStarted={addJob} inline />
-          </section>
         </div>
       </div>
-    </div>
+    </AccessibleModal>
   );
 }

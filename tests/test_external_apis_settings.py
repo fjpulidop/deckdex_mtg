@@ -1,10 +1,7 @@
 """Tests for external-apis-settings: UserSettingsRepository logic and catalog-first lookup."""
 
-import json
-import os
 import unittest
-from unittest.mock import patch, MagicMock, PropertyMock
-
+from unittest.mock import MagicMock
 
 # ---------------------------------------------------------------------------
 # Inline helpers mirroring the repository default logic (avoids importing

@@ -85,7 +85,19 @@ export interface Card {
   tier?: string;
   created_at?: string;  // ISO timestamp when card was added
   quantity?: number;
-  [key: string]: any;
+  [key: string]: string | number | boolean | null | undefined;
+}
+
+export interface CardPage {
+  items: Card[];
+  total: number;
+  limit: number;
+  offset: number;
+}
+
+export interface FilterOptions {
+  types: string[];
+  sets: string[];
 }
 
 export interface Stats {
@@ -140,6 +152,19 @@ export interface DeckCard extends Card {
 
 export interface DeckWithCards extends DeckListItem {
   cards: DeckCard[];
+}
+
+export interface DeckImportSkippedCard {
+  name: string;
+  quantity: number;
+  reason: string;
+}
+
+export interface DeckImportResponse {
+  imported_count: number;
+  skipped_count: number;
+  skipped: DeckImportSkippedCard[];
+  deck: DeckWithCards;
 }
 
 // Insights types
@@ -233,9 +258,27 @@ export interface ExternalApisSettings {
   scryfall_enabled: boolean;
 }
 
+export interface ResolvedCardItem {
+  original_name: string;
+  quantity: number;
+  set_name: string | null;
+  status: 'matched' | 'suggested' | 'not_found';
+  resolved_name: string | null;
+  suggestions: string[];
+}
+
+export interface ResolveResponse {
+  format: string;
+  total: number;
+  matched_count: number;
+  unresolved_count: number;
+  cards: ResolvedCardItem[];
+}
+
 // API functions
 export const api = {
   // Cards (same filter params as stats so list and totals match)
+  // Returns CardPage: { items, total, limit, offset }
   getCards: async (params?: {
     limit?: number;
     offset?: number;
@@ -246,7 +289,7 @@ export const api = {
     set_name?: string;
     price_min?: string;
     price_max?: string;
-  }): Promise<Card[]> => {
+  }): Promise<CardPage> => {
     const cleanParams: Record<string, string> = {};
     if (params) {
       for (const [key, value] of Object.entries(params)) {
@@ -258,6 +301,13 @@ export const api = {
     const query = new URLSearchParams(cleanParams).toString();
     const response = await apiFetch(`${API_BASE}/cards/${query ? `?${query}` : ''}`);
     if (!response.ok) throw new Error('Failed to fetch cards');
+    return response.json();
+  },
+
+  // Filter options for type/set dropdowns (avoids loading full collection client-side)
+  getFilterOptions: async (): Promise<FilterOptions> => {
+    const response = await apiFetch(`${API_BASE}/cards/filter-options`);
+    if (!response.ok) throw new Error('Failed to fetch filter options');
     return response.json();
   },
 
@@ -304,6 +354,8 @@ export const api = {
     set_name?: string;
     price_min?: string;
     price_max?: string;
+    color_identity?: string;
+    cmc?: string;
   }): Promise<Stats> => {
     const cleanParams: Record<string, string> = {};
     if (params) {
@@ -445,6 +497,12 @@ export const api = {
     if (!response.ok) throw new Error('Failed to fetch analytics sets');
     return response.json();
   },
+  getAnalyticsType: async (params?: Record<string, string>): Promise<{ type_line: string; count: number }[]> => {
+    const query = params ? new URLSearchParams(params).toString() : '';
+    const response = await apiFetch(`${API_BASE}/analytics/type${query ? `?${query}` : ''}`);
+    if (!response.ok) throw new Error('Failed to fetch analytics type distribution');
+    return response.json();
+  },
 
   // Quantity update (inline edit)
   updateCardQuantity: async (cardId: number, quantity: number): Promise<{ id: number; quantity: number }> => {
@@ -507,6 +565,33 @@ export const api = {
     form.append('text', text);
     form.append('mode', mode);
     const response = await apiFetch(`${API_BASE}/import/external`, { method: 'POST', body: form });
+    if (!response.ok) {
+      const err = await response.json().catch(() => ({}));
+      throw new Error((err as { detail?: string }).detail || 'Import failed');
+    }
+    return response.json();
+  },
+
+  // Import resolve — resolve card names against catalog + Scryfall
+  importResolve: async (file?: File, text?: string): Promise<ResolveResponse> => {
+    const form = new FormData();
+    if (file) form.append('file', file);
+    if (text) form.append('text', text);
+    const response = await apiFetch(`${API_BASE}/import/resolve`, { method: 'POST', body: form });
+    if (!response.ok) {
+      const err = await response.json().catch(() => ({}));
+      throw new Error((err as { detail?: string }).detail || 'Resolve failed');
+    }
+    return response.json();
+  },
+
+  // Import from pre-resolved card list (JSON body)
+  importExternalFromCards: async (cards: { name: string; quantity: number; set_name?: string | null }[], mode: 'merge' | 'replace'): Promise<{ job_id: string; card_count: number; format: string; mode: string }> => {
+    const response = await apiFetch(`${API_BASE}/import/external/cards`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ cards, mode }),
+    });
     if (!response.ok) {
       const err = await response.json().catch(() => ({}));
       throw new Error((err as { detail?: string }).detail || 'Import failed');
@@ -673,6 +758,20 @@ export const api = {
       const err = await response.json().catch(() => ({}));
       if (response.status === 404) throw new Error('Deck or card not found');
       throw new Error((err as { detail?: string }).detail || 'Failed to set commander');
+    }
+    return response.json();
+  },
+  importDeckText: async (deckId: number, text: string): Promise<DeckImportResponse> => {
+    const response = await apiFetch(`${API_BASE}/decks/${deckId}/import`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ text }),
+    });
+    if (!response.ok) {
+      const err = await response.json().catch(() => ({}));
+      if (response.status === 501) throw new Error((err as { detail?: string }).detail || 'Decks require Postgres');
+      if (response.status === 404) throw new Error('Deck not found');
+      throw new Error((err as { detail?: string }).detail || 'Failed to import deck');
     }
     return response.json();
   },

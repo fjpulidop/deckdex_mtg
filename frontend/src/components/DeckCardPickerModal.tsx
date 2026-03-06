@@ -1,8 +1,9 @@
-import { useState, useCallback, useEffect, useMemo } from 'react';
+import { useState, useCallback, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useQuery } from '@tanstack/react-query';
 import { api, Card } from '../api/client';
 import { ManaText } from './ManaText';
+import { AccessibleModal } from './AccessibleModal';
 
 const COLOR_IDS = ['W', 'U', 'B', 'R', 'G'] as const;
 
@@ -93,28 +94,13 @@ export function DeckCardPickerModal({ deckId, onClose, onAdded }: DeckCardPicker
     }
   }, [deckId, selected, onAdded]);
 
-  useEffect(() => {
-    const onKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') {
-        e.stopPropagation();
-        onClose();
-      }
-    };
-    window.addEventListener('keydown', onKeyDown);
-    return () => window.removeEventListener('keydown', onKeyDown);
-  }, [onClose]);
-
   return (
-    <div
-      className="fixed inset-0 z-[60] flex items-center justify-center bg-black/60 p-4"
-      onClick={onClose}
-    >
+    <AccessibleModal isOpen titleId="deck-card-picker-title" onClose={onClose} className="z-[60]">
       <div
         className="bg-white dark:bg-gray-800 rounded-xl shadow-xl max-w-2xl w-full max-h-[80vh] flex flex-col overflow-hidden"
-        onClick={(e) => e.stopPropagation()}
       >
         <div className="p-4 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between gap-4">
-          <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
+          <h2 id="deck-card-picker-title" className="text-lg font-semibold text-gray-900 dark:text-white">
             {t('deckCardPicker.title')}
           </h2>
           <button
@@ -250,6 +236,6 @@ export function DeckCardPickerModal({ deckId, onClose, onAdded }: DeckCardPicker
           </button>
         </div>
       </div>
-    </div>
+    </AccessibleModal>
   );
 }

@@ -88,7 +88,7 @@ export function DeckBuilder() {
     } catch (e) {
       setCreateError(e instanceof Error ? e.message : t('deckBuilder.createFailed'));
     }
-  }, [queryClient]);
+  }, [queryClient, t]);
 
   const handleCloseModal = useCallback(() => {
     setSelectedDeckId(null);
@@ -96,7 +96,7 @@ export function DeckBuilder() {
   }, [refetchDecks]);
 
   return (
-    <div className="min-h-screen bg-gray-100 dark:bg-gray-900">
+    <div className="relative min-h-screen">
       <div className="container mx-auto px-4 py-8">
         <div className="mb-8">
           <h1 className="text-4xl font-bold text-gray-900 dark:text-white mb-2">
@@ -114,7 +114,7 @@ export function DeckBuilder() {
         )}
 
         {createError && (
-          <div className="mb-6 p-4 rounded-lg bg-red-100 dark:bg-red-900/30 text-red-800 dark:text-red-200">
+          <div role="alert" className="mb-6 p-4 rounded-lg bg-red-100 dark:bg-red-900/30 text-red-800 dark:text-red-200">
             {createError}
           </div>
         )}

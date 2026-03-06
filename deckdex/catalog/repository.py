@@ -1,8 +1,6 @@
 """Catalog repository: read/write access to the catalog_cards and catalog_sync_state tables."""
 
-from typing import Dict, Any, List, Optional
-
-from loguru import logger
+from typing import Any, Dict, List, Optional
 
 
 class CatalogRepository:
@@ -16,6 +14,7 @@ class CatalogRepository:
 
     def _engine(self):
         from sqlalchemy import create_engine
+
         if self._eng is None:
             self._eng = create_engine(self._url, pool_pre_ping=True)
         return self._eng
@@ -27,23 +26,29 @@ class CatalogRepository:
     def search_by_name(self, query: str, limit: int = 20) -> List[Dict[str, Any]]:
         """Return catalog cards whose name contains *query* (case-insensitive)."""
         from sqlalchemy import text
+
         if not query or not query.strip():
             return []
         with self._engine().connect() as conn:
-            rows = conn.execute(
-                text("""
+            rows = (
+                conn.execute(
+                    text("""
                     SELECT * FROM catalog_cards
                     WHERE name ILIKE :pattern
                     ORDER BY name
                     LIMIT :lim
                 """),
-                {"pattern": f"%{query.strip()}%", "lim": limit},
-            ).mappings().fetchall()
+                    {"pattern": f"%{query.strip()}%", "lim": limit},
+                )
+                .mappings()
+                .fetchall()
+            )
             return [dict(r) for r in rows]
 
     def autocomplete(self, query: str, limit: int = 20) -> List[str]:
         """Return up to *limit* card names matching *query* prefix (case-insensitive)."""
         from sqlalchemy import text
+
         if not query or len(query.strip()) < 2:
             return []
         with self._engine().connect() as conn:
@@ -61,11 +66,16 @@ class CatalogRepository:
     def get_by_scryfall_id(self, scryfall_id: str) -> Optional[Dict[str, Any]]:
         """Return a single catalog card by its Scryfall UUID, or None."""
         from sqlalchemy import text
+
         with self._engine().connect() as conn:
-            row = conn.execute(
-                text("SELECT * FROM catalog_cards WHERE scryfall_id = :sid"),
-                {"sid": scryfall_id},
-            ).mappings().fetchone()
+            row = (
+                conn.execute(
+                    text("SELECT * FROM catalog_cards WHERE scryfall_id = :sid"),
+                    {"sid": scryfall_id},
+                )
+                .mappings()
+                .fetchone()
+            )
             return dict(row) if row else None
 
     # ------------------------------------------------------------------
@@ -75,21 +85,40 @@ class CatalogRepository:
     def upsert_cards(self, cards: List[Dict[str, Any]]) -> int:
         """Batch UPSERT cards into catalog_cards.  Returns number of rows affected."""
         from sqlalchemy import text
+
         if not cards:
             return 0
         cols = [
-            "scryfall_id", "oracle_id", "name", "type_line", "oracle_text",
-            "mana_cost", "cmc", "colors", "color_identity", "power", "toughness",
-            "rarity", "set_id", "set_name", "collector_number", "release_date",
-            "image_uri_small", "image_uri_normal", "image_uri_large",
-            "prices_eur", "prices_usd", "prices_usd_foil", "edhrec_rank",
-            "keywords", "legalities", "scryfall_uri",
+            "scryfall_id",
+            "oracle_id",
+            "name",
+            "type_line",
+            "oracle_text",
+            "mana_cost",
+            "cmc",
+            "colors",
+            "color_identity",
+            "power",
+            "toughness",
+            "rarity",
+            "set_id",
+            "set_name",
+            "collector_number",
+            "release_date",
+            "image_uri_small",
+            "image_uri_normal",
+            "image_uri_large",
+            "prices_eur",
+            "prices_usd",
+            "prices_usd_foil",
+            "edhrec_rank",
+            "keywords",
+            "legalities",
+            "scryfall_uri",
         ]
         placeholders = ", ".join(f":{c}" for c in cols)
         col_names = ", ".join(cols)
-        update_set = ", ".join(
-            f"{c} = EXCLUDED.{c}" for c in cols if c != "scryfall_id"
-        )
+        update_set = ", ".join(f"{c} = EXCLUDED.{c}" for c in cols if c != "scryfall_id")
         sql = text(f"""
             INSERT INTO catalog_cards ({col_names}, synced_at)
             VALUES ({placeholders}, NOW())
@@ -112,6 +141,7 @@ class CatalogRepository:
     def update_image_status(self, scryfall_id: str, status: str) -> None:
         """Set image_status for a catalog card."""
         from sqlalchemy import text
+
         with self._engine().connect() as conn:
             conn.execute(
                 text("UPDATE catalog_cards SET image_status = :st WHERE scryfall_id = :sid"),
@@ -119,14 +149,13 @@ class CatalogRepository:
             )
             conn.commit()
 
-    def get_pending_images(
-        self, after_cursor: Optional[str] = None, limit: int = 100
-    ) -> List[Dict[str, Any]]:
+    def get_pending_images(self, after_cursor: Optional[str] = None, limit: int = 100) -> List[Dict[str, Any]]:
         """Return cards with image_status='pending', ordered by scryfall_id.
 
         If *after_cursor* is provided, only return cards with scryfall_id > cursor.
         """
         from sqlalchemy import text
+
         if after_cursor:
             sql = text("""
                 SELECT scryfall_id, image_uri_normal, image_uri_small, image_uri_large
@@ -156,10 +185,9 @@ class CatalogRepository:
     def get_sync_state(self) -> Dict[str, Any]:
         """Return the singleton catalog_sync_state row."""
         from sqlalchemy import text
+
         with self._engine().connect() as conn:
-            row = conn.execute(
-                text("SELECT * FROM catalog_sync_state WHERE id = 1")
-            ).mappings().fetchone()
+            row = conn.execute(text("SELECT * FROM catalog_sync_state WHERE id = 1")).mappings().fetchone()
             if row is None:
                 return {"status": "idle", "total_cards": 0, "total_images_downloaded": 0}
             result = dict(row)
@@ -173,6 +201,7 @@ class CatalogRepository:
     def update_sync_state(self, **fields) -> None:
         """Update catalog_sync_state columns.  Pass only the fields to change."""
         from sqlalchemy import text
+
         if not fields:
             return
         set_parts = [f"{k} = :{k}" for k in fields]
@@ -185,13 +214,15 @@ class CatalogRepository:
     def count_cards(self) -> int:
         """Return total number of rows in catalog_cards."""
         from sqlalchemy import text
+
         with self._engine().connect() as conn:
             return conn.execute(text("SELECT COUNT(*) FROM catalog_cards")).scalar() or 0
 
     def count_downloaded_images(self) -> int:
         """Return number of catalog cards with image_status='downloaded'."""
         from sqlalchemy import text
+
         with self._engine().connect() as conn:
-            return conn.execute(
-                text("SELECT COUNT(*) FROM catalog_cards WHERE image_status = 'downloaded'")
-            ).scalar() or 0
+            return (
+                conn.execute(text("SELECT COUNT(*) FROM catalog_cards WHERE image_status = 'downloaded'")).scalar() or 0
+            )

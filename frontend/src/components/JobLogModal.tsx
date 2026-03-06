@@ -1,6 +1,7 @@
 import React from 'react';
 import { useTranslation } from 'react-i18next';
 import { useWebSocket } from '../hooks/useApi';
+import { AccessibleModal } from './AccessibleModal';
 
 interface JobLogModalProps {
   jobId: string;
@@ -42,17 +43,13 @@ export function JobLogModal({ jobId, jobType, startedAt, onClose }: JobLogModalP
     t('jobLog.status.disconnected');
 
   return (
-    <div
-      className="fixed inset-0 bg-black/50 flex items-center justify-center z-50"
-      onClick={onClose}
-    >
+    <AccessibleModal isOpen titleId="job-log-modal-title" onClose={onClose}>
       <div
         className="bg-white dark:bg-gray-800 rounded-lg shadow-xl max-w-lg w-full mx-4 max-h-[85vh] flex flex-col"
-        onClick={e => e.stopPropagation()}
       >
         <div className="p-4 border-b border-gray-200 dark:border-gray-600 flex justify-between items-center">
           <div>
-            <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
+            <h2 id="job-log-modal-title" className="text-lg font-semibold text-gray-900 dark:text-white">
               {jobType} — {t('jobLog.title')}
             </h2>
             <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
@@ -62,6 +59,7 @@ export function JobLogModal({ jobId, jobType, startedAt, onClose }: JobLogModalP
           <button
             type="button"
             onClick={onClose}
+            aria-label={t('common.close')}
             className="px-3 py-1 text-sm text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded"
           >
             {t('jobLog.close')}
@@ -106,6 +104,6 @@ export function JobLogModal({ jobId, jobType, startedAt, onClose }: JobLogModalP
           )}
         </div>
       </div>
-    </div>
+    </AccessibleModal>
   );
 }

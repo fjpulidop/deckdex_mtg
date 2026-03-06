@@ -10,7 +10,6 @@ from loguru import logger
 from deckdex.catalog.repository import CatalogRepository
 from deckdex.storage.image_store import ImageStore
 
-
 # Scryfall TOS: at least 50-100ms between requests
 _IMAGE_DELAY_SECONDS = 0.1
 _IMAGE_RETRIES = 3
@@ -135,10 +134,9 @@ class CatalogSyncJob:
         )
         # Fix: update with actual SQL NOW()
         from sqlalchemy import text
+
         with self._repo._engine().connect() as conn:
-            conn.execute(text(
-                "UPDATE catalog_sync_state SET last_bulk_sync = NOW() WHERE id = 1"
-            ))
+            conn.execute(text("UPDATE catalog_sync_state SET last_bulk_sync = NOW() WHERE id = 1"))
             conn.commit()
 
         self._emit("data", total, total)
@@ -204,10 +202,11 @@ class CatalogSyncJob:
 
         # Count total pending for progress
         from sqlalchemy import text
+
         with self._repo._engine().connect() as conn:
-            total_pending = conn.execute(
-                text("SELECT COUNT(*) FROM catalog_cards WHERE image_status = 'pending'")
-            ).scalar() or 0
+            total_pending = (
+                conn.execute(text("SELECT COUNT(*) FROM catalog_cards WHERE image_status = 'pending'")).scalar() or 0
+            )
         total_downloaded = state.get("total_images_downloaded") or 0
 
         logger.info(f"Phase 2: {total_pending} images pending, cursor={cursor}")

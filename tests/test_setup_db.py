@@ -3,10 +3,7 @@
 
 def strip_comment_lines(sql: str) -> str:
     """Reproduce the comment-stripping logic from setup_db.run_migrations."""
-    return "\n".join(
-        line for line in sql.splitlines()
-        if not line.strip().startswith("--")
-    )
+    return "\n".join(line for line in sql.splitlines() if not line.strip().startswith("--"))
 
 
 def strip_leading_comments(s: str) -> str:
@@ -41,10 +38,7 @@ class TestSqlSplitting:
         assert stmts[0].startswith("ALTER TABLE")
 
     def test_multiple_statements(self):
-        sql = (
-            "CREATE TABLE foo (id INT);\n"
-            "CREATE INDEX idx_foo ON foo (id);\n"
-        )
+        sql = "CREATE TABLE foo (id INT);\nCREATE INDEX idx_foo ON foo (id);\n"
         stmts = split_sql(sql)
         assert len(stmts) == 2
         assert "CREATE TABLE" in stmts[0]

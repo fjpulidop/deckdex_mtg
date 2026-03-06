@@ -2,24 +2,32 @@
 Cards API routes
 Endpoints for accessing card collection data
 """
-from typing import Optional, List, Dict, Any
-from fastapi import APIRouter, Query, HTTPException, Depends, Request
-from fastapi.responses import Response
-from pydantic import BaseModel
-from loguru import logger
 
-from ..dependencies import get_cached_collection, get_collection_repo, clear_collection_cache, get_current_user_id
+from typing import Any, Dict, List, Optional
+
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
+from fastapi.responses import Response
+from loguru import logger
+from pydantic import BaseModel
+
+from ..dependencies import clear_collection_cache, get_cached_collection, get_collection_repo, get_current_user_id
 from ..filters import filter_collection
-from .stats import clear_stats_cache
-from ..services.card_image_service import get_card_image as resolve_card_image
-from ..services.scryfall_service import suggest_card_names, resolve_card_by_name, CardNotFoundError
 from ..main import limiter
+from ..services.card_image_service import get_card_image as resolve_card_image
+from ..services.scryfall_service import CardNotFoundError, resolve_card_by_name, suggest_card_names
+from .stats import clear_stats_cache
 
 router = APIRouter(prefix="/api/cards", tags=["cards"])
 
-# Pydantic models for request/response
+
+# ---------------------------------------------------------------------------
+# Pydantic models
+# ---------------------------------------------------------------------------
+
+
 class Card(BaseModel):
     """Card data model matching Google Sheets column layout + optional id (Postgres)"""
+
     id: Optional[int] = None
     name: Optional[str] = None
     english_name: Optional[str] = None
@@ -47,61 +55,66 @@ class Card(BaseModel):
     class Config:
         from_attributes = True
 
-@router.get("/", response_model=List[Card])
-@limiter.limit("60/minute")
-async def list_cards(
-    request: Request,
-    limit: int = Query(default=100, ge=1, le=10000),
-    offset: int = Query(default=0, ge=0),
-    search: Optional[str] = Query(default=None),
-    rarity: Optional[str] = Query(default=None),
-    type_filter: Optional[str] = Query(default=None, alias="type"),
-    color_identity: Optional[str] = Query(default=None),
-    set_name: Optional[str] = Query(default=None),
-    price_min: Optional[str] = Query(default=None),
-    price_max: Optional[str] = Query(default=None),
+
+class CardListResponse(BaseModel):
+    """Paginated card list response with server-side total count.
+
+    BREAKING CHANGE: /api/cards now returns this wrapper instead of List[Card].
+    Clients must access .items to get the card array and .total for pagination controls.
+    """
+
+    items: List[Card]
+    total: int
+    limit: int
+    offset: int
+
+    class Config:
+        from_attributes = True
+
+
+class FilterOptions(BaseModel):
+    """Distinct type and set values for filter dropdowns."""
+
+    types: List[str]
+    sets: List[str]
+
+
+# ---------------------------------------------------------------------------
+# GET /api/cards/filter-options  (must be registered before /{card_id_or_name})
+# ---------------------------------------------------------------------------
+
+
+@router.get("/filter-options", response_model=FilterOptions)
+async def get_filter_options(
     user_id: int = Depends(get_current_user_id),
 ):
-    """
-    List cards from collection with optional pagination and filters.
-    Same filter semantics as GET /api/stats so list and stats stay in sync.
-    type: substring match on type line (e.g. "Creature" matches "Creature — Elf").
-    color_identity: comma-separated WUBRG (e.g. "W,U"); card must contain all listed colors.
-    """
-    logger.info(
-        "GET /api/cards - limit=%s, offset=%s, search=%s, type=%s, color_identity=%s, set_name=%s, user=%s",
-        limit, offset, search, type_filter, color_identity, set_name, user_id,
-    )
-    try:
-        collection = get_cached_collection(user_id=user_id)
-        search_param = search if search and search != "undefined" else None
-        filtered = filter_collection(
-            collection,
-            search=search_param,
-            rarity=rarity,
-            type_=type_filter,
-            color_identity=color_identity,
-            set_name=set_name,
-            price_min=price_min,
-            price_max=price_max,
-        )
-        total = len(filtered)
-        paginated = filtered[offset : offset + limit]
-        logger.info("Returning %s cards (total: %s, offset: %s)", len(paginated), total, offset)
-        return paginated
+    """Return distinct type_line and set_name values for filter dropdowns.
 
-    except Exception as e:
-        logger.error(f"Error listing cards: {e}")
-        
-        # Check for Google Sheets quota errors
-        if 'Quota exceeded' in str(e) or 'RESOURCE_EXHAUSTED' in str(e):
-            raise HTTPException(
-                status_code=503,
-                detail="Google Sheets API quota exceeded. Please try again later.",
-                headers={"Retry-After": "60"}
-            )
-        
-        raise HTTPException(status_code=500, detail="Failed to fetch cards")
+    Postgres path: two DISTINCT SQL queries (no full collection load).
+    Sheets path: derive from cached collection.
+    """
+    repo = get_collection_repo()
+    if repo is not None:
+        try:
+            options = repo.get_filter_options(user_id=user_id)
+            return FilterOptions(types=options["types"], sets=options["sets"])
+        except Exception as e:
+            logger.error("Error fetching filter options from DB: %s", e)
+            raise HTTPException(status_code=500, detail="Failed to fetch filter options")
+    else:
+        try:
+            collection = get_cached_collection(user_id=user_id)
+            types = sorted({str(c.get("type") or "") for c in collection if c.get("type")})
+            sets = sorted({str(c.get("set_name") or "") for c in collection if c.get("set_name")})
+            return FilterOptions(types=types, sets=sets)
+        except Exception as e:
+            logger.error("Error deriving filter options from collection: %s", e)
+            raise HTTPException(status_code=500, detail="Failed to fetch filter options")
+
+
+# ---------------------------------------------------------------------------
+# GET /api/cards/suggest  (must be before /{card_id_or_name})
+# ---------------------------------------------------------------------------
 
 
 @router.get("/suggest", response_model=List[str])
@@ -118,10 +131,14 @@ async def suggest_cards(
     return suggest_card_names(q.strip(), user_id=user_id)
 
 
+# ---------------------------------------------------------------------------
+# GET /api/cards/resolve  (must be before /{card_id_or_name})
+# ---------------------------------------------------------------------------
+
+
 @router.get("/resolve", response_model=Card)
 async def resolve_card(
-    name: Optional[str] = Query(default=None, alias="name"),
-    user_id: int = Depends(get_current_user_id)
+    name: Optional[str] = Query(default=None, alias="name"), user_id: int = Depends(get_current_user_id)
 ):
     """
     Resolve a card by name: return full card payload (type, rarity, set_name, price, ...)
@@ -140,11 +157,101 @@ async def resolve_card(
         raise HTTPException(status_code=404, detail="Card not found")
 
 
-@router.get("/{id}/image")
-async def get_card_image(
-    id: int,
-    user_id: int = Depends(get_current_user_id)
+# ---------------------------------------------------------------------------
+# GET /api/cards/  — paginated list
+# ---------------------------------------------------------------------------
+
+
+@router.get("/", response_model=CardListResponse)
+@limiter.limit("60/minute")
+async def list_cards(
+    request: Request,
+    limit: int = Query(default=100, ge=1, le=10000),
+    offset: int = Query(default=0, ge=0),
+    search: Optional[str] = Query(default=None),
+    rarity: Optional[str] = Query(default=None),
+    type_filter: Optional[str] = Query(default=None, alias="type"),
+    color_identity: Optional[str] = Query(default=None),
+    set_name: Optional[str] = Query(default=None),
+    price_min: Optional[str] = Query(default=None),
+    price_max: Optional[str] = Query(default=None),
+    user_id: int = Depends(get_current_user_id),
 ):
+    """
+    List cards from collection with pagination and filters.
+    Returns paginated wrapper: { items, total, limit, offset }.
+
+    Same filter semantics as GET /api/stats so list and stats stay in sync.
+    type: substring match on type line (e.g. "Creature" matches "Creature — Elf").
+    color_identity: comma-separated WUBRG (e.g. "W,U"); card must contain all listed colors.
+
+    Postgres path: SQL-level filtering and pagination (no full collection load).
+    Sheets path: cached collection + Python filtering.
+    """
+    logger.info(
+        "GET /api/cards - limit=%s, offset=%s, search=%s, type=%s, color_identity=%s, set_name=%s, user=%s",
+        limit,
+        offset,
+        search,
+        type_filter,
+        color_identity,
+        set_name,
+        user_id,
+    )
+    try:
+        search_param = search if search and search != "undefined" else None
+        repo = get_collection_repo()
+        if repo is not None:
+            # Postgres path: SQL-level filtering and pagination
+            filters = {
+                "search": search_param,
+                "rarity": rarity,
+                "type_": type_filter,
+                "color_identity": color_identity,
+                "set_name": set_name,
+                "price_min": price_min,
+                "price_max": price_max,
+            }
+            items, total = repo.get_cards_filtered(user_id=user_id, filters=filters, limit=limit, offset=offset)
+        else:
+            # Sheets path: load all, filter in Python, slice
+            collection = get_cached_collection(user_id=user_id)
+            filtered = filter_collection(
+                collection,
+                search=search_param,
+                rarity=rarity,
+                type_=type_filter,
+                color_identity=color_identity,
+                set_name=set_name,
+                price_min=price_min,
+                price_max=price_max,
+            )
+            total = len(filtered)
+            items = filtered[offset : offset + limit]
+
+        logger.info("Returning %s cards (total: %s, offset: %s)", len(items), total, offset)
+        return CardListResponse(items=items, total=total, limit=limit, offset=offset)
+
+    except Exception as e:
+        logger.error(f"Error listing cards: {e}")
+
+        if "Quota exceeded" in str(e) or "RESOURCE_EXHAUSTED" in str(e):
+            raise HTTPException(
+                status_code=503,
+                detail="Google Sheets API quota exceeded. Please try again later.",
+                headers={"Retry-After": "60"},
+            )
+
+        raise HTTPException(status_code=500, detail="Failed to fetch cards")
+
+
+# ---------------------------------------------------------------------------
+# GET /api/cards/{id}/image
+# ---------------------------------------------------------------------------
+
+
+@router.get("/{id}/image")
+async def get_card_image(id: int, user_id: int = Depends(get_current_user_id)):
     """
     Return the card's image by surrogate id. If not cached, fetch from Scryfall and store globally.
     Any authenticated user may request any card image — ownership is not required.
@@ -157,11 +264,13 @@ async def get_card_image(
         raise HTTPException(status_code=404, detail="Card or image not found")
 
 
+# ---------------------------------------------------------------------------
+# GET /api/cards/{card_id_or_name}
+# ---------------------------------------------------------------------------
+
+
 @router.get("/{card_id_or_name}", response_model=Card)
-async def get_card(
-    card_id_or_name: str,
-    user_id: int = Depends(get_current_user_id)
-):
+async def get_card(card_id_or_name: str, user_id: int = Depends(get_current_user_id)):
     """
     Get details for a specific card by surrogate id (integer) or by name (string).
 
@@ -216,13 +325,14 @@ async def get_card(
         raise HTTPException(status_code=500, detail="Failed to fetch card")
 
 
+# ---------------------------------------------------------------------------
+# POST /api/cards/
+# ---------------------------------------------------------------------------
+
+
 @router.post("/", response_model=Card, status_code=201)
 @limiter.limit("30/minute")
-async def create_card(
-    request: Request,
-    card: Card,
-    user_id: int = Depends(get_current_user_id)
-):
+async def create_card(request: Request, card: Card, user_id: int = Depends(get_current_user_id)):
     """
     Create a new card. Requires Postgres (DATABASE_URL set).
     """
@@ -235,7 +345,7 @@ async def create_card(
     try:
         payload = card.model_dump(exclude_unset=True, exclude={"id"})
         created = repo.create(payload, user_id=user_id)
-        clear_collection_cache()
+        clear_collection_cache(user_id=user_id)
         clear_stats_cache()
         return created
     except Exception as e:
@@ -243,14 +353,14 @@ async def create_card(
         raise HTTPException(status_code=400, detail="Failed to create card")
 
 
+# ---------------------------------------------------------------------------
+# PUT /api/cards/{id}
+# ---------------------------------------------------------------------------
+
+
 @router.put("/{id}", response_model=Card)
 @limiter.limit("30/minute")
-async def update_card(
-    request: Request,
-    id: int,
-    card: Card,
-    user_id: int = Depends(get_current_user_id)
-):
+async def update_card(request: Request, id: int, card: Card, user_id: int = Depends(get_current_user_id)):
     """
     Update a card by surrogate id. Requires Postgres.
     """
@@ -265,7 +375,7 @@ async def update_card(
         updated = repo.update(id, payload, user_id=user_id)
         if updated is None:
             raise HTTPException(status_code=404, detail=f"Card id {id} not found")
-        clear_collection_cache()
+        clear_collection_cache(user_id=user_id)
         clear_stats_cache()
         return updated
     except HTTPException:
@@ -273,6 +383,11 @@ async def update_card(
     except Exception as e:
         logger.error(f"Error updating card {id}: {e}")
         raise HTTPException(status_code=400, detail="Failed to update card")
+
+
+# ---------------------------------------------------------------------------
+# PATCH /api/cards/{id}/quantity
+# ---------------------------------------------------------------------------
 
 
 @router.patch("/{id}/quantity")
@@ -296,18 +411,19 @@ async def update_card_quantity(
     updated = repo.update_quantity(id, quantity, user_id=user_id)
     if not updated:
         raise HTTPException(status_code=404, detail=f"Card id {id} not found")
-    clear_collection_cache()
+    clear_collection_cache(user_id=user_id)
     clear_stats_cache()
     return {"id": id, "quantity": quantity}
 
 
+# ---------------------------------------------------------------------------
+# DELETE /api/cards/{id}
+# ---------------------------------------------------------------------------
+
+
 @router.delete("/{id}", status_code=204)
 @limiter.limit("30/minute")
-async def delete_card(
-    request: Request,
-    id: int,
-    user_id: int = Depends(get_current_user_id)
-):
+async def delete_card(request: Request, id: int, user_id: int = Depends(get_current_user_id)):
     """
     Delete a card by surrogate id. Requires Postgres.
     """
@@ -320,5 +436,5 @@ async def delete_card(
     deleted = repo.delete(id, user_id=user_id)
     if not deleted:
         raise HTTPException(status_code=404, detail=f"Card id {id} not found")
-    clear_collection_cache()
+    clear_collection_cache(user_id=user_id)
     clear_stats_cache()

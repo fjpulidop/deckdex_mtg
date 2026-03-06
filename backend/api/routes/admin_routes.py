@@ -5,17 +5,19 @@ requires authentication (``get_current_user``).  Non-admin users receive 403.
 """
 
 import os
+
 from fastapi import APIRouter, Depends, HTTPException, status
 from loguru import logger
 
+from deckdex.config_loader import load_config
+
 from ..dependencies import (
-    require_admin,
     get_catalog_repo,
     get_image_store,
     get_job_repo,
+    require_admin,
 )
 from ..services import catalog_service
-from deckdex.config_loader import load_config
 
 router = APIRouter(prefix="/api/admin", tags=["admin"])
 

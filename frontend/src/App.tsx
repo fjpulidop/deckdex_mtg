@@ -14,6 +14,8 @@ import AuthCallback from './pages/AuthCallback'
 import ProtectedRoute from './components/ProtectedRoute'
 import AdminRoute from './components/AdminRoute'
 import { JobsBottomBar } from './components/JobsBottomBar'
+import { AetherParticles } from './components/backgrounds/AetherParticles'
+import { CardMatrix } from './components/backgrounds/CardMatrix'
 import Import from './pages/Import'
 import { Admin } from './pages/Admin'
 import { Demo } from './pages/Demo'
@@ -26,8 +28,12 @@ function AppContent() {
   const isLandingPage = location.pathname === '/';
   const isDemoPage = location.pathname === '/demo';
 
+  const showAppBackground = !isLandingPage && !isLoginPage;
+
   return (
     <>
+      {isLandingPage && <CardMatrix />}
+      {showAppBackground && <AetherParticles />}
       {isLandingPage && <LandingNavbar />}
       {!isLandingPage && !isLoginPage && !isDemoPage && <Navbar />}
       <Routes>

@@ -8,6 +8,7 @@ Usage (from repo root):
   # or with explicit URL:
   DATABASE_URL=postgresql://user:pass@localhost:5432/deckdex python scripts/setup_db.py
 """
+
 import os
 import sys
 from pathlib import Path
@@ -31,7 +32,8 @@ DATABASE_URL = os.environ.get("DATABASE_URL", "postgresql://localhost:5432/deckd
 
 def url_to_postgres_conn_str(url: str, dbname_override: str = None) -> str:
     """Build a libpq connection string from DATABASE_URL, optionally overriding dbname."""
-    from urllib.parse import urlparse, unquote
+    from urllib.parse import unquote, urlparse
+
     u = urlparse(url)
     if u.scheme not in ("postgresql", "postgres"):
         raise ValueError("DATABASE_URL must be postgresql:// or postgres://")
@@ -68,6 +70,7 @@ def create_database_if_not_exists():
         sys.exit(1)
 
     from urllib.parse import urlparse
+
     u = urlparse(DATABASE_URL)
     dbname = (u.path or "").lstrip("/") or "deckdex"
     conn_str = url_to_postgres_conn_str(DATABASE_URL, "postgres")
@@ -115,10 +118,7 @@ def run_migrations():
             sql_content = path.read_text()
             # Strip full-line comments before splitting so that
             # semicolons inside "--" comments don't break the split.
-            sql_content = "\n".join(
-                line for line in sql_content.splitlines()
-                if not line.strip().startswith("--")
-            )
+            sql_content = "\n".join(line for line in sql_content.splitlines() if not line.strip().startswith("--"))
             for stmt in sql_content.split(";"):
                 stmt = strip_leading_comments(stmt)
                 if stmt:
@@ -131,6 +131,7 @@ def run_migrations():
             continue
         print(f"Running {path.name}...")
         import importlib.util
+
         spec = importlib.util.spec_from_file_location(path.stem, path)
         mod = importlib.util.module_from_spec(spec)
         spec.loader.exec_module(mod)
@@ -142,6 +143,7 @@ def run_migrations():
 
 def main():
     from urllib.parse import urlparse
+
     u = urlparse(DATABASE_URL)
     safe = f"{u.scheme}://***@{u.hostname or 'localhost'}:{u.port or 5432}{u.path}"
     print("Using:", safe)
