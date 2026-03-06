@@ -6,7 +6,7 @@ import sys
 import threading
 import time
 import uuid
-from typing import Callable, Dict, Any, List, Optional, Tuple
+from typing import Any, Callable, Dict, List, Optional, Tuple
 
 project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), "../../../"))
 if project_root not in sys.path:
@@ -82,6 +82,7 @@ def start_sync(
     if job_repo:
         try:
             from sqlalchemy import text
+
             engine = job_repo._engine()
             with engine.connect() as conn:
                 conn.execute(
@@ -101,32 +102,36 @@ def start_sync(
         if on_progress_async and loop:
             pct = (current / total * 100) if total else 0
             asyncio.run_coroutine_threadsafe(
-                on_progress_async({
-                    "type": "progress",
-                    "job_id": job_id,
-                    "current": current,
-                    "total": total,
-                    "percentage": round(pct, 2),
-                    "phase": phase,
-                }),
+                on_progress_async(
+                    {
+                        "type": "progress",
+                        "job_id": job_id,
+                        "current": current,
+                        "total": total,
+                        "percentage": round(pct, 2),
+                        "phase": phase,
+                    }
+                ),
                 loop,
             )
 
     def _emit_complete(status: str, summary: dict):
         if on_progress_async and loop:
             asyncio.run_coroutine_threadsafe(
-                on_progress_async({
-                    "type": "complete",
-                    "job_id": job_id,
-                    "status": status,
-                    "summary": summary,
-                }),
+                on_progress_async(
+                    {
+                        "type": "complete",
+                        "job_id": job_id,
+                        "status": status,
+                        "summary": summary,
+                    }
+                ),
                 loop,
             )
 
     def _run():
         global _active_sync_job
-        start_time = time.time()
+        start_time = time.time()  # noqa: F823
         result_summary = {}
         final_status = "completed"
         try:
@@ -149,8 +154,10 @@ def start_sync(
             }
             if job_repo:
                 try:
-                    from sqlalchemy import text
                     import json
+
+                    from sqlalchemy import text
+
                     engine = job_repo._engine()
                     with engine.connect() as conn:
                         conn.execute(
@@ -170,8 +177,10 @@ def start_sync(
             result_summary = {"error": str(e)[:500]}
             if job_repo:
                 try:
-                    from sqlalchemy import text
                     import json
+
+                    from sqlalchemy import text
+
                     engine = job_repo._engine()
                     with engine.connect() as conn:
                         conn.execute(
@@ -193,7 +202,9 @@ def start_sync(
             if active_jobs is not None and job_id in active_jobs:
                 del active_jobs[job_id]
             if job_results is not None:
-                job_results[job_id] = {"status": final_status, **result_summary}
+                import time
+
+                job_results[job_id] = ({"status": final_status, **result_summary}, time.monotonic())
 
     thread = threading.Thread(target=_run, name=f"catalog-sync-{job_id}", daemon=True)
     thread.start()
