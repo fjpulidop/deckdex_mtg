@@ -555,7 +555,7 @@ class PostgresCollectionRepository(CollectionRepository):
             if price_min and str(price_min).strip():
                 try:
                     params["price_min"] = float(str(price_min).replace(",", "."))
-                    conditions.append("price_eur >= :price_min")
+                    conditions.append("CAST(price_eur AS numeric) >= :price_min")
                 except (ValueError, TypeError):
                     pass
 
@@ -563,7 +563,7 @@ class PostgresCollectionRepository(CollectionRepository):
             if price_max and str(price_max).strip():
                 try:
                     params["price_max"] = float(str(price_max).replace(",", "."))
-                    conditions.append("price_eur <= :price_max")
+                    conditions.append("CAST(price_eur AS numeric) <= :price_max")
                 except (ValueError, TypeError):
                     pass
 
@@ -624,10 +624,10 @@ class PostgresCollectionRepository(CollectionRepository):
         sql = f"""
             SELECT
                 COALESCE(SUM(quantity), 0)::bigint AS total_cards,
-                COALESCE(SUM(price_eur * quantity), 0.0) AS total_value,
+                COALESCE(SUM(CAST(price_eur AS numeric) * quantity), 0.0) AS total_value,
                 CASE
                     WHEN SUM(CASE WHEN price_eur IS NOT NULL THEN quantity ELSE 0 END) > 0
-                    THEN SUM(price_eur * quantity) / SUM(CASE WHEN price_eur IS NOT NULL THEN quantity ELSE 0 END)
+                    THEN SUM(CAST(price_eur AS numeric) * quantity) / SUM(CASE WHEN price_eur IS NOT NULL THEN quantity ELSE 0 END)
                     ELSE 0.0
                 END AS average_price
             FROM cards
