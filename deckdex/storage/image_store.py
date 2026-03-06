@@ -9,7 +9,6 @@ from typing import Optional, Tuple
 
 from loguru import logger
 
-
 _CONTENT_TYPE_TO_EXT = {
     "image/jpeg": ".jpg",
     "image/png": ".png",

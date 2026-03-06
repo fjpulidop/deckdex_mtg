@@ -2,24 +2,28 @@
 Authentication routes for Google OAuth 2.0
 Handles OAuth callback, JWT issuance, user lookup, and logout
 """
+
 import hashlib
 import os
 import uuid
 from datetime import datetime, timedelta
 from pathlib import Path
-from typing import Optional, Dict, Any
+from typing import Any, Dict, Optional
 from urllib.parse import urlencode, urlparse
 
-from fastapi import APIRouter, Request, Response, HTTPException, status
-from fastapi.responses import FileResponse
-from pydantic import BaseModel
 import httpx
-from jose import jwt, JWTError
+from fastapi import APIRouter, HTTPException, Request, Response, status
+from fastapi.responses import FileResponse
+from jose import JWTError, jwt
 from loguru import logger
+from pydantic import BaseModel
 
 from ..dependencies import (
-    get_collection_repo, is_admin_user, promote_bootstrap_admin,
-    blacklist_token, decode_jwt_token,
+    blacklist_token,
+    decode_jwt_token,
+    get_collection_repo,
+    is_admin_user,
+    promote_bootstrap_admin,
 )
 from ..main import limiter
 
@@ -62,6 +66,7 @@ def _frontend_origin(request: Request) -> str:
     if "-8000." in backend:
         return backend.replace("-8000.", "-5173.")
     return backend.replace(":8000", ":5173")
+
 
 # Temporary in-memory store for one-time auth codes: code -> {jwt, expires}
 _auth_codes: Dict[str, Dict[str, Any]] = {}
@@ -109,7 +114,7 @@ def create_jwt(user: Dict[str, Any]) -> str:
         "email": user.get("email"),
         "display_name": user.get("display_name"),
         "jti": str(uuid.uuid4()),
-        "exp": datetime.utcnow() + timedelta(hours=JWT_EXPIRY_HOURS)
+        "exp": datetime.utcnow() + timedelta(hours=JWT_EXPIRY_HOURS),
     }
     return jwt.encode(payload, JWT_SECRET_KEY, algorithm=JWT_ALGORITHM)
 
@@ -138,19 +143,13 @@ def get_current_user_from_request(request: Request) -> Dict[str, Any]:
             token = auth_header[7:]
 
     if not token:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Not authenticated"
-        )
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Not authenticated")
 
     try:
         payload = decode_jwt_token(token)
         return payload
     except (JWTError, ValueError):
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid or expired token"
-        )
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid or expired token")
 
 
 @router.get("/google")
@@ -159,10 +158,7 @@ async def google_login(request: Request):
     """Redirect to Google OAuth consent screen."""
     if not GOOGLE_OAUTH_CLIENT_ID:
         logger.error("GOOGLE_OAUTH_CLIENT_ID not configured")
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="OAuth not configured"
-        )
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="OAuth not configured")
 
     callback_url = f"{_backend_origin(request)}/api/auth/callback"
 
@@ -176,6 +172,7 @@ async def google_login(request: Request):
     redirect_url = f"https://accounts.google.com/o/oauth2/v2/auth?{urlencode(query_params)}"
 
     from fastapi.responses import RedirectResponse
+
     return RedirectResponse(url=redirect_url)
 
 
@@ -189,16 +186,19 @@ async def oauth_callback(request: Request, code: str = None, error: str = None):
     if error:
         logger.error(f"OAuth callback error: {error}")
         from fastapi.responses import RedirectResponse
+
         return RedirectResponse(url=login_error_url)
 
     if not code:
         logger.error("No authorization code in callback")
         from fastapi.responses import RedirectResponse
+
         return RedirectResponse(url=login_error_url)
 
     if not GOOGLE_OAUTH_CLIENT_ID or not GOOGLE_OAUTH_CLIENT_SECRET:
         logger.error("Google OAuth credentials not configured")
         from fastapi.responses import RedirectResponse
+
         return RedirectResponse(url=login_error_url)
 
     try:
@@ -231,12 +231,14 @@ async def oauth_callback(request: Request, code: str = None, error: str = None):
         if not google_id or not email:
             logger.error("Missing required fields in Google userinfo")
             from fastapi.responses import RedirectResponse
+
             return RedirectResponse(url=login_error_url)
 
         repo = get_collection_repo()
         if not repo:
             logger.error("Database not configured")
             from fastapi.responses import RedirectResponse
+
             return RedirectResponse(url=login_error_url)
 
         user = None
@@ -256,15 +258,11 @@ async def oauth_callback(request: Request, code: str = None, error: str = None):
 
         if not user:
             try:
-                user = repo.create_user(
-                    google_id=google_id,
-                    email=email,
-                    display_name=name,
-                    avatar_url=picture
-                )
+                user = repo.create_user(google_id=google_id, email=email, display_name=name, avatar_url=picture)
             except Exception as e:
                 logger.error(f"Failed to create user: {e}")
                 from fastapi.responses import RedirectResponse
+
                 return RedirectResponse(url=login_error_url)
 
         try:
@@ -272,12 +270,14 @@ async def oauth_callback(request: Request, code: str = None, error: str = None):
         except Exception as e:
             logger.debug(f"Failed to update last_login: {e}")
 
-        jwt_token = create_jwt({
-            "id": user["id"],
-            "email": user["email"],
-            "display_name": user.get("display_name"),
-            "picture": user.get("avatar_url")
-        })
+        jwt_token = create_jwt(
+            {
+                "id": user["id"],
+                "email": user["email"],
+                "display_name": user.get("display_name"),
+                "picture": user.get("avatar_url"),
+            }
+        )
 
         # Clean up expired codes before adding new one
         _cleanup_expired_auth_codes()
@@ -290,11 +290,13 @@ async def oauth_callback(request: Request, code: str = None, error: str = None):
 
         logger.info(f"User id={user['id']} logged in successfully")
         from fastapi.responses import RedirectResponse
+
         return RedirectResponse(url=f"{frontend}/auth/callback?code={auth_code}")
 
     except Exception as e:
         logger.error(f"OAuth callback error: {e}")
         from fastapi.responses import RedirectResponse
+
         return RedirectResponse(url=login_error_url)
 
 
@@ -318,6 +320,7 @@ async def exchange_auth_code(request: Request, code: str = ""):
     # be included in the HTTP response (FastAPI response-injection + slowapi can
     # silently drop injected headers).
     from fastapi.responses import JSONResponse
+
     resp = JSONResponse({"ok": True})
     _set_jwt_cookie(resp, jwt_token)
     return resp
@@ -331,16 +334,18 @@ async def get_current_user(request: Request):
         user_id = int(payload.get("sub", 0))
         repo = get_collection_repo()
         if repo is None:
-            raise HTTPException(
-                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail="Database not configured"
-            )
+            raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Database not configured")
         from sqlalchemy import text
+
         with repo._get_engine().connect() as conn:
-            row = conn.execute(
-                text("SELECT id, email, display_name, avatar_url, is_admin FROM users WHERE id = :id"),
-                {"id": user_id}
-            ).mappings().fetchone()
+            row = (
+                conn.execute(
+                    text("SELECT id, email, display_name, avatar_url, is_admin FROM users WHERE id = :id"),
+                    {"id": user_id},
+                )
+                .mappings()
+                .fetchone()
+            )
         if row is None:
             raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="User not found")
         admin = bool(row.get("is_admin"))
@@ -359,10 +364,7 @@ async def get_current_user(request: Request):
         raise
     except Exception as e:
         logger.error(f"Error getting current user: {e}")
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Not authenticated"
-        )
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Not authenticated")
 
 
 class ProfileUpdateRequest(BaseModel):
@@ -407,7 +409,9 @@ async def update_profile(request: Request, body: ProfileUpdateRequest):
     """Update authenticated user's display_name and/or avatar_url."""
     content_length = request.headers.get("content-length")
     if content_length and int(content_length) > 500 * 1024:
-        raise HTTPException(status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE, detail="Request body too large (max 500KB)")
+        raise HTTPException(
+            status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE, detail="Request body too large (max 500KB)"
+        )
 
     # Validate avatar_url if provided
     if body.avatar_url is not None:
@@ -463,12 +467,14 @@ async def refresh_token(request: Request, response: Response):
         blacklist_token(old_jti, datetime.utcfromtimestamp(old_exp))
 
     # Issue new token with same user info
-    new_token = create_jwt({
-        "id": payload.get("sub"),
-        "email": payload.get("email"),
-        "display_name": payload.get("display_name"),
-        "picture": payload.get("picture"),
-    })
+    new_token = create_jwt(
+        {
+            "id": payload.get("sub"),
+            "email": payload.get("email"),
+            "display_name": payload.get("display_name"),
+            "picture": payload.get("picture"),
+        }
+    )
     _set_jwt_cookie(response, new_token)
     return {"ok": True}
 
@@ -532,6 +538,7 @@ async def get_avatar(user_id: int, request: Request):
         raise HTTPException(status_code=503, detail="Database not configured")
 
     from sqlalchemy import text
+
     with repo._get_engine().connect() as conn:
         row = conn.execute(
             text("SELECT avatar_url FROM users WHERE id = :id"),
@@ -556,12 +563,14 @@ async def get_avatar(user_id: int, request: Request):
     if avatar_url.startswith("data:"):
         try:
             import base64
+
             header, b64data = avatar_url.split(",", 1)
             ct = header.split(";")[0].split(":", 1)[1]  # e.g. "image/jpeg"
             img_bytes = base64.b64decode(b64data)
         except Exception:
             raise HTTPException(status_code=502, detail="Failed to decode avatar")
         import tempfile
+
         fd, tmp = tempfile.mkstemp(dir=_AVATAR_CACHE_DIR)
         try:
             os.write(fd, img_bytes)
@@ -593,6 +602,7 @@ async def get_avatar(user_id: int, request: Request):
 
     # Write to cache atomically
     import tempfile
+
     fd, tmp = tempfile.mkstemp(dir=_AVATAR_CACHE_DIR)
     try:
         os.write(fd, resp.content)

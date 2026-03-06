@@ -64,3 +64,23 @@ The system SHALL expose PATCH /api/decks/{id}/cards/{card_id} with body { is_com
 
 - **WHEN** client calls PATCH /api/decks/{id}/cards/{card_id} with body { is_commander: true } for a card that is in the deck
 - **THEN** that card is marked as commander and any other commander in the deck is unset; API returns success (e.g. 200 with updated deck or 204)
+
+### Requirement: Import deck from text
+
+The system SHALL expose `POST /api/decks/{id}/import` (JSON body: `{ "text": string }`). The endpoint SHALL parse the text as MTGO-style deck list (lines: `<qty> <name>`; lines starting with `//` treated as section headers or skipped; blank lines skipped). Cards under a `//Commander` section header SHALL be flagged as commander. Each parsed card name SHALL be resolved against the authenticated user's collection via case-insensitive exact match. Matched cards SHALL be added to the deck (quantity and is_commander preserved). Unmatched cards SHALL NOT be added. The response SHALL include `imported_count`, `skipped_count`, a `skipped` list (name, quantity, reason), and the full updated deck (`DeckWithCards`). The endpoint SHALL require authentication and scope resolution to the authenticated user's collection. It SHALL return 404 if the deck does not exist or does not belong to the user. It SHALL return 501 if Postgres is not configured.
+
+#### Scenario: Import matched cards
+- **WHEN** the user calls `POST /api/decks/{id}/import` with text containing card names that exist in their collection
+- **THEN** those cards are added to the deck, `imported_count` equals the number added, `skipped_count` is 0, and the updated deck is returned
+
+#### Scenario: Import with unmatched cards
+- **WHEN** the user calls `POST /api/decks/{id}/import` with text containing card names not in their collection
+- **THEN** matched cards are added; unmatched cards appear in `skipped` with `reason: "not_in_collection"`; `skipped_count` reflects the number skipped
+
+#### Scenario: Import with Commander section
+- **WHEN** the text contains a `//Commander` section header followed by a card line
+- **THEN** that card is added to the deck with `is_commander=true` (if it exists in the collection)
+
+#### Scenario: Import to non-existent deck
+- **WHEN** the user calls `POST /api/decks/{id}/import` with a deck id that does not exist or belongs to another user
+- **THEN** the API returns HTTP 404

@@ -4,13 +4,11 @@ Collection Insights Service
 Provides 17 predefined insight queries that run server-side as pure computation.
 Covers 5 categories: summary, distribution, ranking, patterns, activity.
 """
+
 import re
 from collections import Counter, defaultdict
 from datetime import datetime, timedelta
 from typing import Any, Dict, List, Optional
-
-from loguru import logger
-
 
 # ---------------------------------------------------------------------------
 # Insight catalog (single source of truth)
@@ -301,7 +299,7 @@ def _parse_date(raw: Any) -> Optional[datetime]:
         # Try various formats
         for fmt in ("%Y-%m-%dT%H:%M:%S.%f", "%Y-%m-%dT%H:%M:%S", "%Y-%m-%d %H:%M:%S", "%Y-%m-%d"):
             try:
-                return datetime.strptime(s[:len(fmt) + 3], fmt)
+                return datetime.strptime(s[: len(fmt) + 3], fmt)
             except ValueError:
                 continue
         # Fallback: just parse the date portion
@@ -313,6 +311,7 @@ def _parse_date(raw: Any) -> Optional[datetime]:
 # ---------------------------------------------------------------------------
 # InsightsService
 # ---------------------------------------------------------------------------
+
 
 class InsightsService:
     """Executes insight queries against a user's collection."""
@@ -397,7 +396,9 @@ class InsightsService:
         avg = sum(prices) / len(prices)
         median_sorted = sorted(prices)
         mid = len(median_sorted) // 2
-        median = (median_sorted[mid - 1] + median_sorted[mid]) / 2 if len(median_sorted) % 2 == 0 else median_sorted[mid]
+        median = (
+            (median_sorted[mid - 1] + median_sorted[mid]) / 2 if len(median_sorted) % 2 == 0 else median_sorted[mid]
+        )
         return {
             "answer_text": f"Average card value is €{avg:,.2f} (median: €{median:,.2f})",
             "data": {
@@ -431,12 +432,14 @@ class InsightsService:
         for color in wubrg_order_with_c:
             if color in counter:
                 count = counter[color]
-                items.append({
-                    "label": _COLOR_DISPLAY.get(color, color),
-                    "count": count,
-                    "percentage": round(count / total * 100, 1),
-                    "color": color,
-                })
+                items.append(
+                    {
+                        "label": _COLOR_DISPLAY.get(color, color),
+                        "count": count,
+                        "percentage": round(count / total * 100, 1),
+                        "color": color,
+                    }
+                )
 
         most_common_color = max(counter, key=counter.get) if counter else "C"
         display = _COLOR_DISPLAY.get(most_common_color, most_common_color)
@@ -453,9 +456,7 @@ class InsightsService:
 
         total = sum(counter.values()) or 1
         rarity_order = ["Mythic", "Rare", "Uncommon", "Common"]
-        ordered_keys = [k for k in rarity_order if k in counter] + sorted(
-            [k for k in counter if k not in rarity_order]
-        )
+        ordered_keys = [k for k in rarity_order if k in counter] + sorted([k for k in counter if k not in rarity_order])
         items = [
             {
                 "label": k,
@@ -466,7 +467,7 @@ class InsightsService:
         ]
         most_common = max(counter, key=counter.get) if counter else "Unknown"
         return {
-            "answer_text": f"Most cards are {most_common} ({counter.get(most_common, 0)} cards, {round(counter.get(most_common, 0)/total*100, 1)}%)",
+            "answer_text": f"Most cards are {most_common} ({counter.get(most_common, 0)} cards, {round(counter.get(most_common, 0) / total * 100, 1)}%)",
             "data": {"items": items},
         }
 
@@ -510,13 +511,15 @@ class InsightsService:
         for color in wubrg_order_with_c:
             if color in color_totals:
                 val = color_totals[color]
-                items.append({
-                    "label": _COLOR_DISPLAY.get(color, color),
-                    "count": round(val, 2),
-                    "value": f"€{val:,.2f}",
-                    "percentage": round(val / total * 100, 1),
-                    "color": color,
-                })
+                items.append(
+                    {
+                        "label": _COLOR_DISPLAY.get(color, color),
+                        "count": round(val, 2),
+                        "value": f"€{val:,.2f}",
+                        "percentage": round(val / total * 100, 1),
+                        "color": color,
+                    }
+                )
 
         top_color = max(color_totals, key=color_totals.get) if color_totals else "C"
         display = _COLOR_DISPLAY.get(top_color, top_color)
@@ -601,8 +604,7 @@ class InsightsService:
 
         top = counter.most_common(10)
         items = [
-            {"name": name, "detail": f"{count} card{'' if count == 1 else 's'}", "card_id": None}
-            for name, count in top
+            {"name": name, "detail": f"{count} card{'' if count == 1 else 's'}", "card_id": None} for name, count in top
         ]
         top_set = top[0][0] if top else "Unknown"
         top_count = top[0][1] if top else 0
@@ -660,7 +662,9 @@ class InsightsService:
             {
                 "label": _COLOR_DISPLAY.get(color, color),
                 "present": color in present_colors,
-                "detail": f"You have {sum(1 for c in self.cards if color in _normalize_color_identity(c.get('color_identity') or c.get('colors') or ''))} cards" if color in present_colors else "No cards of this color",
+                "detail": f"You have {sum(1 for c in self.cards if color in _normalize_color_identity(c.get('color_identity') or c.get('colors') or ''))} cards"
+                if color in present_colors
+                else "No cards of this color",
             }
             for color in _WUBRG_ORDER
         ]
@@ -690,7 +694,7 @@ class InsightsService:
         if count == 0:
             answer = "All cards have price data!"
         else:
-            answer = f"{count} of {total} cards ({round(count/total*100, 1)}%) have no price data"
+            answer = f"{count} of {total} cards ({round(count / total * 100, 1)}%) have no price data"
         return {
             "answer_text": answer,
             "data": {"items": items},
@@ -704,10 +708,7 @@ class InsightsService:
 
         singletons = [(name, cnt) for name, cnt in counter.items() if cnt == 1]
         singletons.sort(key=lambda x: x[0])
-        items = [
-            {"name": name, "detail": "1 card", "card_id": None}
-            for name, _ in singletons[:20]
-        ]
+        items = [{"name": name, "detail": "1 card", "card_id": None} for name, _ in singletons[:20]]
         count = len(singletons)
         if count == 0:
             answer = "All sets have more than one card"
@@ -820,6 +821,7 @@ class InsightsService:
 # InsightsSuggestionEngine
 # ---------------------------------------------------------------------------
 
+
 class InsightsSuggestionEngine:
     """Analyzes collection signals to suggest the most relevant insights."""
 
@@ -843,10 +845,7 @@ class InsightsSuggestionEngine:
 
         # Signal: recent activity → boost activity insights
         cutoff = datetime.now() - timedelta(days=7)
-        has_recent = any(
-            (dt := _parse_date(c.get("created_at"))) is not None and dt >= cutoff
-            for c in self.cards
-        )
+        has_recent = any((dt := _parse_date(c.get("created_at"))) is not None and dt >= cutoff for c in self.cards)
         if has_recent:
             scores["recent_additions"] = scores.get("recent_additions", 0) + 3.0
 

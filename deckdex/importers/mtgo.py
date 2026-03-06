@@ -3,11 +3,13 @@
 Line format: "4 Lightning Bolt"
 Lines starting with // or empty lines are skipped.
 """
+
 import re
 from typing import List
+
 from .base import ParsedCard
 
-_LINE_RE = re.compile(r'^(\d+)\s+(.+)$')
+_LINE_RE = re.compile(r"^(\d+)\s+(.+)$")
 
 
 def parse(content: str) -> List[ParsedCard]:

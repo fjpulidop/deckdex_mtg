@@ -1,8 +1,8 @@
 """Tests for CatalogRepository: search, autocomplete, upsert, sync state (mocked DB)."""
 
 import unittest
-from unittest.mock import MagicMock, patch, PropertyMock
 from datetime import datetime
+from unittest.mock import MagicMock, patch
 
 from deckdex.catalog.repository import CatalogRepository
 

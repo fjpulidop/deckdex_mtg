@@ -1,7 +1,6 @@
 """JobRepository: persist job state to Postgres jobs table."""
 
 import json
-import os
 from typing import Any, Dict, List, Optional
 
 from loguru import logger
@@ -18,6 +17,7 @@ class JobRepository:
 
     def _get_engine(self):
         from sqlalchemy import create_engine
+
         if self._eng is None:
             self._eng = create_engine(self._url, pool_pre_ping=True)
         return self._eng
@@ -25,6 +25,7 @@ class JobRepository:
     def create_job(self, user_id: Optional[int], job_type: str, job_id: Optional[str] = None) -> str:
         """Insert a new job row with status='running'. Returns the job UUID."""
         from sqlalchemy import text
+
         engine = self._get_engine()
         with engine.connect() as conn:
             if job_id:
@@ -35,7 +36,7 @@ class JobRepository:
                         ON CONFLICT (id) DO NOTHING
                         RETURNING id
                     """),
-                    {"id": job_id, "user_id": user_id, "type": job_type}
+                    {"id": job_id, "user_id": user_id, "type": job_type},
                 ).fetchone()
                 conn.commit()
                 return job_id
@@ -46,7 +47,7 @@ class JobRepository:
                         VALUES (:user_id, :type, 'running')
                         RETURNING id
                     """),
-                    {"user_id": user_id, "type": job_type}
+                    {"user_id": user_id, "type": job_type},
                 ).fetchone()
                 conn.commit()
                 return str(result[0])
@@ -54,6 +55,7 @@ class JobRepository:
     def update_job_status(self, job_id: str, status: str, result: Optional[Dict[str, Any]] = None) -> None:
         """Update job status and optionally set completed_at + result JSONB."""
         from sqlalchemy import text
+
         engine = self._get_engine()
         with engine.connect() as conn:
             conn.execute(
@@ -70,7 +72,7 @@ class JobRepository:
                     "id": job_id,
                     "status": status,
                     "result": json.dumps(result) if result is not None else None,
-                }
+                },
             )
             conn.commit()
         logger.debug(f"Job {job_id} updated: status={status}")
@@ -78,18 +80,23 @@ class JobRepository:
     def get_job_history(self, user_id: int, limit: int = 50) -> List[Dict[str, Any]]:
         """Return recent jobs for a user, ordered by created_at DESC."""
         from sqlalchemy import text
+
         engine = self._get_engine()
         with engine.connect() as conn:
-            rows = conn.execute(
-                text("""
+            rows = (
+                conn.execute(
+                    text("""
                     SELECT id, type, status, created_at, completed_at, result
                     FROM jobs
                     WHERE user_id = :user_id
                     ORDER BY created_at DESC
                     LIMIT :limit
                 """),
-                {"user_id": user_id, "limit": limit}
-            ).mappings().fetchall()
+                    {"user_id": user_id, "limit": limit},
+                )
+                .mappings()
+                .fetchall()
+            )
         return [
             {
                 "job_id": str(r["id"]),

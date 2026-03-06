@@ -11,7 +11,7 @@ export const FinalCTA = () => {
   const { t } = useTranslation();
   const { isAuthenticated } = useAuth();
   return (
-    <section className="py-20 md:py-32 bg-gradient-to-r from-slate-900 via-purple-900/50 to-slate-900 px-4 sm:px-6 lg:px-8">
+    <section className="py-20 md:py-32 bg-gradient-to-r from-slate-900/80 via-purple-900/40 to-slate-900/80 px-4 sm:px-6 lg:px-8">
       <div className="max-w-4xl mx-auto text-center">
         <motion.div
           initial={{ opacity: 0, y: 20 }}
@@ -34,7 +34,7 @@ export const FinalCTA = () => {
             <Trans
               i18nKey="finalCta.contribute"
               components={{
-                1: <a href="https://github.com/yourusername/deckdex-mtg" target="_blank" rel="noopener noreferrer" className="text-accent-400 hover:text-accent-300 transition-colors font-semibold" />,
+                1: <a href="https://github.com/fjpulidop/deckdex-mtg" target="_blank" rel="noopener noreferrer" className="text-accent-400 hover:text-accent-300 transition-colors font-semibold" />,
               }}
             />
           </p>

@@ -1,7 +1,7 @@
 import { motion } from 'framer-motion';
 import { useTranslation, Trans } from 'react-i18next';
 import { BentoCard } from './BentoCard';
-import { Zap, Wand2, TrendingUp, Gauge } from 'lucide-react';
+import { Zap, Wand2, TrendingUp, Gauge, LayoutGrid, BarChart3, MessageSquareText, Activity } from 'lucide-react';
 
 const containerVariants = {
   hidden: { opacity: 0 },
@@ -28,7 +28,7 @@ const itemVariants = {
 export const BentoGrid = () => {
   const { t } = useTranslation();
   return (
-    <section id="features" className="py-20 md:py-32 bg-gradient-to-b from-slate-900 to-slate-950 px-4 sm:px-6 lg:px-8">
+    <section id="features" className="py-20 md:py-32 bg-gradient-to-b from-slate-900/80 to-slate-950/80 px-4 sm:px-6 lg:px-8">
       <div className="max-w-7xl mx-auto">
         {/* Section Header */}
         <div className="text-center mb-16 md:mb-24">
@@ -44,8 +44,8 @@ export const BentoGrid = () => {
             <Trans
               i18nKey="bento.contribute"
               components={{
-                1: <a href="https://github.com/yourusername/deckdex-mtg/fork" target="_blank" rel="noopener noreferrer" className="text-accent-400 hover:text-accent-300 transition-colors" />,
-                2: <a href="https://github.com/yourusername/deckdex-mtg/pulls" target="_blank" rel="noopener noreferrer" className="text-accent-400 hover:text-accent-300 transition-colors" />,
+                1: <a href="https://github.com/fjpulidop/deckdex-mtg/fork" target="_blank" rel="noopener noreferrer" className="text-accent-400 hover:text-accent-300 transition-colors" />,
+                2: <a href="https://github.com/fjpulidop/deckdex-mtg/pulls" target="_blank" rel="noopener noreferrer" className="text-accent-400 hover:text-accent-300 transition-colors" />,
               }}
             />
           </p>
@@ -68,7 +68,7 @@ export const BentoGrid = () => {
               icon={<Zap className="h-6 w-6" />}
               gradientFrom="from-blue-500/20"
               gradientTo="to-blue-600/20"
-              label="Collection View (600x500px)"
+              illustrationIcon={<LayoutGrid className="h-20 w-20" strokeWidth={1} />}
             />
           </motion.div>
 
@@ -82,7 +82,7 @@ export const BentoGrid = () => {
               badge="ALPHA"
               gradientFrom="from-purple-500/20"
               gradientTo="to-purple-600/20"
-              label="Deck Builder (600x500px)"
+              illustrationIcon={<Wand2 className="h-20 w-20" strokeWidth={1} />}
             />
           </motion.div>
 
@@ -95,7 +95,7 @@ export const BentoGrid = () => {
               icon={<Wand2 className="h-6 w-6" />}
               gradientFrom="from-pink-500/20"
               gradientTo="to-rose-600/20"
-              label="AI Insights (600x400px)"
+              illustrationIcon={<MessageSquareText className="h-20 w-20" strokeWidth={1} />}
             />
           </motion.div>
 
@@ -108,7 +108,7 @@ export const BentoGrid = () => {
               icon={<Gauge className="h-6 w-6" />}
               gradientFrom="from-amber-500/20"
               gradientTo="to-orange-600/20"
-              label="Real-time (500x400px)"
+              illustrationIcon={<Activity className="h-20 w-20" strokeWidth={1} />}
             />
           </motion.div>
 
@@ -121,7 +121,7 @@ export const BentoGrid = () => {
               icon={<TrendingUp className="h-6 w-6" />}
               gradientFrom="from-green-500/20"
               gradientTo="to-emerald-600/20"
-              label="Analytics Dashboard (600x400px)"
+              illustrationIcon={<BarChart3 className="h-20 w-20" strokeWidth={1} />}
             />
           </motion.div>
         </motion.div>

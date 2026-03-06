@@ -2,9 +2,11 @@
 
 Detects a name column and an optional quantity column.
 """
+
 import csv
 import io
 from typing import List, Optional
+
 from .base import ParsedCard
 
 _NAME_CANDIDATES = ("name", "input name", "card name", "card")

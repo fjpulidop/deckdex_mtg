@@ -9,7 +9,7 @@ interface BentoCardProps {
   badge?: string;
   gradientFrom: string;
   gradientTo: string;
-  label: string;
+  illustrationIcon?: ReactNode;
 }
 
 export const BentoCard = ({
@@ -20,7 +20,7 @@ export const BentoCard = ({
   badge,
   gradientFrom,
   gradientTo,
-  label,
+  illustrationIcon,
 }: BentoCardProps) => {
   const sizeClasses = {
     small: 'lg:col-span-1 lg:row-span-1 h-96',
@@ -68,12 +68,14 @@ export const BentoCard = ({
           {description}
         </p>
 
-        {/* Placeholder */}
-        <div className={`relative w-full ${size === 'large' ? 'h-48' : size === 'medium' ? 'h-40' : 'h-32'} rounded-lg bg-gradient-to-br from-slate-800/50 to-slate-700/50 flex items-center justify-center border border-slate-600/30`}>
-          <div className="absolute inset-0 bg-gradient-to-br from-purple-600/10 to-pink-600/10 rounded-lg" />
-          <div className="text-center space-y-2 z-10">
-            <p className="text-slate-400 text-xs md:text-sm font-medium">{label}</p>
-          </div>
+        {/* Illustration */}
+        <div className={`relative w-full ${size === 'large' ? 'h-48' : size === 'medium' ? 'h-40' : 'h-32'} rounded-lg bg-gradient-to-br ${gradientFrom} ${gradientTo} flex items-center justify-center border border-slate-600/30 overflow-hidden`}>
+          <div className="absolute inset-0 bg-gradient-to-br from-white/5 to-transparent" />
+          {illustrationIcon && (
+            <div className="relative text-white/20 group-hover:text-white/30 transition-colors duration-300">
+              {illustrationIcon}
+            </div>
+          )}
         </div>
       </div>
     </motion.div>

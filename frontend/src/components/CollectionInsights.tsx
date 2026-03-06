@@ -1,11 +1,39 @@
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Card, InsightCatalogEntry, InsightResponse as InsightResponseType } from '../api/client';
 import { useInsightsCatalog, useInsightsSuggestions, useInsightExecute } from '../hooks/useApi';
 import { InsightResponse } from './insights/InsightResponse';
 
-interface Props {
-  onCardClick?: (card: Card) => void;
+const PINNED_STORAGE_KEY = 'deckdex:pinned_insights';
+
+interface InsightResultEntry {
+  /** Unique render key: `${insight_id}_${executedAt}` */
+  id: string;
+  response: InsightResponseType;
+  pinned: boolean;
+  executedAt: number;
+}
+
+function loadPinnedIds(): string[] {
+  try {
+    const raw = localStorage.getItem(PINNED_STORAGE_KEY);
+    if (!raw) return [];
+    const parsed = JSON.parse(raw) as unknown;
+    if (Array.isArray(parsed) && parsed.every(item => typeof item === 'string')) {
+      return parsed;
+    }
+    return [];
+  } catch {
+    return [];
+  }
+}
+
+function savePinnedIds(ids: string[]): void {
+  try {
+    localStorage.setItem(PINNED_STORAGE_KEY, JSON.stringify(ids));
+  } catch {
+    // localStorage unavailable — silent failure
+  }
 }
 
 function fuzzyMatch(query: string, entry: InsightCatalogEntry): boolean {
@@ -15,12 +43,102 @@ function fuzzyMatch(query: string, entry: InsightCatalogEntry): boolean {
   return entry.keywords.some(k => k.toLowerCase().includes(q));
 }
 
+// --- InsightResultCard ---
+
+interface InsightResultCardProps {
+  entry: InsightResultEntry;
+  allResults: InsightResultEntry[];
+  onTogglePin: (entryId: string, currentResults: InsightResultEntry[]) => void;
+  onDismiss: (entryId: string) => void;
+  onCardClick?: (card: Card) => void;
+}
+
+function InsightResultCard({ entry, allResults, onTogglePin, onDismiss, onCardClick }: InsightResultCardProps) {
+  const { t } = useTranslation();
+
+  return (
+    <div
+      className={[
+        'mt-4 rounded-xl border',
+        entry.pinned
+          ? 'border-l-4 border-indigo-400 dark:border-indigo-500 bg-gray-50 dark:bg-gray-700/50'
+          : 'border-gray-100 dark:border-gray-600 bg-gray-50 dark:bg-gray-700/50',
+      ].join(' ')}
+    >
+      {/* Card header: question + actions */}
+      <div className="flex items-start justify-between gap-2 px-4 pt-3 pb-1">
+        <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300 flex-1">
+          {entry.response.question}
+        </h3>
+        <div className="flex items-center gap-1 flex-shrink-0">
+          {/* Pin toggle */}
+          <button
+            type="button"
+            onClick={() => onTogglePin(entry.id, allResults)}
+            aria-label={entry.pinned ? t('insights.unpin') : t('insights.pin')}
+            title={entry.pinned ? t('insights.unpin') : t('insights.pin')}
+            className={[
+              'p-1 rounded transition-colors',
+              entry.pinned
+                ? 'text-indigo-500 hover:text-indigo-700 dark:text-indigo-400 dark:hover:text-indigo-200'
+                : 'text-gray-400 hover:text-indigo-500 dark:text-gray-500 dark:hover:text-indigo-400',
+            ].join(' ')}
+          >
+            {entry.pinned ? (
+              // Filled pin icon
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-4 h-4">
+                <path d="M16 9V4h1c.55 0 1-.45 1-1s-.45-1-1-1H7c-.55 0-1 .45-1 1s.45 1 1 1h1v5c0 1.66-1.34 3-3 3v2h5.97v7l1 1 1-1v-7H19v-2c-1.66 0-3-1.34-3-3z"/>
+              </svg>
+            ) : (
+              // Outline pin icon
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="w-4 h-4">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M16 9V4h1a1 1 0 000-2H7a1 1 0 000 2h1v5a3 3 0 01-3 3v2h5.97v7l1 1 1-1v-7H19v-2a3 3 0 01-3-3z"/>
+              </svg>
+            )}
+          </button>
+
+          {/* Dismiss */}
+          <button
+            type="button"
+            onClick={() => onDismiss(entry.id)}
+            aria-label={t('insights.dismiss')}
+            title={t('insights.dismiss')}
+            className="p-1 rounded text-gray-400 hover:text-gray-700 dark:text-gray-500 dark:hover:text-gray-200 transition-colors"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="w-4 h-4">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12"/>
+            </svg>
+          </button>
+        </div>
+      </div>
+
+      {/* Renderer — pass question-less response since we render the question above */}
+      <div className="px-4 pb-4">
+        <InsightResponse
+          response={entry.response}
+          onCardClick={onCardClick}
+          hideQuestion
+        />
+      </div>
+    </div>
+  );
+}
+
+// --- CollectionInsights ---
+
+interface Props {
+  onCardClick?: (card: Card) => void;
+}
+
 export function CollectionInsights({ onCardClick }: Props) {
   const { t } = useTranslation();
   const [searchValue, setSearchValue] = useState('');
   const [dropdownOpen, setDropdownOpen] = useState(false);
-  const [activeResult, setActiveResult] = useState<InsightResponseType | null>(null);
+  const [results, setResults] = useState<InsightResultEntry[]>([]);
+  const [pinnedIds, setPinnedIds] = useState<string[]>(loadPinnedIds);
   const [executingId, setExecutingId] = useState<string | null>(null);
+  // Track whether we've already done the initial pinned-auto-execute
+  const autoExecutedRef = useRef(false);
 
   const inputRef = useRef<HTMLInputElement>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
@@ -28,6 +146,33 @@ export function CollectionInsights({ onCardClick }: Props) {
   const { data: catalog = [] } = useInsightsCatalog();
   const { data: suggestions = [] } = useInsightsSuggestions();
   const execute = useInsightExecute();
+
+  // Auto-execute pinned insights on mount (sequentially)
+  useEffect(() => {
+    if (autoExecutedRef.current) return;
+    const initialPinnedIds = loadPinnedIds();
+    if (initialPinnedIds.length === 0) return;
+    autoExecutedRef.current = true;
+
+    (async () => {
+      for (const insightId of initialPinnedIds) {
+        try {
+          const result = await execute.mutateAsync(insightId);
+          const entry: InsightResultEntry = {
+            id: `${insightId}_${Date.now()}`,
+            response: result,
+            pinned: true,
+            executedAt: Date.now(),
+          };
+          setResults(prev => [...prev, entry]);
+        } catch {
+          // Silent failure for background auto-execution
+        }
+      }
+    })();
+    // execute is a stable mutate object; we intentionally run this once on mount
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // Filter catalog by search input
   const filteredResults = searchValue.trim()
@@ -59,11 +204,46 @@ export function CollectionInsights({ onCardClick }: Props) {
     setExecutingId(insightId);
     try {
       const result = await execute.mutateAsync(insightId);
-      setActiveResult(result);
+      const alreadyPinned = pinnedIds.includes(insightId);
+      const entry: InsightResultEntry = {
+        id: `${insightId}_${Date.now()}`,
+        response: result,
+        pinned: alreadyPinned,
+        executedAt: Date.now(),
+      };
+      // Prepend so most recent appears first
+      setResults(prev => [entry, ...prev]);
     } finally {
       setExecutingId(null);
     }
   };
+
+  const handleTogglePin = useCallback((entryId: string, currentResults: InsightResultEntry[]) => {
+    const entry = currentResults.find(e => e.id === entryId);
+    if (!entry) return;
+
+    const nowPinned = !entry.pinned;
+    const insightId = entry.response.insight_id;
+
+    // Update the results array
+    setResults(prev =>
+      prev.map(e => e.id === entryId ? { ...e, pinned: nowPinned } : e)
+    );
+
+    // Sync pinnedIds state and localStorage
+    const newPinnedIds = nowPinned
+      ? pinnedIds.includes(insightId) ? pinnedIds : [...pinnedIds, insightId]
+      : pinnedIds.filter(id => id !== insightId);
+
+    setPinnedIds(newPinnedIds);
+    savePinnedIds(newPinnedIds);
+  }, [pinnedIds]);
+
+  const handleDismiss = useCallback((entryId: string) => {
+    setResults(prev => prev.filter(e => e.id !== entryId));
+    // Note: we intentionally keep pinnedIds intact — pinning is a preference,
+    // not a display state. Dismissed pinned insights re-appear on next page load.
+  }, []);
 
   const getCategoryLabel = (cat: string) =>
     t(`insights.categories.${cat}`, { defaultValue: cat });
@@ -158,7 +338,7 @@ export function CollectionInsights({ onCardClick }: Props) {
         </div>
       )}
 
-      {/* Loading state */}
+      {/* Loading state (for non-chip executions) */}
       {execute.isPending && executingId === null && (
         <div className="mt-4 flex items-center gap-2 text-sm text-gray-500 dark:text-gray-400">
           <span className="w-4 h-4 border-2 border-indigo-400 border-t-transparent rounded-full animate-spin" />
@@ -175,13 +355,17 @@ export function CollectionInsights({ onCardClick }: Props) {
         </div>
       )}
 
-      {/* Result */}
-      {activeResult && (
-        <InsightResponse
-          response={activeResult}
+      {/* Result history */}
+      {results.map(entry => (
+        <InsightResultCard
+          key={entry.id}
+          entry={entry}
+          allResults={results}
+          onTogglePin={handleTogglePin}
+          onDismiss={handleDismiss}
           onCardClick={onCardClick}
         />
-      )}
+      ))}
     </div>
   );
 }

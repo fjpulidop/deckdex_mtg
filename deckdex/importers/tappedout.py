@@ -2,9 +2,11 @@
 
 Expected headers: Qty, Name, Set, [...]
 """
+
 import csv
 import io
 from typing import List
+
 from .base import ParsedCard
 
 

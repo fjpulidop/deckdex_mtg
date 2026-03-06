@@ -94,6 +94,7 @@ class TestFilesystemImageStore(unittest.TestCase):
         meta_path = os.path.join(self.tmpdir, "card-008.meta")
         self.assertTrue(os.path.exists(meta_path))
         import json
+
         meta = json.loads(open(meta_path).read())
         self.assertEqual(meta["content_type"], "image/webp")
 

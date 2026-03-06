@@ -3,9 +3,10 @@ App settings storage (e.g. Scryfall credentials JSON).
 Stores the credentials content internally so the backend remembers it.
 Uses a JSON file so no DB migrations are required.
 """
+
 import json
 from pathlib import Path
-from typing import Any, Optional
+from typing import Optional
 
 from loguru import logger
 

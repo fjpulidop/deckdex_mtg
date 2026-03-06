@@ -31,12 +31,9 @@ export function ActiveJobsProvider({ children }: { children: React.ReactNode }) 
     const restoreJobs = async () => {
       try {
         const list = await api.getJobs();
-        const active = list.filter(
-          (job) => job.status === 'running' || job.status === 'pending'
-        );
-        if (active.length > 0) {
+        if (list.length > 0) {
           setJobs(
-            active.map((job) => ({
+            list.map((job) => ({
               jobId: job.job_id,
               type: job.job_type,
               startedAt: job.start_time ? new Date(job.start_time) : new Date(),
@@ -48,6 +45,36 @@ export function ActiveJobsProvider({ children }: { children: React.ReactNode }) 
       }
     };
     restoreJobs();
+  }, []);
+
+  // Re-sync job list when the tab regains visibility (debounced 2s)
+  const lastSyncRef = useRef(0);
+  useEffect(() => {
+    const handleVisibility = () => {
+      if (document.visibilityState !== 'visible') return;
+      const now = Date.now();
+      if (now - lastSyncRef.current < 2000) return; // debounce
+      lastSyncRef.current = now;
+      api.getJobs().then((list) => {
+        const serverIds = new Set(list.map((j) => j.job_id));
+        setJobs((prev) => {
+          // Keep locally-added jobs that the server still knows about,
+          // plus add any new ones from the server.
+          const existing = new Set(prev.map((j) => j.jobId));
+          const kept = prev.filter((j) => serverIds.has(j.jobId));
+          const added = list
+            .filter((j) => !existing.has(j.job_id))
+            .map((j) => ({
+              jobId: j.job_id,
+              type: j.job_type,
+              startedAt: j.start_time ? new Date(j.start_time) : new Date(),
+            }));
+          return [...kept, ...added];
+        });
+      }).catch(() => { /* network error — keep current state */ });
+    };
+    document.addEventListener('visibilitychange', handleVisibility);
+    return () => document.removeEventListener('visibilitychange', handleVisibility);
   }, []);
 
   const addJob = useCallback((jobId: string, jobType: string, onFinished?: JobFinishedCallback) => {

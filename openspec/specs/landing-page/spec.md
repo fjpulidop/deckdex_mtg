@@ -1,4 +1,4 @@
-## ADDED Requirements
+# Landing Page
 
 ### Requirement: Hero section shows real dashboard screenshot
 The landing page Hero section SHALL display an actual screenshot of the dashboard instead of a gradient placeholder.
@@ -35,3 +35,33 @@ The landing page SHALL render the Footer component.
 #### Scenario: Footer visible at bottom of landing
 - **WHEN** a visitor loads the landing page
 - **THEN** the Footer component SHALL be rendered below the FinalCTA section
+
+### Requirement: BentoGrid cards display styled visual content
+Each BentoCard SHALL display a styled gradient illustration with a relevant icon instead of raw placeholder text with pixel dimensions. The CardMatrix animated background SHALL be visible behind all landing page sections, providing additional visual depth.
+
+#### Scenario: Visitor sees feature cards
+- **WHEN** a visitor views the BentoGrid section on the landing page
+- **THEN** each feature card SHALL show a visually styled illustration area with gradient colors and an icon relevant to the feature
+- **AND** no raw dimension text (e.g., "600x500px") SHALL be visible
+
+#### Scenario: Animated background visible behind sections
+- **WHEN** a visitor loads the landing page
+- **THEN** the CardMatrix animated background SHALL be visible behind the Hero, BentoGrid, FinalCTA, and Footer sections
+- **THEN** the existing gradient styling of the landing page SHALL remain as the base layer beneath the animated background
+
+### Requirement: GitHub links use correct repository URL
+All GitHub links in the landing page SHALL point to the actual repository (`fjpulidop/deckdex-mtg`).
+
+#### Scenario: BentoGrid contribute links
+- **WHEN** a visitor views the BentoGrid section
+- **THEN** the "fork" and "pull requests" links SHALL point to `https://github.com/fjpulidop/deckdex-mtg/fork` and `https://github.com/fjpulidop/deckdex-mtg/pulls` respectively
+
+#### Scenario: FinalCTA contribute link
+- **WHEN** a visitor views the FinalCTA section
+- **THEN** the GitHub link SHALL point to `https://github.com/fjpulidop/deckdex-mtg`
+
+### Requirement: No dead code in landing components
+The landing page module SHALL NOT contain unused components.
+
+### Requirement: No debug artifacts in public directory
+The `frontend/public/` directory SHALL NOT contain debug image files.

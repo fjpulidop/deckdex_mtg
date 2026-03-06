@@ -5,7 +5,6 @@ from typing import Any, Dict
 
 from sqlalchemy import create_engine, text
 
-
 _DEFAULT_EXTERNAL_APIS = {"scryfall_enabled": False}
 
 

@@ -4,7 +4,7 @@ import { Github, Twitter, MessageCircle } from 'lucide-react';
 export const Footer = () => {
   const { t } = useTranslation();
   return (
-    <footer className="bg-slate-950 border-t border-slate-800 px-4 sm:px-6 lg:px-8">
+    <footer className="bg-slate-950/80 border-t border-slate-800 px-4 sm:px-6 lg:px-8">
       <div className="max-w-7xl mx-auto py-12 md:py-16">
         {/* Footer Grid */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8 md:gap-12 mb-8">
@@ -139,25 +139,28 @@ export const Footer = () => {
                 href="https://twitter.com"
                 target="_blank"
                 rel="noopener noreferrer"
+                aria-label="Twitter"
                 className="text-slate-400 hover:text-white transition-colors p-2 hover:bg-slate-900 rounded-lg"
               >
-                <Twitter className="h-5 w-5" />
+                <Twitter className="h-5 w-5" aria-hidden="true" />
               </a>
               <a
                 href="https://github.com"
                 target="_blank"
                 rel="noopener noreferrer"
+                aria-label="GitHub"
                 className="text-slate-400 hover:text-white transition-colors p-2 hover:bg-slate-900 rounded-lg"
               >
-                <Github className="h-5 w-5" />
+                <Github className="h-5 w-5" aria-hidden="true" />
               </a>
               <a
                 href="https://discord.com"
                 target="_blank"
                 rel="noopener noreferrer"
+                aria-label="Discord"
                 className="text-slate-400 hover:text-white transition-colors p-2 hover:bg-slate-900 rounded-lg"
               >
-                <MessageCircle className="h-5 w-5" />
+                <MessageCircle className="h-5 w-5" aria-hidden="true" />
               </a>
             </div>
           </div>

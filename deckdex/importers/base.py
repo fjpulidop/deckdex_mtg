@@ -1,7 +1,9 @@
 """Base types and format detection for collection importers."""
+
 import csv
 import io
 from typing import Optional
+
 try:
     from typing import TypedDict
 except ImportError:
