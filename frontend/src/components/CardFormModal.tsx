@@ -139,7 +139,7 @@ export function CardFormModal({ title, mode, initial, onSubmit, onClose }: CardF
     } finally {
       setSaving(false);
     }
-  }, []);
+  }, [t]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -246,7 +246,7 @@ export function CardFormModal({ title, mode, initial, onSubmit, onClose }: CardF
                 {collectionSuggestions.length > 0 && (
                   <>
                     <li className="px-3 py-1.5 text-xs font-medium text-gray-500 dark:text-gray-400 bg-gray-100 dark:bg-gray-600 sticky top-0">{t('cardForm.inYourCollection')}</li>
-                    {collectionSuggestions.map((item, i) => {
+                    {collectionSuggestions.map((item) => {
                       const idx = allSuggestions.indexOf(item);
                       return (
                         <li
@@ -266,7 +266,7 @@ export function CardFormModal({ title, mode, initial, onSubmit, onClose }: CardF
                 {(showCatalog || catalogSuggestions.length > 0) && (
                   <>
                     <li className="px-3 py-1.5 text-xs font-medium text-gray-500 dark:text-gray-400 bg-gray-100 dark:bg-gray-600 sticky top-0">{t('cardForm.otherCards')}</li>
-                    {catalogSuggestions.map((item, i) => {
+                    {catalogSuggestions.map((item) => {
                       const idx = allSuggestions.indexOf(item);
                       return (
                         <li

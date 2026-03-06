@@ -1,6 +1,6 @@
 import React from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { api, Card, CardPage, FilterOptions, Stats, JobResponse, InsightCatalogEntry, InsightSuggestion, InsightResponse } from '../api/client';
+import { api, Card, CardPage, FilterOptions, InsightCatalogEntry, InsightSuggestion, InsightResponse } from '../api/client';
 import { useDemoMode } from '../contexts/DemoContext';
 import { DEMO_CARDS, DEMO_CATALOG, DEMO_SUGGESTIONS } from '../data/demoData';
 
@@ -170,7 +170,7 @@ export function useWebSocket(jobId: string | null) {
   });
   const [errors, setErrors] = React.useState<Array<{card_name: string; message: string}>>([]);
   const [complete, setComplete] = React.useState(false);
-  const [summary, setSummary] = React.useState<any>(null);
+  const [summary, setSummary] = React.useState<Record<string, unknown> | null>(null);
 
   React.useEffect(() => {
     if (!jobId) return;

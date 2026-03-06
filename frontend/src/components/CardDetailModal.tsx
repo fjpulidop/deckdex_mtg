@@ -81,7 +81,6 @@ export function CardDetailModal({
     return () => window.removeEventListener('keydown', onKeyDown);
   }, [imageLightboxOpen]);
 
-  const pt = [card.power, card.toughness].filter(Boolean).join('/');
   const priceStr = card.price && card.price !== 'N/A' ? `€${card.price}` : 'N/A';
 
   const displayCard = isEditing ? { ...card, ...editForm } : card;

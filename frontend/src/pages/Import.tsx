@@ -113,7 +113,7 @@ export default function Import() {
   // Wizard state
   const [step, setStep] = useState<Step>('upload');
   const [inputMode, setInputMode] = useState<InputMode>('file');
-  const [file, setFile] = useState<File | null>(null);
+  const [, setFile] = useState<File | null>(null);
   const [pastedText, setPastedText] = useState('');
   const [resolveData, setResolveData] = useState<ResolveResponse | null>(null);
   const [corrections, setCorrections] = useState<Record<number, CardCorrection>>({});

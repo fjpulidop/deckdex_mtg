@@ -30,8 +30,8 @@ export function ActionButtons({ onJobStarted, inline }: ActionButtonsProps) {
       const result = await triggerProcess.mutateAsync({ scope });
       const label = scope === 'new_only' ? 'Process new cards only' : 'Process all cards';
       onJobStarted(result.job_id, label);
-    } catch (error: any) {
-      alert(`Error: ${error.message}`);
+    } catch (error: unknown) {
+      alert(`Error: ${error instanceof Error ? error.message : String(error)}`);
     }
   };
 
@@ -39,8 +39,8 @@ export function ActionButtons({ onJobStarted, inline }: ActionButtonsProps) {
     try {
       const result = await triggerPriceUpdate.mutateAsync();
       onJobStarted(result.job_id, 'Update Prices');
-    } catch (error: any) {
-      alert(`Error: ${error.message}`);
+    } catch (error: unknown) {
+      alert(`Error: ${error instanceof Error ? error.message : String(error)}`);
     }
   };
 

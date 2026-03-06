@@ -134,7 +134,7 @@ export function Dashboard() {
   const handleClearFilters = useCallback(() => {
     setSearchParams({}, { replace: true });
     setColors([]);
-  }, [setSearchParams]);
+  }, [setSearchParams, setColors]);
 
   // Use server-provided filter options (distinct types/sets from DB) for dropdowns.
   // Falls back to deriving from current page items if filter-options not yet loaded.

@@ -85,7 +85,7 @@ export interface Card {
   tier?: string;
   created_at?: string;  // ISO timestamp when card was added
   quantity?: number;
-  [key: string]: any;
+  [key: string]: string | number | boolean | null | undefined;
 }
 
 export interface CardPage {

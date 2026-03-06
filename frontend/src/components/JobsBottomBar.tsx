@@ -25,7 +25,7 @@ interface ActiveJobEntryProps {
 
 function ActiveJobEntry({ jobId, type, startedAt, onComplete, onFinished }: ActiveJobEntryProps) {
   const { t } = useTranslation();
-  const { status: wsStatus, progress, complete, summary } = useWebSocket(jobId);
+  const { progress, complete, summary } = useWebSocket(jobId);
   const hasNotified = useRef(false);
   const [elapsed, setElapsed] = useState('');
   const [cancelling, setCancelling] = useState(false);
@@ -128,6 +128,7 @@ export function JobsBottomBar() {
   // Auto-expand when a new job starts
   useEffect(() => {
     if (jobs.length > prevJobCount.current) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- intentional: auto-expand on new job
       setExpanded(true);
       setTab('active');
     }
@@ -137,6 +138,7 @@ export function JobsBottomBar() {
   // Load history when History tab opens
   useEffect(() => {
     if (tab === 'history' && expanded) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- intentional: loading state for async fetch
       setLoadingHistory(true);
       api.getJobHistory().then(setHistory).catch(() => setHistory([])).finally(() => setLoadingHistory(false));
     }

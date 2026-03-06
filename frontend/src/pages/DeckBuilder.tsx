@@ -88,7 +88,7 @@ export function DeckBuilder() {
     } catch (e) {
       setCreateError(e instanceof Error ? e.message : t('deckBuilder.createFailed'));
     }
-  }, [queryClient]);
+  }, [queryClient, t]);
 
   const handleCloseModal = useCallback(() => {
     setSelectedDeckId(null);

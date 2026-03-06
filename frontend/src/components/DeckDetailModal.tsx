@@ -474,7 +474,7 @@ export function DeckDetailModal({ deckId, onClose, onDeleted }: DeckDetailModalP
                             type="button"
                             onClick={(e) => {
                               e.stopPropagation();
-                              card.id != null && handleRemoveCard(card.id);
+                              if (card.id != null) handleRemoveCard(card.id);
                             }}
                             className="opacity-0 group-hover:opacity-100 text-red-600 hover:text-red-700 dark:text-red-400 p-1 rounded flex-shrink-0"
                             aria-label={`Remove ${card.name}`}
@@ -492,7 +492,6 @@ export function DeckDetailModal({ deckId, onClose, onDeleted }: DeckDetailModalP
             </div>
           </div>
         </div>
-      </div>
       </AccessibleModal>
 
       {/* Lightbox: image large, click or Escape to close */}
