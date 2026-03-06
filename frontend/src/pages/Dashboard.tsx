@@ -30,8 +30,10 @@ export function Dashboard() {
   // Color identity filter (local state — not in URL for simplicity)
   const [colors, setColors] = useState<string[]>([]);
 
-  // Fetch filtered cards for the table (paginated; server returns total count)
+  // Fetch all filtered cards for client-side pagination in CardTable.
+  // TODO: implement server-side pagination with prev/next controls for large collections.
   const { data: cardPage, isLoading, error } = useCards({
+    limit: 10000,
     search: search || undefined,
     rarity: rarity === 'all' ? undefined : rarity,
     type: type === 'all' ? undefined : type,
