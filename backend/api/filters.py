@@ -2,6 +2,7 @@
 Shared collection filtering for cards list and stats.
 Same semantics: name contains, type line contains, color identity has all selected, exact match for rarity/set_name, price range inclusive.
 """
+
 from typing import Optional, Union
 
 from loguru import logger
@@ -54,6 +55,7 @@ def filter_collection(
     set_name: Optional[str] = None,
     price_min: Optional[str] = None,
     price_max: Optional[str] = None,
+    cmc: Optional[str] = None,
 ) -> list:
     """Filter collection: name contains, type line contains, color identity has all selected, exact match for rarity/set_name, price range inclusive."""
     result = collection
@@ -65,10 +67,7 @@ def filter_collection(
         result = [c for c in result if (c.get("rarity") or "").lower() == r]
     if type_ and type_.strip():
         t = type_.strip().lower()
-        result = [
-            c for c in result
-            if t in (c.get("type") or c.get("type_line") or "").lower()
-        ]
+        result = [c for c in result if t in (c.get("type") or c.get("type_line") or "").lower()]
     if color_identity and str(color_identity).strip():
         want = _normalize_color_identity(color_identity)
         if want:
@@ -82,6 +81,35 @@ def filter_collection(
     if set_name and set_name.strip():
         s = set_name.strip()
         result = [c for c in result if c.get("set_name") == s]
+    if cmc and cmc.strip():
+        cmc_val = cmc.strip()
+        filtered = []
+        for c in result:
+            raw_cmc = c.get("cmc")
+            if cmc_val == "Unknown":
+                if raw_cmc is None or raw_cmc == "":
+                    filtered.append(c)
+                else:
+                    try:
+                        float(str(raw_cmc))
+                    except (ValueError, TypeError):
+                        filtered.append(c)
+            elif cmc_val == "7+":
+                if raw_cmc is not None and raw_cmc != "":
+                    try:
+                        if int(float(str(raw_cmc))) >= 7:
+                            filtered.append(c)
+                    except (ValueError, TypeError):
+                        pass
+            else:
+                try:
+                    target = int(cmc_val)
+                    if raw_cmc is not None and raw_cmc != "":
+                        if int(float(str(raw_cmc))) == target:
+                            filtered.append(c)
+                except (ValueError, TypeError):
+                    pass
+        result = filtered
     if price_min or price_max:
         try:
             min_num = float(price_min.replace(",", ".")) if price_min and price_min.strip() else None

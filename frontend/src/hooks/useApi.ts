@@ -1,6 +1,6 @@
 import React from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { api, Card, Stats, JobResponse, InsightCatalogEntry, InsightSuggestion, InsightResponse } from '../api/client';
+import { api, Card, CardPage, FilterOptions, Stats, JobResponse, InsightCatalogEntry, InsightSuggestion, InsightResponse } from '../api/client';
 import { useDemoMode } from '../contexts/DemoContext';
 import { DEMO_CARDS, DEMO_CATALOG, DEMO_SUGGESTIONS } from '../data/demoData';
 
@@ -17,7 +17,9 @@ export interface CardsParams {
   colorIdentity?: string;
 }
 
-// Hook for fetching cards; pass current dashboard filters so list and stats match
+// Hook for fetching cards; pass current dashboard filters so list and stats match.
+// Returns CardPage: { items: Card[], total: number, limit: number, offset: number }
+// In demo mode, returns a compatible CardPage shape built from DEMO_CARDS.
 export function useCards(params?: CardsParams) {
   const { isDemoMode } = useDemoMode();
   const apiParams =
@@ -34,7 +36,7 @@ export function useCards(params?: CardsParams) {
           color_identity: params.colorIdentity,
         }
       : undefined;
-  const query = useQuery({
+  const query = useQuery<CardPage>({
     queryKey: ['cards', apiParams],
     queryFn: () => api.getCards(apiParams),
     staleTime: 30000, // 30 seconds
@@ -48,7 +50,34 @@ export function useCards(params?: CardsParams) {
       const matchesRarity = !rar || c.rarity === rar;
       return matchesSearch && matchesRarity;
     });
-    return { data: filtered as Card[], isLoading: false, error: null };
+    const limit = params?.limit ?? 100;
+    const offset = params?.offset ?? 0;
+    const page: CardPage = {
+      items: filtered.slice(offset, offset + limit) as Card[],
+      total: filtered.length,
+      limit,
+      offset,
+    };
+    return { data: page, isLoading: false, error: null };
+  }
+  return query;
+}
+
+// Hook for fetching filter options (distinct types and sets) for dropdown menus.
+// Uses a 60s stale time since these change infrequently.
+export function useFilterOptions() {
+  const { isDemoMode } = useDemoMode();
+  const query = useQuery<FilterOptions>({
+    queryKey: ['filter-options'],
+    queryFn: () => api.getFilterOptions(),
+    staleTime: 60000, // 60 seconds
+    enabled: !isDemoMode,
+  });
+  if (isDemoMode) {
+    // Build options from demo data
+    const types = Array.from(new Set(DEMO_CARDS.map(c => c.type).filter(Boolean) as string[])).sort();
+    const sets = Array.from(new Set(DEMO_CARDS.map(c => c.set_name).filter(Boolean) as string[])).sort();
+    return { data: { types, sets } as FilterOptions, isLoading: false, error: null };
   }
   return query;
 }
@@ -70,6 +99,7 @@ export interface StatsFilters {
   priceMin?: string;
   priceMax?: string;
   colorIdentity?: string;
+  cmc?: string;
 }
 
 // Hook for fetching stats; pass current dashboard filters so stats reflect filtered set
@@ -82,7 +112,8 @@ export function useStats(filters?: StatsFilters) {
       filters.set ||
       filters.priceMin ||
       filters.priceMax ||
-      filters.colorIdentity)
+      filters.colorIdentity ||
+      filters.cmc)
       ? {
           search: filters.search || undefined,
           rarity: filters.rarity || undefined,
@@ -91,6 +122,7 @@ export function useStats(filters?: StatsFilters) {
           price_min: filters.priceMin || undefined,
           price_max: filters.priceMax || undefined,
           color_identity: filters.colorIdentity || undefined,
+          cmc: filters.cmc || undefined,
         }
       : undefined;
 
@@ -128,7 +160,7 @@ export function useTriggerPriceUpdate() {
   });
 }
 
-// Hook for WebSocket connection with progress tracking
+// Hook for WebSocket connection with progress tracking and auto-reconnection
 export function useWebSocket(jobId: string | null) {
   const [status, setStatus] = React.useState<'connecting' | 'connected' | 'disconnected'>('disconnected');
   const [progress, setProgress] = React.useState<{current: number; total: number; percentage: number}>({
@@ -149,82 +181,101 @@ export function useWebSocket(jobId: string | null) {
     setSummary(null);
     setStatus('connecting');
 
-    // Immediately fetch current state from REST API so we don't flash 0%
-    // while the WebSocket is still connecting
     let cancelled = false;
-    api.getJobStatus(jobId).then((jobStatus) => {
-      if (cancelled) return;
-      const p = jobStatus.progress || {};
-      const perc = p.percentage ?? 0;
-      const cur = p.current ?? 0;
-      const tot = p.total ?? 0;
-      if (perc > 0 || cur > 0 || tot > 0) {
-        setProgress({
-          current: cur,
-          total: tot,
-          percentage: perc,
-        });
-      } else {
-        // Only reset to 0 if REST says progress is 0 (truly just started)
-        setProgress({ current: 0, total: 0, percentage: 0 });
-      }
-      // If job already completed before we opened the modal
-      if (jobStatus.status === 'complete' || jobStatus.status === 'error') {
-        setComplete(true);
-        setSummary(p.summary ?? jobStatus);
-      }
-    }).catch(() => {
-      // REST fetch failed - start from zero, WebSocket will update
-      if (!cancelled) {
-        setProgress({ current: 0, total: 0, percentage: 0 });
-      }
-    });
+    let retryCount = 0;
+    let retryTimer: ReturnType<typeof setTimeout> | null = null;
+    let currentWs: WebSocket | null = null;
+    const MAX_RETRIES = 5;
+    const BASE_DELAY = 1000; // 1s, doubles each retry up to 16s
 
-    const wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-    const wsHost = window.location.host;
-    const ws = new WebSocket(`${wsProtocol}//${wsHost}/ws/progress/${jobId}`);
-
-    ws.onopen = () => {
-      setStatus('connected');
-    };
-
-    ws.onmessage = (event) => {
-      try {
-        const data = JSON.parse(event.data);
-        
-        if (data.type === 'progress') {
-          setProgress({
-            current: data.current || 0,
-            total: data.total || 0,
-            percentage: data.percentage || 0,
-          });
-        } else if (data.type === 'error') {
-          setErrors(prev => [...prev, {
-            card_name: data.card_name || 'Unknown',
-            message: data.message || 'Unknown error',
-          }]);
-        } else if (data.type === 'complete') {
+    // Fetch current job state via REST (used on initial connect and reconnects)
+    const fetchRestState = () => {
+      api.getJobStatus(jobId).then((jobStatus) => {
+        if (cancelled) return;
+        const p = jobStatus.progress || {};
+        const perc = p.percentage ?? 0;
+        const cur = p.current ?? 0;
+        const tot = p.total ?? 0;
+        if (perc > 0 || cur > 0 || tot > 0) {
+          setProgress({ current: cur, total: tot, percentage: perc });
+        } else {
+          setProgress({ current: 0, total: 0, percentage: 0 });
+        }
+        // If job already completed, set final state without waiting for WS
+        if (jobStatus.status === 'complete' || jobStatus.status === 'error' || jobStatus.status === 'cancelled') {
           setComplete(true);
-          setSummary(data.summary || data);
+          setSummary(p.summary ?? jobStatus);
           setStatus('disconnected');
         }
-        // Ignore ping/pong/connected messages
-      } catch (e) {
-        console.error('Failed to parse WebSocket message:', e);
-      }
+      }).catch(() => {
+        if (!cancelled) {
+          setProgress({ current: 0, total: 0, percentage: 0 });
+        }
+      });
     };
 
-    ws.onerror = () => {
-      setStatus('disconnected');
+    const connect = () => {
+      if (cancelled) return;
+      setStatus('connecting');
+      fetchRestState();
+
+      const wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+      const wsHost = window.location.host;
+      const ws = new WebSocket(`${wsProtocol}//${wsHost}/ws/progress/${jobId}`);
+      currentWs = ws;
+
+      ws.onopen = () => {
+        if (cancelled) { ws.close(); return; }
+        setStatus('connected');
+        retryCount = 0; // reset on successful connection
+      };
+
+      ws.onmessage = (event) => {
+        try {
+          const data = JSON.parse(event.data);
+          if (data.type === 'progress') {
+            setProgress({
+              current: data.current || 0,
+              total: data.total || 0,
+              percentage: data.percentage || 0,
+            });
+          } else if (data.type === 'error') {
+            setErrors(prev => [...prev, {
+              card_name: data.card_name || 'Unknown',
+              message: data.message || 'Unknown error',
+            }]);
+          } else if (data.type === 'complete') {
+            setComplete(true);
+            setSummary(data.summary || data);
+            setStatus('disconnected');
+          }
+        } catch (e) {
+          console.error('Failed to parse WebSocket message:', e);
+        }
+      };
+
+      ws.onerror = () => {
+        // onerror is always followed by onclose, reconnect logic is in onclose
+      };
+
+      ws.onclose = (event) => {
+        if (cancelled) return;
+        setStatus('disconnected');
+        // Only reconnect on unexpected close (not clean 1000)
+        if (event.code !== 1000 && retryCount < MAX_RETRIES) {
+          const delay = Math.min(BASE_DELAY * Math.pow(2, retryCount), 16000);
+          retryCount++;
+          retryTimer = setTimeout(connect, delay);
+        }
+      };
     };
 
-    ws.onclose = () => {
-      setStatus('disconnected');
-    };
+    connect();
 
     return () => {
       cancelled = true;
-      ws.close();
+      if (retryTimer) clearTimeout(retryTimer);
+      if (currentWs) currentWs.close();
     };
   }, [jobId]);
 

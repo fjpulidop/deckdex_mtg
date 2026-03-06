@@ -1,43 +1,43 @@
 """
 Shared utilities and dependencies for API routes
 """
+
 import os
 import sys
 import threading
-from typing import Optional, Dict, Any
-from functools import lru_cache
-from datetime import datetime, timedelta
+from datetime import datetime
+from typing import Any, Dict, Optional
 
 # Add project root to Python path to import deckdex package
-project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), '../../'))
+project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), "../../"))
 if project_root not in sys.path:
     sys.path.insert(0, project_root)
 
 from dotenv import load_dotenv
+
 load_dotenv()
 
-from fastapi import Request, HTTPException, status, Depends
+from fastapi import Depends, HTTPException, Request, status
 from jose import JWTError
-from deckdex.spreadsheet_client import SpreadsheetClient
-from deckdex.config_loader import load_config
-from deckdex.config import ProcessorConfig
-from deckdex.storage import get_collection_repository
-from deckdex.storage.repository import CollectionRepository
-from deckdex.storage.deck_repository import DeckRepository
-from deckdex.storage.job_repository import JobRepository
-from deckdex.storage.image_store import ImageStore, FilesystemImageStore
-from deckdex.catalog.repository import CatalogRepository
-from deckdex.storage.user_settings_repository import UserSettingsRepository
 from loguru import logger
+
+from deckdex.catalog.repository import CatalogRepository
+from deckdex.config_loader import load_config
+from deckdex.spreadsheet_client import SpreadsheetClient
+from deckdex.storage import get_collection_repository
+from deckdex.storage.deck_repository import DeckRepository
+from deckdex.storage.image_store import FilesystemImageStore, ImageStore
+from deckdex.storage.job_repository import JobRepository
+from deckdex.storage.repository import CollectionRepository
+from deckdex.storage.user_settings_repository import UserSettingsRepository
 
 from .db import get_engine
 
-# Cache for collection data (used when source is Google Sheets)
-_collection_cache = {
-    'data': None,
-    'timestamp': None,
-    'ttl': 30  # seconds
-}
+# Cache for collection data (used when source is Google Sheets or Postgres small collections)
+# Keyed by user_id (int) to prevent cross-user data leakage.
+# user_id=0 is used for the anonymous/no-auth path (Google Sheets mode).
+_collection_cache: Dict[int, Dict] = {}
+_COLLECTION_CACHE_TTL = 30  # seconds
 
 # ---------------------------------------------------------------------------
 # Token blacklist (in-memory, JTI-based)
@@ -72,6 +72,7 @@ def is_token_blacklisted(jti: str) -> bool:
 # ---------------------------------------------------------------------------
 # Repository factories (shared engine)
 # ---------------------------------------------------------------------------
+
 
 def get_collection_repo() -> Optional[CollectionRepository]:
     """Get CollectionRepository using shared DB engine; else None."""
@@ -182,6 +183,7 @@ def is_admin_user(email: str) -> bool:
     if engine is not None:
         try:
             from sqlalchemy import text
+
             with engine.connect() as conn:
                 row = conn.execute(
                     text("SELECT is_admin FROM users WHERE LOWER(email) = :email"),
@@ -211,6 +213,7 @@ def promote_bootstrap_admin(email: str) -> None:
         return
     try:
         from sqlalchemy import text
+
         with engine.begin() as conn:
             result = conn.execute(
                 text("UPDATE users SET is_admin = TRUE WHERE LOWER(email) = :email AND is_admin = FALSE"),
@@ -239,10 +242,13 @@ def get_spreadsheet_client() -> SpreadsheetClient:
         config=config.google_sheets,
     )
 
+
 def get_cached_collection(user_id: Optional[int] = None, force_refresh: bool = False):
     """
     Get collection data. When DATABASE_URL is set, reads from Postgres (with optional TTL cache).
     Otherwise reads from Google Sheets with 30-second TTL cache.
+
+    Cache is keyed by user_id to prevent cross-user data leakage.
 
     Args:
         user_id: If provided, filter cards by user (Postgres only)
@@ -251,31 +257,34 @@ def get_cached_collection(user_id: Optional[int] = None, force_refresh: bool = F
     Returns:
         List of card data (from Postgres or Google Sheets)
     """
+    cache_key = user_id if user_id is not None else 0
     repo = get_collection_repo()
     if repo is not None:
         now = datetime.now()
-        if (not force_refresh and
-            _collection_cache['data'] is not None and
-            _collection_cache['timestamp'] is not None):
-            age = (now - _collection_cache['timestamp']).total_seconds()
-            if age < _collection_cache['ttl']:
-                logger.debug(f"Returning cached collection data from Postgres (age: {age:.1f}s)")
-                return _collection_cache['data']
-        logger.info("Fetching fresh collection data from Postgres")
+        entry = _collection_cache.get(cache_key)
+        if (
+            not force_refresh
+            and entry is not None
+            and entry.get("data") is not None
+            and entry.get("timestamp") is not None
+        ):
+            age = (now - entry["timestamp"]).total_seconds()
+            if age < _COLLECTION_CACHE_TTL:
+                logger.debug(f"Returning cached collection data from Postgres (age: {age:.1f}s, user={cache_key})")
+                return entry["data"]
+        logger.info("Fetching fresh collection data from Postgres (user=%s)", cache_key)
         collection_data = repo.get_all_cards(user_id=user_id)
-        _collection_cache['data'] = collection_data
-        _collection_cache['timestamp'] = now
-        logger.info(f"Cached {len(collection_data)} cards from Postgres")
+        _collection_cache[cache_key] = {"data": collection_data, "timestamp": now}
+        logger.info(f"Cached {len(collection_data)} cards from Postgres (user={cache_key})")
         return collection_data
 
     now = datetime.now()
-    if (not force_refresh and
-        _collection_cache['data'] is not None and
-        _collection_cache['timestamp'] is not None):
-        age = (now - _collection_cache['timestamp']).total_seconds()
-        if age < _collection_cache['ttl']:
+    entry = _collection_cache.get(cache_key)
+    if not force_refresh and entry is not None and entry.get("data") is not None and entry.get("timestamp") is not None:
+        age = (now - entry["timestamp"]).total_seconds()
+        if age < _COLLECTION_CACHE_TTL:
             logger.debug(f"Returning cached collection data (age: {age:.1f}s)")
-            return _collection_cache['data']
+            return entry["data"]
 
     logger.info("Fetching fresh collection data from Google Sheets")
     try:
@@ -290,7 +299,7 @@ def get_cached_collection(user_id: Optional[int] = None, force_refresh: bool = F
             if idx >= len(row):
                 return None
             val = row[idx]
-            if not val or val == 'N/A':
+            if not val or val == "N/A":
                 return None
             return val
 
@@ -303,19 +312,19 @@ def get_cached_collection(user_id: Optional[int] = None, force_refresh: bool = F
                 # Handle multiple price formats (European/US with or without thousands separator)
                 price_clean = str(val).strip()
 
-                if ',' in price_clean and '.' in price_clean:
-                    last_comma_pos = price_clean.rfind(',')
-                    last_dot_pos = price_clean.rfind('.')
+                if "," in price_clean and "." in price_clean:
+                    last_comma_pos = price_clean.rfind(",")
+                    last_dot_pos = price_clean.rfind(".")
 
                     if last_comma_pos > last_dot_pos:
                         # European: "1.234,56"
-                        price_clean = price_clean.replace('.', '').replace(',', '.')
+                        price_clean = price_clean.replace(".", "").replace(",", ".")
                     else:
                         # US: "1,234.56"
-                        price_clean = price_clean.replace(',', '')
-                elif ',' in price_clean:
+                        price_clean = price_clean.replace(",", "")
+                elif "," in price_clean:
                     # Only comma: European decimal "1234,56"
-                    price_clean = price_clean.replace(',', '.')
+                    price_clean = price_clean.replace(",", ".")
 
                 return float(price_clean)
             except (ValueError, TypeError):
@@ -348,45 +357,56 @@ def get_cached_collection(user_id: Optional[int] = None, force_refresh: bool = F
         for card in cards:
             if len(card) == 0 or not card[0]:  # Skip empty rows
                 continue
-            collection_data.append({
-                'name': safe_str(card, 0),
-                'english_name': safe_str(card, 1),
-                'type': safe_str(card, 2),
-                'description': safe_str(card, 3),
-                'keywords': safe_str(card, 4),
-                'mana_cost': safe_str(card, 5),
-                'cmc': safe_float(card, 6),
-                'color_identity': safe_str(card, 7),
-                'colors': safe_str(card, 8),
-                'power': safe_str(card, 9),
-                'toughness': safe_str(card, 10),
-                'rarity': safe_str(card, 11),
-                'price': safe_str(card, 12),
-                'release_date': safe_str(card, 13),
-                'set_id': safe_str(card, 14),
-                'set_name': safe_str(card, 15),
-                'number': safe_str(card, 16),
-                'edhrec_rank': safe_str(card, 17),
-                'game_strategy': safe_str(card, 18),
-                'tier': safe_str(card, 19),
-            })
+            collection_data.append(
+                {
+                    "name": safe_str(card, 0),
+                    "english_name": safe_str(card, 1),
+                    "type": safe_str(card, 2),
+                    "description": safe_str(card, 3),
+                    "keywords": safe_str(card, 4),
+                    "mana_cost": safe_str(card, 5),
+                    "cmc": safe_float(card, 6),
+                    "color_identity": safe_str(card, 7),
+                    "colors": safe_str(card, 8),
+                    "power": safe_str(card, 9),
+                    "toughness": safe_str(card, 10),
+                    "rarity": safe_str(card, 11),
+                    "price": safe_str(card, 12),
+                    "release_date": safe_str(card, 13),
+                    "set_id": safe_str(card, 14),
+                    "set_name": safe_str(card, 15),
+                    "number": safe_str(card, 16),
+                    "edhrec_rank": safe_str(card, 17),
+                    "game_strategy": safe_str(card, 18),
+                    "tier": safe_str(card, 19),
+                }
+            )
 
-        # Update cache
-        _collection_cache['data'] = collection_data
-        _collection_cache['timestamp'] = now
+        # Update cache (keyed by user — Sheets mode uses key 0 for anonymous)
+        _collection_cache[cache_key] = {"data": collection_data, "timestamp": now}
 
-        logger.info(f"Cached {len(collection_data)} cards")
+        logger.info(f"Cached {len(collection_data)} cards (user={cache_key})")
         return collection_data
 
     except Exception as e:
         logger.error(f"Failed to fetch collection data: {e}")
         raise
 
-def clear_collection_cache():
-    """Clear the collection cache to force refresh on next request"""
-    _collection_cache['data'] = None
-    _collection_cache['timestamp'] = None
-    logger.info("Collection cache cleared")
+
+def clear_collection_cache(user_id: Optional[int] = None):
+    """Clear the collection cache to force refresh on next request.
+
+    Args:
+        user_id: If provided, clear only that user's cache entry. Otherwise clears all entries.
+    """
+    if user_id is not None:
+        cache_key = user_id
+        if cache_key in _collection_cache:
+            del _collection_cache[cache_key]
+            logger.info("Collection cache cleared for user %s", cache_key)
+    else:
+        _collection_cache.clear()
+        logger.info("Collection cache cleared (all users)")
 
 
 def decode_jwt_token(token: str) -> Dict[str, Any]:
@@ -439,19 +459,13 @@ async def get_current_user(request: Request) -> Dict[str, Any]:
             token = auth_header[7:]
 
     if not token:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Not authenticated"
-        )
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Not authenticated")
 
     try:
         payload = decode_jwt_token(token)
         return payload
     except (JWTError, ValueError):
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid or expired token"
-        )
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid or expired token")
 
 
 async def get_current_user_id(request: Request) -> int:
@@ -470,10 +484,7 @@ async def get_current_user_id(request: Request) -> int:
     try:
         return int(user.get("sub", 0))
     except (ValueError, TypeError):
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid user ID"
-        )
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid user ID")
 
 
 async def require_admin(user: dict = Depends(get_current_user)) -> dict:

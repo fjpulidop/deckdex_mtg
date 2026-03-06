@@ -2,10 +2,12 @@ import { useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useSearchParams } from 'react-router-dom';
 import { useQueryClient } from '@tanstack/react-query';
-import { useCards } from '../hooks/useApi';
+import { useCards, useFilterOptions, useTriggerPriceUpdate } from '../hooks/useApi';
+import { useActiveJobs } from '../contexts/ActiveJobsContext';
 import { Filters } from '../components/Filters';
 import { CardTable } from '../components/CardTable';
 import { CardFormModal } from '../components/CardFormModal';
+import { ImportListModal } from '../components/ImportListModal';
 import { CardDetailModal } from '../components/CardDetailModal';
 import { CollectionInsights } from '../components/CollectionInsights';
 import { api, Card } from '../api/client';
@@ -15,7 +17,7 @@ export function Dashboard() {
   const { t } = useTranslation();
   const queryClient = useQueryClient();
   const [searchParams, setSearchParams] = useSearchParams();
-  const [cardModal, setCardModal] = useState<null | 'add'>(null);
+  const [cardModal, setCardModal] = useState<null | 'add' | 'import'>(null);
   const [detailCard, setDetailCard] = useState<Card | null>(null);
 
   // Filter state owned by URL params
@@ -28,8 +30,8 @@ export function Dashboard() {
   // Color identity filter (local state — not in URL for simplicity)
   const [colors, setColors] = useState<string[]>([]);
 
-  // Fetch filtered cards for the table
-  const { data: cards, isLoading, error } = useCards({
+  // Fetch filtered cards for the table (paginated; server returns total count)
+  const { data: cardPage, isLoading, error } = useCards({
     search: search || undefined,
     rarity: rarity === 'all' ? undefined : rarity,
     type: type === 'all' ? undefined : type,
@@ -37,8 +39,10 @@ export function Dashboard() {
     priceMin: priceMin.trim() || undefined,
     priceMax: priceMax.trim() || undefined,
     colorIdentity: colors.length ? colors.join(',') : undefined,
-    limit: 10000,
   });
+
+  // Fetch distinct type and set values for filter dropdowns (avoids loading full collection)
+  const { data: filterOptions } = useFilterOptions();
 
   const invalidateCards = useCallback(() => {
     queryClient.invalidateQueries({ queryKey: ['cards'] });
@@ -59,7 +63,21 @@ export function Dashboard() {
     }
   }, [queryClient, detailCard?.id]);
 
+  const { addJob } = useActiveJobs();
+  const triggerPriceUpdate = useTriggerPriceUpdate();
+
+  const handleUpdatePrices = useCallback(() => {
+    triggerPriceUpdate.mutate(undefined, {
+      onSuccess: (data) => {
+        if (data?.job_id) {
+          addJob(data.job_id, 'Update Prices', invalidateCards);
+        }
+      },
+    });
+  }, [triggerPriceUpdate, addJob, invalidateCards]);
+
   const handleAddCard = useCallback(() => setCardModal('add'), []);
+  const handleImport = useCallback(() => setCardModal('import'), []);
   const handleRowClick = useCallback((card: Card) => setDetailCard(card), []);
 
   const handleCardSubmit = useCallback(async (payload: Partial<Card>) => {
@@ -118,15 +136,17 @@ export function Dashboard() {
     setColors([]);
   }, [setSearchParams]);
 
-  // Derive type and set options from API response (filtered result)
-  const typeOptions = Array.from(
-    new Set((cards || []).map(c => c.type).filter(Boolean) as string[])
-  ).sort((a, b) => a.localeCompare(b));
-  const setOptions = Array.from(
-    new Set((cards || []).map(c => c.set_name).filter(Boolean) as string[])
-  ).sort((a, b) => a.localeCompare(b));
+  // Use server-provided filter options (distinct types/sets from DB) for dropdowns.
+  // Falls back to deriving from current page items if filter-options not yet loaded.
+  const displayCards = cardPage?.items ?? [];
+  const serverTotal = cardPage?.total;
 
-  const displayCards = cards ?? [];
+  const typeOptions = filterOptions?.types.length
+    ? filterOptions.types
+    : Array.from(new Set(displayCards.map(c => c.type).filter(Boolean) as string[])).sort((a, b) => a.localeCompare(b));
+  const setOptions = filterOptions?.sets.length
+    ? filterOptions.sets
+    : Array.from(new Set(displayCards.map(c => c.set_name).filter(Boolean) as string[])).sort((a, b) => a.localeCompare(b));
 
   const hasPriceRange =
     (priceMin.trim() !== '' && Number.isFinite(parseFloat(priceMin.replace(',', '.')))) ||
@@ -169,8 +189,8 @@ export function Dashboard() {
 
   if (error) {
     return (
-      <div className="min-h-screen bg-gray-100 dark:bg-gray-900 flex items-center justify-center">
-        <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-8 max-w-lg">
+      <div className="relative min-h-screen flex items-center justify-center">
+        <div role="alert" className="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-8 max-w-lg">
           <h1 className="text-2xl font-bold text-red-600 dark:text-red-400 mb-4">{t('dashboard.backendError')}</h1>
           <p className="text-gray-700 dark:text-gray-300 mb-4">
             {t('dashboard.backendErrorDesc')}
@@ -198,7 +218,7 @@ uvicorn api.main:app --reload --port 8000
   }
 
   return (
-    <div className="min-h-screen bg-gray-100 dark:bg-gray-900">
+    <div className="relative min-h-screen">
       <div className="container mx-auto px-4 py-8">
         {/* Collection Insights */}
         <CollectionInsights onCardClick={handleRowClick} />
@@ -221,7 +241,7 @@ uvicorn api.main:app --reload --port 8000
           colors={colors}
           onColorsChange={setColors}
           activeChips={activeChips}
-          resultCount={displayCards.length}
+          resultCount={serverTotal ?? displayCards.length}
           onClearFilters={handleClearFilters}
         />
 
@@ -230,7 +250,11 @@ uvicorn api.main:app --reload --port 8000
           cards={displayCards}
           isLoading={isLoading}
           onAdd={handleAddCard}
+          onImport={handleImport}
+          onUpdatePrices={handleUpdatePrices}
+          updatingPrices={triggerPriceUpdate.isPending}
           onRowClick={handleRowClick}
+          serverTotal={serverTotal}
         />
       </div>
 
@@ -242,6 +266,10 @@ uvicorn api.main:app --reload --port 8000
           onSubmit={handleCardSubmit}
           onClose={() => setCardModal(null)}
         />
+      )}
+
+      {cardModal === 'import' && (
+        <ImportListModal onClose={() => setCardModal(null)} />
       )}
 
       {detailCard && (

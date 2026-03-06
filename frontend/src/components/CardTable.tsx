@@ -6,8 +6,15 @@ interface CardTableProps {
   cards: Card[];
   isLoading?: boolean;
   onAdd?: () => void;
+  onImport?: () => void;
+  onUpdatePrices?: () => void;
+  updatingPrices?: boolean;
   onRowClick?: (card: Card) => void;
   onQuantityChange?: (id: number, qty: number) => void;
+  /** Server-side total count (before pagination). When provided, displayed in
+   *  the pagination footer so users see the true collection size even when
+   *  fewer items are rendered on the current page. */
+  serverTotal?: number;
 }
 
 function QuantityCell({ card, onQuantityChange }: { card: Card; onQuantityChange?: (id: number, qty: number) => void }) {
@@ -54,16 +61,25 @@ function QuantityCell({ card, onQuantityChange }: { card: Card; onQuantityChange
 
   return (
     <span
-      className={`inline-block min-w-[2rem] text-center font-mono text-sm cursor-pointer px-2 py-0.5 rounded hover:bg-blue-50 dark:hover:bg-blue-900/40 ${saving ? 'opacity-50' : ''}`}
+      role="button"
+      tabIndex={0}
+      aria-label={t('cardTable.editQtyLabel', { qty: card.quantity ?? 1 })}
+      className={`inline-block min-w-[2rem] text-center font-mono text-sm cursor-pointer px-2 py-0.5 rounded hover:bg-blue-50 dark:hover:bg-blue-900/40 focus:outline-none focus:ring-2 focus:ring-blue-400 ${saving ? 'opacity-50' : ''}`}
       onClick={e => { e.stopPropagation(); setEditing(true); }}
-      title={t('cardTable.clickToEditQty')}
+      onKeyDown={e => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault();
+          e.stopPropagation();
+          setEditing(true);
+        }
+      }}
     >
       {card.quantity ?? 1}
     </span>
   );
 }
 
-export function CardTable({ cards, isLoading, onAdd, onRowClick, onQuantityChange }: CardTableProps) {
+export function CardTable({ cards, isLoading, onAdd, onImport, onUpdatePrices, updatingPrices, onRowClick, onQuantityChange, serverTotal }: CardTableProps) {
   const { t } = useTranslation();
   const [sortKey, setSortKey] = useState<string>('created_at');
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc');
@@ -85,6 +101,18 @@ export function CardTable({ cards, isLoading, onAdd, onRowClick, onQuantityChang
     } else {
       setSortKey(key);
       setSortDirection('asc');
+    }
+  };
+
+  const getAriaSortValue = (key: string): 'ascending' | 'descending' | 'none' => {
+    if (sortKey !== key) return 'none';
+    return sortDirection === 'asc' ? 'ascending' : 'descending';
+  };
+
+  const handleSortKeyDown = (key: string) => (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter' || e.key === ' ') {
+      e.preventDefault();
+      handleSort(key);
     }
   };
 
@@ -190,16 +218,37 @@ export function CardTable({ cards, isLoading, onAdd, onRowClick, onQuantityChang
   };
 
   return (
-    <div ref={containerRef} className="bg-white dark:bg-gray-800 rounded-lg shadow overflow-hidden">
-      {onAdd && (
-        <div className="px-6 py-3 border-b border-gray-200 dark:border-gray-600">
-          <button
-            type="button"
-            onClick={onAdd}
-            className="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700 text-sm dark:bg-green-500 dark:hover:bg-green-600"
-          >
-            {t('cardTable.addCard')}
-          </button>
+    <div ref={containerRef} className="bg-white dark:bg-gray-800 rounded-lg shadow overflow-hidden scroll-mt-20">
+      {(onAdd || onImport || onUpdatePrices) && (
+        <div className="px-6 py-3 border-b border-gray-200 dark:border-gray-600 flex flex-wrap gap-2">
+          {onAdd && (
+            <button
+              type="button"
+              onClick={onAdd}
+              className="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700 text-sm dark:bg-green-500 dark:hover:bg-green-600"
+            >
+              {t('cardTable.addCard')}
+            </button>
+          )}
+          {onImport && (
+            <button
+              type="button"
+              onClick={onImport}
+              className="px-4 py-2 border border-indigo-600 text-indigo-600 bg-transparent rounded hover:bg-indigo-50 text-sm dark:border-indigo-400 dark:text-indigo-400 dark:hover:bg-indigo-950"
+            >
+              {t('cardTable.importList')}
+            </button>
+          )}
+          {onUpdatePrices && (
+            <button
+              type="button"
+              onClick={onUpdatePrices}
+              disabled={updatingPrices}
+              className="px-4 py-2 border border-gray-400 text-gray-600 bg-transparent rounded hover:bg-gray-50 text-sm disabled:opacity-50 dark:border-gray-500 dark:text-gray-400 dark:hover:bg-gray-800"
+            >
+              {updatingPrices ? t('cardTable.starting') : t('cardTable.updatePrices')}
+            </button>
+          )}
         </div>
       )}
       <div className="overflow-x-auto">
@@ -207,43 +256,73 @@ export function CardTable({ cards, isLoading, onAdd, onRowClick, onQuantityChang
           <thead className="bg-gray-50 dark:bg-gray-700/50">
             <tr>
               <th
-                className="px-3 py-3 text-center text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-600 w-16"
+                scope="col"
+                tabIndex={0}
+                role="columnheader"
+                aria-sort={getAriaSortValue('quantity')}
+                className="px-3 py-3 text-center text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-600 w-16 focus:outline-none focus:ring-2 focus:ring-inset focus:ring-blue-400"
                 onClick={() => handleSort('quantity')}
+                onKeyDown={handleSortKeyDown('quantity')}
                 title={t('cardTable.clickToEditQty')}
               >
                 {t('cardTable.columns.qty')} {sortKey === 'quantity' && (sortDirection === 'asc' ? '↑' : '↓')}
               </th>
               <th
-                className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-600"
+                scope="col"
+                tabIndex={0}
+                role="columnheader"
+                aria-sort={getAriaSortValue('created_at')}
+                className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-600 focus:outline-none focus:ring-2 focus:ring-inset focus:ring-blue-400"
                 onClick={() => handleSort('created_at')}
+                onKeyDown={handleSortKeyDown('created_at')}
               >
                 {t('cardTable.columns.added')} {sortKey === 'created_at' && (sortDirection === 'asc' ? '↑' : '↓')}
               </th>
               <th
-                className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-600"
+                scope="col"
+                tabIndex={0}
+                role="columnheader"
+                aria-sort={getAriaSortValue('name')}
+                className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-600 focus:outline-none focus:ring-2 focus:ring-inset focus:ring-blue-400"
                 onClick={() => handleSort('name')}
+                onKeyDown={handleSortKeyDown('name')}
               >
                 {t('cardTable.columns.name')} {sortKey === 'name' && (sortDirection === 'asc' ? '↑' : '↓')}
               </th>
               <th
-                className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-600"
+                scope="col"
+                tabIndex={0}
+                role="columnheader"
+                aria-sort={getAriaSortValue('type')}
+                className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-600 focus:outline-none focus:ring-2 focus:ring-inset focus:ring-blue-400"
                 onClick={() => handleSort('type')}
+                onKeyDown={handleSortKeyDown('type')}
               >
                 {t('cardTable.columns.type')} {sortKey === 'type' && (sortDirection === 'asc' ? '↑' : '↓')}
               </th>
               <th
-                className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-600"
+                scope="col"
+                tabIndex={0}
+                role="columnheader"
+                aria-sort={getAriaSortValue('rarity')}
+                className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-600 focus:outline-none focus:ring-2 focus:ring-inset focus:ring-blue-400"
                 onClick={() => handleSort('rarity')}
+                onKeyDown={handleSortKeyDown('rarity')}
               >
                 {t('cardTable.columns.rarity')} {sortKey === 'rarity' && (sortDirection === 'asc' ? '↑' : '↓')}
               </th>
               <th
-                className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-600"
+                scope="col"
+                tabIndex={0}
+                role="columnheader"
+                aria-sort={getAriaSortValue('price')}
+                className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-600 focus:outline-none focus:ring-2 focus:ring-inset focus:ring-blue-400"
                 onClick={() => handleSort('price')}
+                onKeyDown={handleSortKeyDown('price')}
               >
                 {t('cardTable.columns.price')} {sortKey === 'price' && (sortDirection === 'asc' ? '↑' : '↓')}
               </th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+              <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
                 {t('cardTable.columns.set')}
               </th>
             </tr>
@@ -302,6 +381,11 @@ export function CardTable({ cards, isLoading, onAdd, onRowClick, onQuantityChang
         <div className="bg-gray-50 dark:bg-gray-700/50 px-6 py-4 flex items-center justify-between border-t border-gray-200 dark:border-gray-600">
           <div className="text-sm text-gray-700 dark:text-gray-300">
             {t('cardTable.showing', { from: startIndex + 1, to: Math.min(startIndex + itemsPerPage, sortedCards.length), total: sortedCards.length })}
+            {serverTotal !== undefined && serverTotal !== sortedCards.length && (
+              <span className="ml-2 text-gray-500 dark:text-gray-400">
+                ({serverTotal.toLocaleString()} {t('cardTable.totalInCollection', { defaultValue: 'total in collection' })})
+              </span>
+            )}
           </div>
           <div className="flex gap-2">
             <button

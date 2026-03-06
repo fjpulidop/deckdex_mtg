@@ -3,14 +3,16 @@ API tests for DeckDex MTG backend.
 Uses FastAPI TestClient with mocked get_cached_collection so no DB or Google Sheets required.
 Requires httpx<0.28 for TestClient compatibility (see requirements.txt).
 """
+
 import unittest
 from unittest.mock import patch
 
 from fastapi.testclient import TestClient
 
+from backend.api.dependencies import get_current_user_id
+
 # Import app after potential path setup; run tests from repo root
 from backend.api.main import app
-from backend.api.dependencies import get_current_user_id
 
 # Override auth for all tests — no real JWT needed
 app.dependency_overrides[get_current_user_id] = lambda: 1
@@ -51,10 +53,14 @@ class TestHealth(unittest.TestCase):
 class TestStats(unittest.TestCase):
     def setUp(self):
         from backend.api.routes.stats import clear_stats_cache
+
         clear_stats_cache()
 
     def test_stats_empty_collection_returns_200_and_zeros(self):
-        with patch("backend.api.routes.stats.get_cached_collection", return_value=[]):
+        with (
+            patch("backend.api.routes.stats.get_collection_repo", return_value=None),
+            patch("backend.api.routes.stats.get_cached_collection", return_value=[]),
+        ):
             response = client.get("/api/stats/")
             self.assertEqual(response.status_code, 200)
             data = response.json()
@@ -65,7 +71,10 @@ class TestStats(unittest.TestCase):
             self.assertIsInstance(data["last_updated"], str)
 
     def test_stats_non_empty_collection_returns_aggregates(self):
-        with patch("backend.api.routes.stats.get_cached_collection", return_value=SAMPLE_CARDS):
+        with (
+            patch("backend.api.routes.stats.get_collection_repo", return_value=None),
+            patch("backend.api.routes.stats.get_cached_collection", return_value=SAMPLE_CARDS),
+        ):
             response = client.get("/api/stats/")
             self.assertEqual(response.status_code, 200)
             data = response.json()
@@ -75,7 +84,10 @@ class TestStats(unittest.TestCase):
             self.assertIn("last_updated", data)
 
     def test_stats_with_filter_returns_filtered_subset(self):
-        with patch("backend.api.routes.stats.get_cached_collection", return_value=SAMPLE_CARDS):
+        with (
+            patch("backend.api.routes.stats.get_collection_repo", return_value=None),
+            patch("backend.api.routes.stats.get_cached_collection", return_value=SAMPLE_CARDS),
+        ):
             response = client.get("/api/stats/", params={"rarity": "common"})
             self.assertEqual(response.status_code, 200)
             data = response.json()
@@ -84,42 +96,65 @@ class TestStats(unittest.TestCase):
 
 
 # ---------------------------------------------------------------------------
-# Cards list (patch get_cached_collection in backend.api.routes.cards)
+# Cards list (patch get_cached_collection and get_collection_repo in backend.api.routes.cards)
+# GET /api/cards/ now returns { items, total, limit, offset } instead of List[Card]
 # ---------------------------------------------------------------------------
 class TestCardsList(unittest.TestCase):
-    def test_cards_empty_collection_returns_200_empty_array(self):
-        with patch("backend.api.routes.cards.get_cached_collection", return_value=[]):
-            response = client.get("/api/cards/")
-            self.assertEqual(response.status_code, 200)
-            self.assertEqual(response.json(), [])
-
-    def test_cards_non_empty_collection_returns_cards(self):
-        with patch("backend.api.routes.cards.get_cached_collection", return_value=SAMPLE_CARDS):
+    def test_cards_empty_collection_returns_200_empty_items(self):
+        with (
+            patch("backend.api.routes.cards.get_collection_repo", return_value=None),
+            patch("backend.api.routes.cards.get_cached_collection", return_value=[]),
+        ):
             response = client.get("/api/cards/")
             self.assertEqual(response.status_code, 200)
             data = response.json()
-            self.assertIsInstance(data, list)
-            self.assertEqual(len(data), 3)
-            names = [c.get("name") for c in data]
+            self.assertIn("items", data)
+            self.assertEqual(data["items"], [])
+            self.assertEqual(data["total"], 0)
+
+    def test_cards_non_empty_collection_returns_cards(self):
+        with (
+            patch("backend.api.routes.cards.get_collection_repo", return_value=None),
+            patch("backend.api.routes.cards.get_cached_collection", return_value=SAMPLE_CARDS),
+        ):
+            response = client.get("/api/cards/")
+            self.assertEqual(response.status_code, 200)
+            data = response.json()
+            self.assertIn("items", data)
+            items = data["items"]
+            self.assertIsInstance(items, list)
+            self.assertEqual(len(items), 3)
+            self.assertEqual(data["total"], 3)
+            names = [c.get("name") for c in items]
             self.assertIn("Lightning Bolt", names)
             self.assertIn("Black Lotus", names)
             self.assertIn("Counterspell", names)
 
     def test_cards_limit_offset_pagination(self):
-        with patch("backend.api.routes.cards.get_cached_collection", return_value=SAMPLE_CARDS):
+        with (
+            patch("backend.api.routes.cards.get_collection_repo", return_value=None),
+            patch("backend.api.routes.cards.get_cached_collection", return_value=SAMPLE_CARDS),
+        ):
             response = client.get("/api/cards/", params={"limit": 2, "offset": 1})
             self.assertEqual(response.status_code, 200)
             data = response.json()
-            self.assertEqual(len(data), 2)
+            items = data["items"]
+            self.assertEqual(len(items), 2)
+            self.assertEqual(data["total"], 3)  # total reflects unsliced count
             # Second and third card (offset 1, limit 2): Black Lotus, Counterspell
-            names = [c.get("name") for c in data]
+            names = [c.get("name") for c in items]
             self.assertEqual(names, ["Black Lotus", "Counterspell"])
 
     def test_cards_with_filter_returns_only_matching(self):
-        with patch("backend.api.routes.cards.get_cached_collection", return_value=SAMPLE_CARDS):
+        with (
+            patch("backend.api.routes.cards.get_collection_repo", return_value=None),
+            patch("backend.api.routes.cards.get_cached_collection", return_value=SAMPLE_CARDS),
+        ):
             response = client.get("/api/cards/", params={"set_name": "M10"})
             self.assertEqual(response.status_code, 200)
             data = response.json()
-            self.assertEqual(len(data), 2)  # Lightning Bolt, Counterspell
-            for c in data:
+            items = data["items"]
+            self.assertEqual(len(items), 2)  # Lightning Bolt, Counterspell
+            self.assertEqual(data["total"], 2)
+            for c in items:
                 self.assertEqual(c.get("set_name"), "M10")
