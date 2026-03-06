@@ -43,6 +43,7 @@ export function useCountUp(target: number, duration = 800): number {
   // Snap on first render if target is already set
   useEffect(() => {
     if (prevTarget.current === 0 && target === 0) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- intentional: snap display to 0 on init
       setDisplay(0);
     }
   }, [target]);

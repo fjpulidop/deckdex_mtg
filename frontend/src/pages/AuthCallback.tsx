@@ -34,6 +34,7 @@ const AuthCallback: React.FC = () => {
       .catch(() => {
         navigate('/login?error=auth_failed', { replace: true });
       });
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- only run once on mount (auth exchange)
   }, []);
 
   return (

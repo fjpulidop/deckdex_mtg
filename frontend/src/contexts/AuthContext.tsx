@@ -1,3 +1,4 @@
+/* eslint-disable react-refresh/only-export-components -- context files export both Provider and hook by convention */
 import React, { createContext, useContext, useState, useEffect } from 'react';
 
 interface User {

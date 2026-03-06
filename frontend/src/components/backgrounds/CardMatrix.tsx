@@ -87,6 +87,7 @@ export function CardMatrix() {
     [isDark, opacityMax]
   );
 
+  /* eslint-disable react-hooks/immutability -- mutating ref contents (drop positions) is intentional for canvas animation */
   const update = useCallback(
     (width: number, height: number) => {
       for (const d of dropsRef.current) {
@@ -108,6 +109,7 @@ export function CardMatrix() {
     },
     []
   );
+  /* eslint-enable react-hooks/immutability */
 
   useEffect(() => {
     const canvas = canvasRef.current;

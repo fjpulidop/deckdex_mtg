@@ -1,3 +1,4 @@
+/* eslint-disable react-refresh/only-export-components -- context files export both Provider and hook by convention */
 import { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react';
 import { api } from '../api/client';
 
@@ -90,14 +91,6 @@ export function ActiveJobsProvider({ children }: { children: React.ReactNode }) 
   const removeJob = useCallback((jobId: string) => {
     setJobs((prev) => prev.filter((j) => j.jobId !== jobId));
     finishedCallbacksRef.current.delete(jobId);
-  }, []);
-
-  const fireJobFinished = useCallback((jobId: string) => {
-    const cb = finishedCallbacksRef.current.get(jobId);
-    if (cb) {
-      finishedCallbacksRef.current.delete(jobId);
-      cb();
-    }
   }, []);
 
   const value: ActiveJobsContextValue = { jobs, addJob, removeJob };

@@ -16,6 +16,7 @@ export function useCardImage(cardId: number | null): CardImageState {
 
   useEffect(() => {
     if (cardId == null) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- intentional: reset state when no card selected
       setState({ src: null, loading: false, error: false });
       return;
     }

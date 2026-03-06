@@ -9,6 +9,7 @@ interface Props {
 function useCountUp(target: number, duration = 800): number {
   const [value, setValue] = useState(0);
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- intentional: reset animation
     if (target === 0) { setValue(0); return; }
     let start: number | null = null;
     const step = (ts: number) => {

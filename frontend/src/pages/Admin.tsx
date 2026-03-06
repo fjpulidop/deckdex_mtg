@@ -45,7 +45,7 @@ export function Admin() {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [t]);
 
   useEffect(() => {
     fetchStatus();
@@ -92,7 +92,7 @@ export function Admin() {
     };
 
     return () => ws.close();
-  }, [jobId, fetchStatus, syncing]);
+  }, [jobId, fetchStatus, syncing, t]);
 
   const handleStartSync = async () => {
     setError(null);

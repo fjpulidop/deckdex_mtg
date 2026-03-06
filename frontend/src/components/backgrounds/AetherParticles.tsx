@@ -77,6 +77,7 @@ export function AetherParticles() {
     [isDark, opacityMax]
   );
 
+  /* eslint-disable react-hooks/immutability -- mutating ref contents (particle positions) is intentional for canvas animation */
   const update = useCallback(
     (width: number, height: number) => {
       for (const p of particlesRef.current) {
@@ -98,6 +99,7 @@ export function AetherParticles() {
     },
     [opacityMax]
   );
+  /* eslint-enable react-hooks/immutability */
 
   useEffect(() => {
     const canvas = canvasRef.current;
