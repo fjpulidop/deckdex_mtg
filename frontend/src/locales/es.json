@@ -46,6 +46,9 @@
   },
   "cardTable": {
     "addCard": "Añadir carta",
+    "importList": "Importar lista",
+    "updatePrices": "Actualizar precios",
+    "starting": "Iniciando...",
     "columns": {
       "qty": "Cant.",
       "added": "Añadida",
@@ -56,6 +59,7 @@
       "set": "Edición"
     },
     "clickToEditQty": "Clic para editar cantidad",
+    "editQtyLabel": "Editar cantidad (actualmente {{qty}})",
     "showing": "Mostrando {{from}} a {{to}} de {{total}} cartas",
     "page": "Página {{current}} de {{total}}",
     "noCards": "No se encontraron cartas"
@@ -117,6 +121,9 @@
     "total": "Total",
     "cmc": "CMC",
     "addCard": "Añadir carta",
+    "export": "Exportar",
+    "copied": "¡Copiado!",
+    "import": "Importar",
     "deleteDeck": "Eliminar mazo",
     "hoverCard": "Pasa el cursor sobre una carta para previsualizarla",
     "loading": "Cargando…",
@@ -129,6 +136,17 @@
     "deleteConfirmMessage": "¿Seguro que quieres eliminar \"{{name}}\"? Esta acción no se puede deshacer.",
     "deleteConfirm": "Eliminar",
     "deleteCancel": "Cancelar"
+  },
+  "deckImport": {
+    "title": "Importar lista de mazo",
+    "placeholder": "Pega tu lista de mazo aquí...\n1 Lightning Bolt\n2 Counterspell\n//Commander\n1 Atraxa, Praetors' Voice",
+    "submit": "Importar",
+    "cancel": "Cancelar",
+    "loading": "Importando...",
+    "success": "{{count}} cartas importadas",
+    "skippedTitle": "No está en tu colección ({{count}}):",
+    "done": "Hecho",
+    "notInCollection": "no en colección"
   },
   "confirmModal": {
     "confirm": "Confirmar",
@@ -219,7 +237,8 @@
     "credentialsCleared2": "Credenciales eliminadas.",
     "invalidJsonFile": "El archivo seleccionado no es un JSON válido.",
     "importedCards_one": "Importada {{count}} carta.",
-    "importedCards_other": "Importadas {{count}} cartas."
+    "importedCards_other": "Importadas {{count}} cartas.",
+    "scryfallCredentialsLabel": "JSON de credenciales de Scryfall"
   },
   "insights": {
     "title": "Análisis de colección",
@@ -227,6 +246,9 @@
     "noMatches": "No se encontraron preguntas coincidentes",
     "running": "Ejecutando análisis…",
     "failed": "Error al ejecutar el análisis",
+    "pin": "Fijar",
+    "unpin": "Desfijar",
+    "dismiss": "Cerrar",
     "categories": {
       "summary": "Resumen",
       "distribution": "Distribución",
@@ -304,7 +326,32 @@
     "notFound_other": "{{count}} cartas no encontradas",
     "pasteHint": "Formato: una carta por línea con cantidad. Ej: <1>4 Lightning Bolt</1>",
     "errorParsingFile": "Error al analizar el archivo",
-    "errorParsingText": "Error al analizar el texto"
+    "errorParsingText": "Error al analizar el texto",
+    "resolving": "Resolviendo nombres de cartas…",
+    "resolvingHint": "Comprobando cartas contra el catálogo y Scryfall",
+    "reviewTitle": "Revisar cartas",
+    "reviewMatched_one": "{{count}} carta encontrada",
+    "reviewMatched_other": "{{count}} cartas encontradas",
+    "reviewUnresolved_one": "{{count}} carta necesita atención",
+    "reviewUnresolved_other": "{{count}} cartas necesitan atención",
+    "reviewNeedsAttention": "Necesita atención",
+    "reviewMatchedSection": "Cartas encontradas",
+    "reviewNoSuggestions": "Sin sugerencias",
+    "reviewTypeName": "Escribe el nombre de la carta…",
+    "reviewSkip": "Omitir",
+    "reviewAcceptAll": "Aceptar todas las sugerencias",
+    "reviewSkipAll": "Omitir todas las no resueltas",
+    "reviewAllMatched": "Todas las cartas encontradas. Listo para importar."
+  },
+  "importListModal": {
+    "title": "Importar lista",
+    "fileTab": "Archivo",
+    "textTab": "Texto",
+    "dragDrop": "Arrastra un archivo .csv o .txt aquí",
+    "selectFile": "Seleccionar archivo",
+    "textPlaceholder": "Pega tu lista de cartas aquí…\nej. 4 Lightning Bolt\n1 Counterspell",
+    "continue": "Continuar",
+    "resolving": "Resolviendo cartas…"
   },
   "dashboard": {
     "backendError": "Error de conexión con el servidor",
@@ -329,17 +376,22 @@
     "filterColor": "Color: {{value}}",
     "filterCmc": "CMC: {{value}}",
     "filterSet": "Edición: {{value}}",
+    "filterType": "Tipo: {{value}}",
     "kpis": {
       "totalCards": "Total de cartas",
       "totalValue": "Valor total",
-      "avgPrice": "Precio medio"
+      "avgPrice": "Precio medio",
+      "mythicRares": "Míticas"
     },
     "charts": {
       "byRarity": "Distribución por rareza",
       "byColor": "Distribución por identidad de color",
       "manaCurve": "Curva de maná (CMC)",
-      "topSets": "Mejores ediciones por número de cartas"
+      "topSets": "Mejores ediciones por número de cartas",
+      "byType": "Distribución por tipo de carta"
     },
+    "avgCmc": "CMC medio",
+    "colorless": "Incoloro: {{count}}",
     "failedToLoad": "Error al cargar estadísticas",
     "failedToLoadData": "Error al cargar datos",
     "retry": "Reintentar"

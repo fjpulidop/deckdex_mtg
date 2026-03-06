@@ -4,6 +4,7 @@ import Cropper from 'react-easy-crop';
 import type { Area } from 'react-easy-crop';
 import { User, Camera, X } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
+import { AccessibleModal } from './AccessibleModal';
 
 interface ProfileModalProps {
   onClose: () => void;
@@ -58,17 +59,18 @@ export function ProfileModal({ onClose }: ProfileModalProps) {
   const [error, setError] = useState<string | null>(null);
   const [nameError, setNameError] = useState<string | null>(null);
 
-  // ESC to close
+  // ESC to close crop sub-modal (AccessibleModal handles outer ESC)
   useEffect(() => {
+    if (!cropOpen) return;
     const handler = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
-        if (cropOpen) setCropOpen(false);
-        else onClose();
+        e.stopPropagation();
+        setCropOpen(false);
       }
     };
     document.addEventListener('keydown', handler);
     return () => document.removeEventListener('keydown', handler);
-  }, [cropOpen, onClose]);
+  }, [cropOpen]);
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -133,16 +135,17 @@ export function ProfileModal({ onClose }: ProfileModalProps) {
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50" onClick={onClose}>
+    <>
+    <AccessibleModal isOpen titleId="profile-modal-title" onClose={onClose} className="z-50">
       <div
         className="relative bg-white dark:bg-gray-800 rounded-xl shadow-2xl w-full max-w-sm mx-4 p-6"
-        onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
         <div className="flex items-center justify-between mb-6">
-          <h2 className="text-lg font-semibold text-gray-900 dark:text-white">{t('profile.title')}</h2>
+          <h2 id="profile-modal-title" className="text-lg font-semibold text-gray-900 dark:text-white">{t('profile.title')}</h2>
           <button
             onClick={onClose}
+            aria-label={t('common.close')}
             className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 transition-colors"
           >
             <X className="w-5 h-5" />
@@ -153,6 +156,7 @@ export function ProfileModal({ onClose }: ProfileModalProps) {
         <div className="flex flex-col items-center mb-6">
           <button
             onClick={() => fileInputRef.current?.click()}
+            aria-label={t('profile.changePhoto')}
             className="relative group w-24 h-24 rounded-full overflow-hidden bg-indigo-100 dark:bg-indigo-900 border-2 border-indigo-300 dark:border-indigo-700 hover:border-indigo-500 transition-colors focus:outline-none focus:ring-2 focus:ring-indigo-500"
           >
             {avatarPreview ? (
@@ -176,21 +180,22 @@ export function ProfileModal({ onClose }: ProfileModalProps) {
 
         {/* Display Name */}
         <div className="mb-6">
-          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+          <label htmlFor="profile-display-name" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
             {t('profile.username')}
           </label>
           <input
+            id="profile-display-name"
             type="text"
             value={displayName}
             onChange={(e) => { setDisplayName(e.target.value); setNameError(null); }}
             className="w-full px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
             placeholder={t('profile.namePlaceholder')}
           />
-          {nameError && <p className="mt-1 text-xs text-red-500">{nameError}</p>}
+          {nameError && <p role="alert" className="mt-1 text-xs text-red-500">{nameError}</p>}
         </div>
 
         {error && (
-          <p className="mb-4 text-sm text-red-500 dark:text-red-400">{error}</p>
+          <p role="alert" className="mb-4 text-sm text-red-500 dark:text-red-400">{error}</p>
         )}
 
         {/* Actions */}
@@ -210,18 +215,22 @@ export function ProfileModal({ onClose }: ProfileModalProps) {
           </button>
         </div>
       </div>
+    </AccessibleModal>
 
       {/* Crop sub-modal */}
       {cropOpen && rawImageSrc && (
         <div
-          className="fixed inset-0 z-60 flex items-center justify-center bg-black/70"
-          onClick={(e) => e.stopPropagation()}
+          className="fixed inset-0 z-[60] flex items-center justify-center bg-black/70"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="crop-modal-title"
         >
           <div className="bg-white dark:bg-gray-800 rounded-xl shadow-2xl w-full max-w-sm mx-4 p-6">
             <div className="flex items-center justify-between mb-4">
-              <h3 className="text-base font-semibold text-gray-900 dark:text-white">{t('profile.adjustPhoto')}</h3>
+              <h3 id="crop-modal-title" className="text-base font-semibold text-gray-900 dark:text-white">{t('profile.adjustPhoto')}</h3>
               <button
                 onClick={() => setCropOpen(false)}
+                aria-label={t('common.close')}
                 className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 transition-colors"
               >
                 <X className="w-5 h-5" />
@@ -274,6 +283,6 @@ export function ProfileModal({ onClose }: ProfileModalProps) {
           </div>
         </div>
       )}
-    </div>
+    </>
   );
 }

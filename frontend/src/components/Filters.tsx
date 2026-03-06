@@ -107,7 +107,9 @@ export function Filters({
       {/* Row 1: Search + dropdowns + Clear */}
       <div className="flex flex-wrap gap-4 items-center">
         <div className="flex-1 min-w-[200px]">
+          <label htmlFor="filters-search" className="sr-only">{t('filters.searchPlaceholder')}</label>
           <input
+            id="filters-search"
             type="text"
             placeholder={t('filters.searchPlaceholder')}
             value={debouncedSearch}
@@ -117,7 +119,9 @@ export function Filters({
         </div>
 
         <div className="min-w-[140px]">
+          <label htmlFor="filters-rarity" className="sr-only">{t('filters.allRarities')}</label>
           <select
+            id="filters-rarity"
             value={rarity}
             onChange={(e) => onRarityChange(e.target.value)}
             className={inputClass}
@@ -131,7 +135,8 @@ export function Filters({
         </div>
 
         <div className="min-w-[140px]">
-          <select value={type} onChange={(e) => onTypeChange(e.target.value)} className={inputClass}>
+          <label htmlFor="filters-type" className="sr-only">{t('filters.allTypes')}</label>
+          <select id="filters-type" value={type} onChange={(e) => onTypeChange(e.target.value)} className={inputClass}>
             <option value="all">{t('filters.allTypes')}</option>
             {typeOptions.map((opt) => (
               <option key={opt} value={opt}>
@@ -142,7 +147,8 @@ export function Filters({
         </div>
 
         <div className="min-w-[140px]">
-          <select value={set} onChange={(e) => onSetChange(e.target.value)} className={inputClass}>
+          <label htmlFor="filters-set" className="sr-only">{t('filters.allSets')}</label>
+          <select id="filters-set" value={set} onChange={(e) => onSetChange(e.target.value)} className={inputClass}>
             <option value="all">{t('filters.allSets')}</option>
             {setOptions.map((opt) => (
               <option key={opt} value={opt}>
@@ -153,7 +159,9 @@ export function Filters({
         </div>
 
         <div className="flex items-center gap-2 min-w-[180px]">
+          <label htmlFor="filters-price-min" className="sr-only">{t('filters.minPrice')}</label>
           <input
+            id="filters-price-min"
             type="text"
             placeholder={t('filters.minPrice')}
             value={priceMin}
@@ -161,8 +169,10 @@ export function Filters({
             className={`${inputClass} w-20`}
             inputMode="decimal"
           />
-          <span className="text-gray-400">–</span>
+          <span className="text-gray-400" aria-hidden="true">–</span>
+          <label htmlFor="filters-price-max" className="sr-only">{t('filters.maxPrice')}</label>
           <input
+            id="filters-price-max"
             type="text"
             placeholder={t('filters.maxPrice')}
             value={priceMax}

@@ -5,6 +5,7 @@ import { useCardImage } from '../hooks/useCardImage';
 import { useActiveJobs } from '../contexts/ActiveJobsContext';
 import { ManaText } from './ManaText';
 import { ConfirmModal } from './ConfirmModal';
+import { AccessibleModal } from './AccessibleModal';
 
 interface CardDetailModalProps {
   card: Card;
@@ -143,10 +144,10 @@ export function CardDetailModal({
   };
 
   return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" onClick={onClose}>
+    <>
+    <AccessibleModal isOpen titleId="card-detail-modal-title" onClose={onClose} className="z-50">
       <div
         className="bg-white dark:bg-gray-800 rounded-xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-hidden flex flex-col md:flex-row"
-        onClick={e => e.stopPropagation()}
       >
         {/* Left: image */}
         <div className="relative flex-shrink-0 p-4 flex items-center justify-center bg-gray-100 dark:bg-gray-900 min-h-[200px] md:min-w-[280px]">
@@ -189,13 +190,14 @@ export function CardDetailModal({
           <div className="flex justify-between items-start gap-2 mb-4">
             {isEditing ? (
               <input
+                id="card-detail-modal-title"
                 type="text"
                 value={editForm.name}
                 onChange={e => setEditForm(f => ({ ...f, name: e.target.value }))}
                 className="flex-1 text-xl font-bold bg-gray-100 dark:bg-gray-700 text-gray-900 dark:text-white rounded px-2 py-1 border border-gray-300 dark:border-gray-600"
               />
             ) : (
-              <h2 className="text-xl font-bold text-gray-900 dark:text-white leading-tight">
+              <h2 id="card-detail-modal-title" className="text-xl font-bold text-gray-900 dark:text-white leading-tight">
                 {displayName}
               </h2>
             )}
@@ -213,8 +215,9 @@ export function CardDetailModal({
             <>
               <div className="space-y-3 text-sm">
                 <div>
-                  <label className="block font-medium text-gray-700 dark:text-gray-300 mb-1">{t('cardDetail.fields.type')}</label>
+                  <label htmlFor="card-edit-type" className="block font-medium text-gray-700 dark:text-gray-300 mb-1">{t('cardDetail.fields.type')}</label>
                   <input
+                    id="card-edit-type"
                     type="text"
                     value={editForm.type}
                     onChange={e => setEditForm(f => ({ ...f, type: e.target.value }))}
@@ -222,8 +225,9 @@ export function CardDetailModal({
                   />
                 </div>
                 <div>
-                  <label className="block font-medium text-gray-700 dark:text-gray-300 mb-1">{t('cardDetail.fields.manaCost')}</label>
+                  <label htmlFor="card-edit-mana-cost" className="block font-medium text-gray-700 dark:text-gray-300 mb-1">{t('cardDetail.fields.manaCost')}</label>
                   <input
+                    id="card-edit-mana-cost"
                     type="text"
                     value={editForm.mana_cost}
                     onChange={e => setEditForm(f => ({ ...f, mana_cost: e.target.value }))}
@@ -231,8 +235,9 @@ export function CardDetailModal({
                   />
                 </div>
                 <div>
-                  <label className="block font-medium text-gray-700 dark:text-gray-300 mb-1">{t('cardDetail.fields.description')}</label>
+                  <label htmlFor="card-edit-description" className="block font-medium text-gray-700 dark:text-gray-300 mb-1">{t('cardDetail.fields.description')}</label>
                   <textarea
+                    id="card-edit-description"
                     value={editForm.description}
                     onChange={e => setEditForm(f => ({ ...f, description: e.target.value }))}
                     rows={3}
@@ -241,8 +246,9 @@ export function CardDetailModal({
                 </div>
                 <div className="flex gap-4">
                   <div>
-                    <label className="block font-medium text-gray-700 dark:text-gray-300 mb-1">{t('cardDetail.fields.power')}</label>
+                    <label htmlFor="card-edit-power" className="block font-medium text-gray-700 dark:text-gray-300 mb-1">{t('cardDetail.fields.power')}</label>
                     <input
+                      id="card-edit-power"
                       type="text"
                       value={editForm.power}
                       onChange={e => setEditForm(f => ({ ...f, power: e.target.value }))}
@@ -250,8 +256,9 @@ export function CardDetailModal({
                     />
                   </div>
                   <div>
-                    <label className="block font-medium text-gray-700 dark:text-gray-300 mb-1">{t('cardDetail.fields.toughness')}</label>
+                    <label htmlFor="card-edit-toughness" className="block font-medium text-gray-700 dark:text-gray-300 mb-1">{t('cardDetail.fields.toughness')}</label>
                     <input
+                      id="card-edit-toughness"
                       type="text"
                       value={editForm.toughness}
                       onChange={e => setEditForm(f => ({ ...f, toughness: e.target.value }))}
@@ -260,8 +267,9 @@ export function CardDetailModal({
                   </div>
                 </div>
                 <div>
-                  <label className="block font-medium text-gray-700 dark:text-gray-300 mb-1">{t('cardDetail.fields.set')}</label>
+                  <label htmlFor="card-edit-set" className="block font-medium text-gray-700 dark:text-gray-300 mb-1">{t('cardDetail.fields.set')}</label>
                   <input
+                    id="card-edit-set"
                     type="text"
                     value={editForm.set_name}
                     onChange={e => setEditForm(f => ({ ...f, set_name: e.target.value }))}
@@ -269,8 +277,9 @@ export function CardDetailModal({
                   />
                 </div>
                 <div>
-                  <label className="block font-medium text-gray-700 dark:text-gray-300 mb-1">{t('cardDetail.fields.setNumber')}</label>
+                  <label htmlFor="card-edit-set-number" className="block font-medium text-gray-700 dark:text-gray-300 mb-1">{t('cardDetail.fields.setNumber')}</label>
                   <input
+                    id="card-edit-set-number"
                     type="text"
                     value={editForm.number}
                     onChange={e => setEditForm(f => ({ ...f, number: e.target.value }))}
@@ -278,8 +287,9 @@ export function CardDetailModal({
                   />
                 </div>
                 <div>
-                  <label className="block font-medium text-gray-700 dark:text-gray-300 mb-1">{t('cardDetail.fields.rarity')}</label>
+                  <label htmlFor="card-edit-rarity" className="block font-medium text-gray-700 dark:text-gray-300 mb-1">{t('cardDetail.fields.rarity')}</label>
                   <input
+                    id="card-edit-rarity"
                     type="text"
                     value={editForm.rarity}
                     onChange={e => setEditForm(f => ({ ...f, rarity: e.target.value }))}
@@ -287,8 +297,9 @@ export function CardDetailModal({
                   />
                 </div>
                 <div>
-                  <label className="block font-medium text-gray-700 dark:text-gray-300 mb-1">{t('cardDetail.fields.price')}</label>
+                  <label htmlFor="card-edit-price" className="block font-medium text-gray-700 dark:text-gray-300 mb-1">{t('cardDetail.fields.price')}</label>
                   <input
+                    id="card-edit-price"
                     type="text"
                     value={editForm.price}
                     onChange={e => setEditForm(f => ({ ...f, price: e.target.value }))}
@@ -405,6 +416,8 @@ export function CardDetailModal({
         </div>
       </div>
 
+    </AccessibleModal>
+
       <ConfirmModal
         isOpen={deleteConfirmOpen}
         title={t('cardDetail.deleteConfirmTitle')}
@@ -436,6 +449,6 @@ export function CardDetailModal({
           />
         </div>
       )}
-    </div>
+    </>
   );
 }
