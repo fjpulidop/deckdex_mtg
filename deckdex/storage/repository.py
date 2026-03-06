@@ -555,7 +555,9 @@ class PostgresCollectionRepository(CollectionRepository):
             if price_min and str(price_min).strip():
                 try:
                     params["price_min"] = float(str(price_min).replace(",", "."))
-                    conditions.append(r"CASE WHEN price_eur ~ '^[0-9]+\.?[0-9]*$' THEN CAST(price_eur AS numeric) ELSE NULL END >= :price_min")
+                    conditions.append(
+                        r"CASE WHEN price_eur ~ '^[0-9]+\.?[0-9]*$' THEN CAST(price_eur AS numeric) ELSE NULL END >= :price_min"
+                    )
                 except (ValueError, TypeError):
                     pass
 
@@ -563,7 +565,9 @@ class PostgresCollectionRepository(CollectionRepository):
             if price_max and str(price_max).strip():
                 try:
                     params["price_max"] = float(str(price_max).replace(",", "."))
-                    conditions.append(r"CASE WHEN price_eur ~ '^[0-9]+\.?[0-9]*$' THEN CAST(price_eur AS numeric) ELSE NULL END <= :price_max")
+                    conditions.append(
+                        r"CASE WHEN price_eur ~ '^[0-9]+\.?[0-9]*$' THEN CAST(price_eur AS numeric) ELSE NULL END <= :price_max"
+                    )
                 except (ValueError, TypeError):
                     pass
 
