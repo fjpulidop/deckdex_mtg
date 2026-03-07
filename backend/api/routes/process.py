@@ -306,7 +306,7 @@ async def trigger_single_card_price_update(
     repo = get_collection_repo()
     if repo is None:
         raise HTTPException(status_code=501, detail="Collection repository not configured")
-    card = repo.get_card_by_id(card_id)
+    card = repo.get_card_by_id(card_id, user_id=user_id)
     if card is None:
         raise HTTPException(status_code=404, detail=f"Card with id {card_id} not found")
     _cleanup_old_jobs()
