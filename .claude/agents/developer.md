@@ -82,7 +82,30 @@ When an OpenSpec change is being applied, you:
 - Verify type annotations are complete (Python type hints, TypeScript types)
 - Check that error handling is comprehensive and consistent
 - Validate that the implementation matches the spec exactly
-- Run tests if applicable: `pytest tests/`
+- Run the **full CI-equivalent verification suite** (see below)
+
+## CI-Equivalent Verification Suite
+
+You MUST run ALL of these checks after implementation. These match the GitHub Actions CI pipeline exactly:
+
+### Backend checks (run in this order):
+```bash
+ruff check .                     # Lint (fix with --fix if needed)
+ruff format --check .            # Format check (fix with ruff format <file>)
+./venv/bin/pytest tests/ -q      # Tests
+```
+
+### Frontend checks (run in this order):
+```bash
+cd frontend && npm run lint      # ESLint (catches react-hooks rules, NOT just types)
+cd frontend && npx tsc --noEmit  # TypeScript compilation
+cd frontend && npx vitest run    # Tests
+```
+
+### Common pitfalls to avoid:
+- `ruff format --check` is NOT the same as `ruff check` — you must run BOTH
+- `npm run lint` (ESLint) catches rules that `tsc --noEmit` does not, such as `react-hooks/set-state-in-effect`, `react-hooks/exhaustive-deps`, and unused eslint-disable directives
+- After fixing any issue, re-run ALL checks from scratch
 
 ## Code Quality Standards
 

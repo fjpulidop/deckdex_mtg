@@ -64,13 +64,16 @@
 - Quick wins (Tier 1): dialog roles, role="alert", aria-labels, label associations, aria-sort (~2hrs)
 - ActionButtons.tsx has hardcoded English strings (bypasses i18n)
 
-## Card Gallery View Exploration (2026-03-07)
-- Full exploration completed, see product-ideation-explorer/card-gallery-view-exploration.md
-- ZERO gallery/grid view exists -- table-only display
-- Image infra: per-card endpoint, filesystem ImageStore, useCardImage hook (Blob URLs, no cross-component cache)
-- 50 cards/page = 50 individual image fetches; client-side blob cache is prerequisite for gallery
-- Architecture: Dashboard owns toggle, renders CardTable OR CardGallery (shared props interface)
-- Moxfield/Archidekt both default to gallery -- significant competitive gap
+## Card Gallery View Exploration (2026-03-07, initial)
+- See product-ideation-explorer/card-gallery-view-exploration.md (pre-implementation)
+
+## Card Gallery Refinement Exploration (2026-03-07, post-implementation)
+- See product-ideation-explorer/card-gallery-refinement-exploration.md
+- MVP delivered: CardGallery.tsx, useImageCache.ts (useSyncExternalStore), Dashboard toggle, 10 tests
+- CRITICAL gaps: no keyboard grid nav, no role="list" on container
+- MAJOR gaps: gallery ignores sort props (no sort UI), ignores quantity props (no badge)
+- MODERATE: ~60 lines toolbar+pagination duplicated between CardTable/CardGallery
+- Top pick: sort controls (pill bar above grid, uses existing onSortChange prop)
 
 ## Price History Exploration (2026-03-07)
 - Full exploration completed, see product-ideation-explorer/price-history-exploration.md
@@ -95,3 +98,45 @@
 - No progress or error log persistence -- in-memory only
 - WebSocket validates against in-memory only -- rejects valid DB jobs after restart
 - Top fixes: (1) orphaned job cleanup on startup, (2) route ordering, (3) normalize statuses, (4) DB fallback
+
+## Theme Persistence & Consistency Exploration (2026-03-07)
+- Full exploration completed, see product-ideation-explorer/theme-persistence-exploration.md
+- BUG: Login.tsx has ZERO dark mode support (all hardcoded light classes)
+- BUG: InsightComparisonRenderer uses @media (prefers-color-scheme: dark) instead of .dark class
+- MISSING: No cross-tab sync (no StorageEvent listener in ThemeContext)
+- Flash prevention in main.tsx (synchronous JS) works but not in index.html <head>
+- 40 files use dark: variants -- good coverage overall, Login.tsx is the outlier
+- Top pick: fix Login.tsx + InsightComparisonRenderer + add cross-tab sync (~2hrs total)
+
+## Animated Backgrounds Performance Exploration (2026-03-07)
+- Full exploration completed, see product-ideation-explorer/animated-backgrounds-exploration.md
+- Two canvas components: AetherParticles (app pages, 50 particles) and CardMatrix (landing, ~40 drops)
+- Well-built foundation: 30fps cap, DPR-aware, debounced resize, reduced-motion, proper cleanup
+- CRITICAL: No Page Visibility API -- animation loops burn CPU in background tabs
+- MAJOR: CardMatrix uses ctx.shadowBlur=8 in dark mode -- expensive Gaussian blur every frame per drop
+- MAJOR: Theme toggle causes full effect re-run (flash); could use ref for isDark
+- MINOR: No DPR change detection for multi-monitor; no user toggle to disable backgrounds
+- Top pick: Page Visibility API pause (highest impact, smallest effort, ~30 min)
+
+## Navigation UI Polish Exploration (2026-03-07)
+- Full exploration completed, see product-ideation-explorer/navigation-ui-exploration.md
+- BUG: LanguageSwitcher uses hardcoded slate colors (text-slate-300/text-white) -- invisible in light mode on main Navbar
+- BUG: Mobile backdrop uses broken `top-[calc(100%+4rem)]` positioning
+- MISSING: No mobile menu animation (instant show/hide)
+- MISSING: No focus-visible rings; user dropdown missing role="menu"/aria-haspopup
+- MISSING: No shared PageLayout wrapper (each page reinvents container classes)
+- Import page has no navbar link (only reachable via Dashboard buttons)
+- JobsBottomBar w-96 exceeds phone widths; not responsive
+- Top pick: fix LanguageSwitcher colors (critical bug, ~15min)
+- Best bundle: LanguageSwitcher fix + backdrop fix + hide lang switcher on mobile + focus-visible rings (~2hrs total)
+
+## Card Image Storage Optimization Exploration (2026-03-07)
+- Full exploration completed, see product-ideation-explorer/card-image-storage-exploration.md
+- SECURITY: key validation rejects startswith("/") but NOT embedded "/" (spec says reject any "/")
+- PERFORMANCE: zero HTTP cache headers on image responses (no Cache-Control, no ETag)
+- PERFORMANCE: full file read_bytes() into Python memory per request; should use FileResponse (already used in auth.py)
+- PERFORMANCE: no batch image endpoint; gallery triggers N individual HTTP requests
+- PERFORMANCE: frontend cache keyed by card.id not scryfall_id (same image fetched multiple times across views)
+- BUG: put() error handler has potential fd leak (os.get_inheritable on closed fd)
+- MISSING: no disk space management, no LRU eviction, no multi-size image support
+- Top pick: Cache-Control immutable + FileResponse + fix "/" key validation (~1hr combined, highest impact/effort)

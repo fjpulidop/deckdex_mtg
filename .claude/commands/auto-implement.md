@@ -1,6 +1,6 @@
 # Auto-Implement: Full OpenSpec Lifecycle
 
-Take a feature description and execute the complete OpenSpec lifecycle autonomously, using the architect agent for design and the developer agent for implementation. No user interaction required.
+Take a feature description and execute the complete OpenSpec lifecycle autonomously, using the architect agent for design, the developer agent for implementation, and the reviewer agent for CI validation. No user interaction required.
 
 **Input:** $ARGUMENTS (a natural language description of what to build, e.g. "add a price history chart to analytics")
 
@@ -33,7 +33,7 @@ The architect's prompt should be:
 >    - **proposal.md**: What and why. Product motivation, scope, success criteria.
 >    - **design.md**: Detailed technical design. Reference actual file paths, existing patterns, real code structures. Include impact analysis, architectural decisions with rationale, and risks/edge cases.
 >    - **delta-spec**: Only sections that change from existing specs.
->    - **tasks.md**: Atomic, ordered tasks with clear acceptance criteria. Each task specifies files involved and what "done" looks like. Group by layer (Core → Backend → Frontend → Tests). Include test tasks.
+>    - **tasks.md**: Atomic, ordered tasks with clear acceptance criteria. Each task specifies files involved and what "done" looks like. Group by layer (Core -> Backend -> Frontend -> Tests). Include test tasks.
 >
 > **Quality standards:**
 > - Every artifact must reference real file paths and existing code patterns
@@ -63,7 +63,14 @@ The developer's prompt should be:
 > 1. **Read the architect's artifacts**: Read all files in `openspec/changes/<name>/`. These are your blueprint.
 > 2. **Read context files**: Read every file referenced in the design and tasks.
 > 3. **Implement**: Follow tasks.md in order. For each task, implement and mark done: `- [ ]` -> `- [x]`.
-> 4. **Verify**: Run ALL checks — `ruff check .` (fix with `--fix` if needed), `cd frontend && npx tsc --noEmit`, `./venv/bin/pytest tests/ -q`, and `cd frontend && npx vitest run`. Fix failures (up to 3 attempts).
+> 4. **Verify** with the full CI-equivalent suite:
+>    - `ruff check .` (fix with `--fix` if needed)
+>    - `ruff format --check .` (fix with `ruff format <file>` if needed)
+>    - `./venv/bin/pytest tests/ -q`
+>    - `cd frontend && npm run lint` (NOT just tsc — this catches ESLint rules like react-hooks)
+>    - `cd frontend && npx tsc --noEmit`
+>    - `cd frontend && npx vitest run`
+>    Fix failures (up to 3 attempts).
 > 5. **Archive**: Run `openspec sync-specs` then `openspec archive change "<name>"`.
 >
 > **Rules:**
@@ -76,23 +83,68 @@ The developer's prompt should be:
 
 Wait for the developer to complete.
 
-## Phase 4: Verify, Commit & Report
+## Phase 4: Review, Commit & Ship
 
 **This phase is fully autonomous — do NOT ask the user for confirmation at any step.**
 
-### 4a. Verify (must pass ALL checks)
-1. Linting: `ruff check .` (fix with `ruff check . --fix` if needed)
-2. TypeScript compiles: `cd frontend && npx tsc --noEmit`
-3. Backend tests pass: `./venv/bin/pytest tests/ -q`
-4. Frontend tests pass: `cd frontend && npx vitest run`
-5. If failures, fix and re-verify (up to 3 attempts).
+### 4a. Reviewer validation
+
+Launch a **reviewer** agent (`subagent_type: reviewer`) to run CI-equivalent checks.
+
+The reviewer's prompt should be:
+
+> You are the final quality gate. The developer agent has completed implementation. Run the exact CI/CD pipeline checks and fix any issues.
+>
+> **Change name:** "<name>"
+>
+> Run the full CI-equivalent verification suite in this exact order:
+>
+> ### Backend
+> 1. `ruff check .` — fix with `ruff check . --fix` if needed
+> 2. `ruff format --check .` — fix with `ruff format <file>` if needed
+> 3. `./venv/bin/pytest tests/ -q` — if failures, read test + implementation to fix
+>
+> ### Frontend
+> 4. `cd frontend && npm run lint` — if ESLint errors, understand the rule and fix properly (no eslint-disable)
+> 5. `cd frontend && npx tsc --noEmit` — fix type errors
+> 6. `cd frontend && npx vitest run` — fix test failures
+>
+> After fixing ANY issue, re-run ALL checks from scratch. Up to 3 fix-and-verify cycles.
+>
+> Report your findings in this format:
+> ```
+> ## Review Results
+> | Check | Status | Notes |
+> |-------|--------|-------|
+> | ruff check | ... | ... |
+> | ruff format | ... | ... |
+> | pytest | ... | ... |
+> | eslint | ... | ... |
+> | tsc | ... | ... |
+> | vitest | ... | ... |
+>
+> ### Issues Fixed
+> - ...
+> ```
+
+Wait for the reviewer to complete.
 
 ### 4b. Git commit and push
 1. If on a shared/main branch, create a new branch: `git checkout -b feat/<change-name>`
 2. Stage and commit with a descriptive message following existing commit style. End with `Co-Authored-By: Claude <noreply@anthropic.com>`.
-3. Push: `git push -u origin <branch-name>`
+3. If the reviewer fixed files, include them in the commit (or a separate `fix:` commit).
+4. Push: `git push -u origin <branch-name>`
 
-### 4c. Report
+### 4c. Monitor CI
+After pushing:
+1. Wait 30 seconds, then check CI status: `gh pr checks <PR-number>` or `gh run list --branch <branch>`
+2. If CI fails:
+   - Read the failure logs: `gh run view <run-id> --log-failed`
+   - Fix the issues locally
+   - Commit and push the fix
+   - Re-check CI (up to 2 retry cycles)
+
+### 4d. Report
 
 Print a summary table:
 
@@ -101,8 +153,9 @@ Print a summary table:
 | Change created | `<name>` |
 | Architect artifacts | list of created artifacts |
 | Tasks implemented | N/N |
-| TypeScript | pass/fail |
+| Reviewer | pass/fail + issues fixed |
 | Tests | pass/fail (count) |
+| CI | pass/fail |
 | Committed | commit hash |
 | Pushed to | branch name |
 | Archived to | path |
@@ -116,5 +169,6 @@ List any files created or modified.
 - If `openspec new change` fails (name exists): append `-v2` suffix and retry
 - If architect fails: fall back to developer-only mode (developer creates its own artifacts, like the old behavior)
 - If developer hits an issue: try to fix it, if truly blocked skip the task and note it in the report
-- If tests fail after implementation: fix the failing tests (up to 3 attempts), then report
+- If reviewer finds issues: fix them (up to 3 attempts), then report
+- If CI fails after reviewer approval: read logs, fix, push, re-check (up to 2 attempts)
 - Never stop the pipeline for a non-critical issue. Always produce a final report.

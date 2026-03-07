@@ -17,6 +17,7 @@
 - Route ordering in FastAPI: specific sub-paths (e.g., `/jobs/history`) MUST be registered BEFORE parameterized catch-alls (`/jobs/{job_id}`).
 - All backend calls in frontend flow through `api/client.ts` (apiFetch wrapper with auth + retry) + hooks in `useApi.ts` (TanStack Query).
 - `recharts ^3.7.0` is already installed in frontend/package.json — no install needed for charting.
+- `FileResponse` (zero-copy serving) is the established pattern in `auth.py` for avatar images (lines 560, 588, 622). Use it for any filesystem-backed image endpoint.
 
 ## Frontend Key Facts
 
@@ -57,8 +58,16 @@
 - `jobs` table: UUID PK, `user_id` nullable FK, `type VARCHAR(64)`, `status VARCHAR(32)`, `result JSONB`, timestamps.
 - History is Postgres-only. Google Sheets mode gracefully no-ops via abstract base class defaults.
 
+## ImageStore Pattern
+
+- `FilesystemImageStore` in `deckdex/storage/image_store.py`: images at `{base_dir}/{key}{ext}`, meta sidecars at `{base_dir}/{key}.meta`.
+- Keys are `scryfall_id` values (Scryfall UUIDs). Never contain `/` — validated by `_validate_key`.
+- `_validate_key` must reject `/` anywhere in key (not just at start) to prevent path traversal via subdirectory creation.
+- 10 unit tests in `tests/test_image_store.py`. All must pass on any change to this module.
+
 ## Common Pitfalls
 
 - Non-numeric price values (`"N/A"`, `""`) come from Scryfall — always wrap price float conversion in try/except.
 - FastAPI route ordering is a recurring issue — always define static routes before parameterized ones.
 - `on_event("startup")` may be deprecated in newer FastAPI — check if project uses `lifespan` instead.
+- `Response(content=data)` for images loads full bytes into Python heap — prefer `FileResponse` for filesystem-backed stores.

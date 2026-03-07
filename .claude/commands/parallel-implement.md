@@ -1,6 +1,6 @@
 # Parallel Implementation Pipeline
 
-Explore multiple areas, pick the best improvement for each, and implement them all in parallel using the full OpenSpec lifecycle with specialized agents (architect designs, developer implements).
+Explore multiple areas, pick the best improvement for each, and implement them all in parallel using the full OpenSpec lifecycle with specialized agents (architect designs, developer implements, reviewer validates).
 
 **Input:** $ARGUMENTS (comma-separated areas, e.g. "Analytics, Deck Builder, Testing")
 
@@ -53,7 +53,7 @@ Each agent's prompt should be:
 >    - **proposal.md**: What and why. Product motivation, scope, success criteria.
 >    - **design.md**: Detailed technical design. Reference actual file paths, existing patterns, real code structures. Include impact analysis (which files/modules/APIs change), architectural decisions with rationale, data flow diagrams where helpful, and risks/edge cases.
 >    - **delta-spec**: Only sections that change from existing specs. Reference the base spec.
->    - **tasks.md**: Atomic, ordered tasks with clear acceptance criteria. Each task specifies files involved, what "done" looks like, and dependencies on other tasks. Group by layer (Core → Backend → Frontend → Tests). Include test tasks.
+>    - **tasks.md**: Atomic, ordered tasks with clear acceptance criteria. Each task specifies files involved, what "done" looks like, and dependencies on other tasks. Group by layer (Core -> Backend -> Frontend -> Tests). Include test tasks.
 >
 > **Quality standards:**
 > - Every artifact must reference real file paths and existing code patterns (not theoretical)
@@ -86,7 +86,14 @@ Each agent's prompt should be:
 >    - Read the acceptance criteria carefully
 >    - Implement the change following the design's architectural decisions
 >    - Mark the task as done: `- [ ]` -> `- [x]`
-> 4. **Verify**: Run ALL checks — `ruff check .` (fix with `--fix` if needed), `cd frontend && npx tsc --noEmit`, `./venv/bin/pytest tests/ -q`, and `cd frontend && npx vitest run`. Fix failures (up to 3 attempts).
+> 4. **Verify** with the full CI-equivalent suite:
+>    - `ruff check .` (fix with `--fix` if needed)
+>    - `ruff format --check .` (fix with `ruff format <file>` if needed)
+>    - `./venv/bin/pytest tests/ -q`
+>    - `cd frontend && npm run lint` (NOT just tsc — this catches ESLint rules like react-hooks)
+>    - `cd frontend && npx tsc --noEmit`
+>    - `cd frontend && npx vitest run`
+>    Fix failures (up to 3 attempts).
 > 5. **Archive**: Run `openspec sync-specs` then `openspec archive change "<name>"`.
 >
 > **Rules:**
@@ -100,34 +107,90 @@ Each agent's prompt should be:
 
 Wait for all developers to complete.
 
-## Phase 4: Merge, Verify & Ship
+## Phase 4: Merge & Review
 
 **This phase is fully autonomous — do NOT ask the user for confirmation at any step.**
 
 ### 4a. Copy worktree changes to main repo
 For each completed worktree, copy modified/new files back to the main repo. Then clean up worktrees with `git worktree remove`.
 
-### 4b. Verify merged result (must pass ALL checks)
-1. Linting: `ruff check .` (fix with `ruff check . --fix` if needed)
-2. TypeScript compiles: `cd frontend && npx tsc --noEmit`
-3. Backend tests pass: `./venv/bin/pytest tests/ -q`
-4. Frontend tests pass: `cd frontend && npx vitest run`
-5. If any verification fails, fix and re-verify (up to 3 attempts).
+### 4b. Launch Reviewer agent
+
+Launch a single **reviewer** agent (`subagent_type: reviewer`) to validate ALL merged changes together.
+
+The reviewer's prompt should be:
+
+> You are the final quality gate. All developer agents have completed and their changes have been merged into the main repo. Your job is to run the exact CI/CD pipeline checks and fix any issues.
+>
+> **Features implemented:** <list the features and their change names>
+>
+> **Files changed:** <list all modified/created files across all features>
+>
+> Run the full CI-equivalent verification suite in this exact order:
+>
+> ### Backend
+> 1. `ruff check .` — fix with `ruff check . --fix` if needed
+> 2. `ruff format --check .` — fix with `ruff format <file>` if needed
+> 3. `./venv/bin/pytest tests/ -q` — if failures, read test + implementation to fix
+>
+> ### Frontend
+> 4. `cd frontend && npm run lint` — if ESLint errors, understand the rule and fix properly (no eslint-disable)
+> 5. `cd frontend && npx tsc --noEmit` — fix type errors
+> 6. `cd frontend && npx vitest run` — fix test failures
+>
+> After fixing ANY issue, re-run ALL checks from scratch (a fix in one area can break another). Up to 3 fix-and-verify cycles.
+>
+> Also review for cross-feature merge issues:
+> - Duplicate imports or type definitions from parallel developers
+> - Conflicting changes to shared files (en.json, es.json, client.ts, useApi.ts)
+> - Inconsistent patterns between features
+>
+> Report your findings in this format:
+> ```
+> ## Review Results
+> | Check | Status | Notes |
+> |-------|--------|-------|
+> | ruff check | ... | ... |
+> | ruff format | ... | ... |
+> | pytest | ... | ... |
+> | eslint | ... | ... |
+> | tsc | ... | ... |
+> | vitest | ... | ... |
+>
+> ### Issues Fixed
+> - ...
+>
+> ### Files Modified by Reviewer
+> - ...
+> ```
+
+Wait for the reviewer to complete. Read its report.
 
 ### 4c. Git commit, push, and PR
 1. Create a **new branch** from `main`: `git checkout main && git pull && git checkout -b feat/<descriptive-name>`
 2. Copy/apply all changes onto this branch (stash + pop if needed).
 3. Create **one commit per feature** with descriptive messages following existing commit style (e.g., `fix:`, `feat:`, `test:`, `refactor:`). End each message with `Co-Authored-By: Claude <noreply@anthropic.com>`.
-4. Push the branch: `git push -u origin <branch-name>`
-5. Create a PR with `gh pr create` summarizing all features, linking each commit.
+4. If the reviewer modified files, create an additional commit: `fix: resolve CI issues (reviewer)`.
+5. Push the branch: `git push -u origin <branch-name>`
+6. Create a PR with `gh pr create` summarizing all features, linking each commit.
 
-### 4d. Report
+### 4d. Monitor CI
+After pushing:
+1. Wait 30 seconds, then check CI status: `gh pr checks <PR-number>`
+2. If CI fails:
+   - Read the failure logs: `gh run view <run-id> --log-failed`
+   - Fix the issues locally
+   - Commit and push the fix
+   - Re-check CI (up to 2 retry cycles)
+3. Include final CI status in the report.
+
+### 4e. Report
 Produce a summary table:
 
-| Area | Feature | Change Name | Architect | Developer | Tests | Archived | Status |
-|------|---------|-------------|-----------|-----------|-------|----------|--------|
+| Area | Feature | Change Name | Architect | Developer | Reviewer | Tests | CI | Status |
+|------|---------|-------------|-----------|-----------|----------|-------|----|--------|
 
-List files created or modified per area. Include the PR URL.
+List files created or modified per area. Include the PR URL and CI status.
 
 ---
 
@@ -136,5 +199,6 @@ List files created or modified per area. Include the PR URL.
 - If an explorer fails: skip that area, continue with others
 - If an architect fails: skip that area, report the failure. Suggest running `/auto-implement <description>` manually.
 - If a developer fails mid-pipeline: report which phase it failed at and the error. Suggest running `/auto-implement <description>` manually for that feature.
-- If post-merge verification fails: attempt to fix (likely test isolation issues like module-level overrides), report fixes made
+- If the reviewer finds unfixable issues: report them clearly, push what works, note failures in the PR description.
+- If CI fails after reviewer approval: attempt to fix (read `gh run view --log-failed`), push fix, re-check.
 - Never block the entire pipeline on a single agent failure. Always produce a final report.
