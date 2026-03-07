@@ -44,6 +44,17 @@
       "G": "Verde"
     }
   },
+  "viewToggle": {
+    "label": "Cambiar vista de la colecci\u00f3n",
+    "table": "Vista de tabla",
+    "gallery": "Vista de galer\u00eda"
+  },
+  "gallery": {
+    "tileLabel": "Ver detalles de {{name}}",
+    "unknownCard": "Carta desconocida",
+    "noCards": "No se encontraron cartas. Prueba ajustando los filtros.",
+    "loading": "Cargando cartas\u2026"
+  },
   "cardTable": {
     "addCard": "Añadir carta",
     "importList": "Importar lista",

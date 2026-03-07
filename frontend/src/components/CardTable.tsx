@@ -1,31 +1,9 @@
 import { useState, useRef, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Card, api } from '../api/client';
+import type { CardCollectionViewProps } from '../types/collection';
 
-interface CardTableProps {
-  cards: Card[];
-  isLoading?: boolean;
-  onAdd?: () => void;
-  onImport?: () => void;
-  onUpdatePrices?: () => void;
-  updatingPrices?: boolean;
-  onRowClick?: (card: Card) => void;
-  onQuantityChange?: (id: number, qty: number) => void;
-  /** Server-side total count (before pagination). Displayed in the pagination footer. */
-  serverTotal?: number;
-  /** Current sort column key (controlled by parent for server-side sorting). */
-  sortBy?: string;
-  /** Current sort direction (controlled by parent for server-side sorting). */
-  sortDir?: 'asc' | 'desc';
-  /** Called when user clicks a sortable column header. Parent updates query and re-fetches. */
-  onSortChange?: (key: string, dir: 'asc' | 'desc') => void;
-  /** Current page number (1-based, controlled by parent). */
-  page?: number;
-  /** Total number of pages derived from serverTotal. */
-  totalPages?: number;
-  /** Called when user navigates to a different page. */
-  onPageChange?: (page: number) => void;
-}
+export type { CardCollectionViewProps };
 
 function QuantityCell({ card, onQuantityChange }: { card: Card; onQuantityChange?: (id: number, qty: number) => void }) {
   const { t } = useTranslation();
@@ -105,7 +83,7 @@ export function CardTable({
   page = 1,
   totalPages = 1,
   onPageChange,
-}: CardTableProps) {
+}: CardCollectionViewProps) {
   const { t } = useTranslation();
 
   // Scroll-to-top on page change

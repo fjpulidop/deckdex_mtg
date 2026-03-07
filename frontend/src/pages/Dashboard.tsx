@@ -6,11 +6,14 @@ import { useCards, useFilterOptions, useTriggerPriceUpdate } from '../hooks/useA
 import { useActiveJobs } from '../contexts/ActiveJobsContext';
 import { Filters } from '../components/Filters';
 import { CardTable } from '../components/CardTable';
+import { CardGallery } from '../components/CardGallery';
 import { CardFormModal } from '../components/CardFormModal';
 import { ImportListModal } from '../components/ImportListModal';
 import { CardDetailModal } from '../components/CardDetailModal';
 import { CollectionInsights } from '../components/CollectionInsights';
 import { api, Card } from '../api/client';
+
+type CollectionView = 'table' | 'gallery';
 
 export function Dashboard() {
   const { t } = useTranslation();
@@ -30,8 +33,21 @@ export function Dashboard() {
   const [colors, setColors] = useState<string[]>([]);
 
   // Server-side pagination and sorting state
-  const PAGE_SIZE = 50;
   const [page, setPage] = useState(1);
+
+  // View toggle: 'table' | 'gallery', persisted to localStorage
+  const [view, setView] = useState<CollectionView>(() => {
+    const stored = localStorage.getItem('collectionView');
+    return stored === 'gallery' ? 'gallery' : 'table';
+  });
+
+  const PAGE_SIZE = view === 'gallery' ? 24 : 50;
+
+  const handleViewChange = useCallback((next: CollectionView) => {
+    setView(next);
+    localStorage.setItem('collectionView', next);
+    setPage(1);
+  }, []);
   const [sortBy, setSortBy] = useState<string>('created_at');
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('desc');
 
@@ -277,23 +293,81 @@ uvicorn api.main:app --reload --port 8000
           onClearFilters={handleClearFilters}
         />
 
-        {/* Card Table */}
-        <CardTable
-          cards={displayCards}
-          isLoading={isLoading}
-          onAdd={handleAddCard}
-          onImport={handleImport}
-          onUpdatePrices={handleUpdatePrices}
-          updatingPrices={triggerPriceUpdate.isPending}
-          onRowClick={handleRowClick}
-          serverTotal={serverTotal}
-          sortBy={sortBy}
-          sortDir={sortDir}
-          onSortChange={handleSortChange}
-          page={page}
-          totalPages={totalPages}
-          onPageChange={handlePageChange}
-        />
+        {/* View toggle */}
+        <div className="flex justify-end mb-3">
+          <div
+            role="group"
+            aria-label={t('viewToggle.label')}
+            className="flex border border-gray-300 dark:border-gray-600 rounded-lg overflow-hidden"
+          >
+            <button
+              type="button"
+              onClick={() => handleViewChange('table')}
+              aria-pressed={view === 'table'}
+              aria-label={t('viewToggle.table')}
+              className={`px-3 py-2 text-sm ${view === 'table' ? 'bg-indigo-600 text-white' : 'bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700'}`}
+            >
+              {/* Table icon: three horizontal lines */}
+              <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true">
+                <rect x="0" y="2" width="16" height="2" rx="1"/>
+                <rect x="0" y="7" width="16" height="2" rx="1"/>
+                <rect x="0" y="12" width="16" height="2" rx="1"/>
+              </svg>
+            </button>
+            <button
+              type="button"
+              onClick={() => handleViewChange('gallery')}
+              aria-pressed={view === 'gallery'}
+              aria-label={t('viewToggle.gallery')}
+              className={`px-3 py-2 text-sm border-l border-gray-300 dark:border-gray-600 ${view === 'gallery' ? 'bg-indigo-600 text-white' : 'bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700'}`}
+            >
+              {/* Gallery icon: 2x2 grid squares */}
+              <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true">
+                <rect x="0" y="0" width="7" height="7" rx="1"/>
+                <rect x="9" y="0" width="7" height="7" rx="1"/>
+                <rect x="0" y="9" width="7" height="7" rx="1"/>
+                <rect x="9" y="9" width="7" height="7" rx="1"/>
+              </svg>
+            </button>
+          </div>
+        </div>
+
+        {/* Card collection: table or gallery view */}
+        {view === 'table' ? (
+          <CardTable
+            cards={displayCards}
+            isLoading={isLoading}
+            onAdd={handleAddCard}
+            onImport={handleImport}
+            onUpdatePrices={handleUpdatePrices}
+            updatingPrices={triggerPriceUpdate.isPending}
+            onRowClick={handleRowClick}
+            serverTotal={serverTotal}
+            sortBy={sortBy}
+            sortDir={sortDir}
+            onSortChange={handleSortChange}
+            page={page}
+            totalPages={totalPages}
+            onPageChange={handlePageChange}
+          />
+        ) : (
+          <CardGallery
+            cards={displayCards}
+            isLoading={isLoading}
+            onAdd={handleAddCard}
+            onImport={handleImport}
+            onUpdatePrices={handleUpdatePrices}
+            updatingPrices={triggerPriceUpdate.isPending}
+            onRowClick={handleRowClick}
+            serverTotal={serverTotal}
+            sortBy={sortBy}
+            sortDir={sortDir}
+            onSortChange={handleSortChange}
+            page={page}
+            totalPages={totalPages}
+            onPageChange={handlePageChange}
+          />
+        )}
       </div>
 
       {cardModal === 'add' && (
