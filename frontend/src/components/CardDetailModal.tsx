@@ -2,10 +2,12 @@ import { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Card, api } from '../api/client';
 import { useCardImage } from '../hooks/useCardImage';
+import { usePriceHistory } from '../hooks/useApi';
 import { useActiveJobs } from '../contexts/ActiveJobsContext';
 import { ManaText } from './ManaText';
 import { ConfirmModal } from './ConfirmModal';
 import { AccessibleModal } from './AccessibleModal';
+import { PriceChart } from './PriceChart';
 
 interface CardDetailModalProps {
   card: Card;
@@ -64,6 +66,7 @@ export function CardDetailModal({
 
   const cardId = card.id != null ? card.id : null;
   const { src: imageUrl, loading: imageLoading, error: imageError } = useCardImage(cardId);
+  const { data: priceHistoryData, isLoading: priceHistoryLoading } = usePriceHistory(cardId);
 
   useEffect(() => {
     setEditForm(cardToEditForm(card));
@@ -348,6 +351,14 @@ export function CardDetailModal({
                 )}
                 <p><span className="font-medium text-gray-700 dark:text-gray-300">{t('cardDetail.fields.price')}:</span> {displayPriceStr}</p>
               </div>
+
+              {cardId != null && (
+                <PriceChart
+                  points={priceHistoryData?.points ?? []}
+                  currency={priceHistoryData?.currency ?? 'eur'}
+                  isLoading={priceHistoryLoading}
+                />
+              )}
             </>
           )}
 

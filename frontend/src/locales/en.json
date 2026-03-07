@@ -44,6 +44,17 @@
       "G": "Green"
     }
   },
+  "viewToggle": {
+    "label": "Switch collection view",
+    "table": "Table view",
+    "gallery": "Gallery view"
+  },
+  "gallery": {
+    "tileLabel": "View details for {{name}}",
+    "unknownCard": "Unknown card",
+    "noCards": "No cards found. Try adjusting your filters.",
+    "loading": "Loading cards\u2026"
+  },
   "cardTable": {
     "addCard": "Add card",
     "importList": "Import list",

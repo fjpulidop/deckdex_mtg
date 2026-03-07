@@ -172,13 +172,23 @@ async def websocket_progress(websocket: WebSocket, job_id: str):
         await websocket.close(code=4001, reason="Invalid or expired token")
         return
 
-    # Validate job exists (check active jobs)
+    # Validate job exists (check active jobs, then DB fallback)
+    from ..dependencies import get_job_repo
     from ..routes.process import _active_jobs, _job_results
 
     if job_id not in _active_jobs and job_id not in _job_results:
-        logger.warning(f"WebSocket connection rejected: job_id={job_id} not found")
-        await websocket.close(code=4004, reason="Job not found")
-        return
+        job_repo = get_job_repo()
+        if job_repo is not None:
+            try:
+                db_job = job_repo.get_job(job_id)
+            except Exception:
+                db_job = None
+        else:
+            db_job = None
+        if db_job is None:
+            logger.warning(f"WebSocket connection rejected: job_id={job_id} not found")
+            await websocket.close(code=4004, reason="Job not found")
+            return
 
     # Accept connection
     await manager.connect(websocket, job_id)

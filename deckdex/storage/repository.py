@@ -237,6 +237,28 @@ class CollectionRepository(ABC):
         """Persist the scryfall_id on the cards row (lazy population). No-op if not supported."""
         pass
 
+    def record_price_history(
+        self,
+        card_id: int,
+        price: float,
+        source: str = "scryfall",
+        currency: str = "eur",
+    ) -> None:
+        """Insert a price observation into price_history. No-op for non-Postgres repos."""
+        pass
+
+    def get_price_history(
+        self,
+        card_id: int,
+        days: int = 90,
+    ) -> List[Dict[str, Any]]:
+        """Return price history for card_id over the last `days` days.
+
+        Returns list of dicts: [{"recorded_at": str (ISO 8601), "price": float, "source": str, "currency": str}]
+        Ordered oldest-first. Empty list if no history or unsupported backend.
+        """
+        return []
+
     def get_user_by_google_id(self, google_id: str) -> Optional[Dict[str, Any]]:
         """Get user by Google ID. Returns user dict or None."""
         pass
@@ -801,6 +823,55 @@ class PostgresCollectionRepository(CollectionRepository):
                 {"scryfall_id": scryfall_id, "card_id": card_id},
             )
             conn.commit()
+
+    def record_price_history(
+        self,
+        card_id: int,
+        price: float,
+        source: str = "scryfall",
+        currency: str = "eur",
+    ) -> None:
+        from sqlalchemy import text
+
+        engine = self._get_engine()
+        with engine.connect() as conn:
+            conn.execute(
+                text("""
+                    INSERT INTO price_history (card_id, price, source, currency)
+                    VALUES (:card_id, :price, :source, :currency)
+                """),
+                {"card_id": card_id, "price": price, "source": source, "currency": currency},
+            )
+            conn.commit()
+
+    def get_price_history(
+        self,
+        card_id: int,
+        days: int = 90,
+    ) -> List[Dict[str, Any]]:
+        from sqlalchemy import text
+
+        engine = self._get_engine()
+        with engine.connect() as conn:
+            rows = conn.execute(
+                text(f"""
+                    SELECT recorded_at, price, source, currency
+                    FROM price_history
+                    WHERE card_id = :card_id
+                      AND recorded_at >= NOW() AT TIME ZONE 'utc' - INTERVAL '{int(days)} days'
+                    ORDER BY recorded_at ASC
+                """),
+                {"card_id": card_id},
+            ).fetchall()
+        return [
+            {
+                "recorded_at": row[0].isoformat() if hasattr(row[0], "isoformat") else str(row[0]),
+                "price": float(row[1]),
+                "source": row[2],
+                "currency": row[3],
+            }
+            for row in rows
+        ]
 
     def get_user_by_google_id(self, google_id: str) -> Optional[Dict[str, Any]]:
         from sqlalchemy import text

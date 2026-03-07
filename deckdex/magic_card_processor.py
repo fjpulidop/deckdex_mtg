@@ -327,6 +327,11 @@ class MagicCardProcessor:
                     batch_results = future.result()
                     for card_id, _name, new_price in batch_results:
                         self.collection_repository.update(card_id, {"price_eur": new_price})
+                        try:
+                            price_val = float(str(new_price).replace(",", "."))
+                            self.collection_repository.record_price_history(card_id, price_val)
+                        except (ValueError, TypeError):
+                            pass  # Non-numeric price — skip history entry
                         total_prices_updated += 1
                     pbar.update(min(self.config.processing.batch_size, total_cards - pbar.n))
         if self.error_count > 0:

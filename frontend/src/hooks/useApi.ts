@@ -1,6 +1,6 @@
 import React from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { api, Card, CardPage, FilterOptions, InsightCatalogEntry, InsightSuggestion, InsightResponse } from '../api/client';
+import { api, Card, CardPage, FilterOptions, InsightCatalogEntry, InsightSuggestion, InsightResponse, PriceHistoryResponse } from '../api/client';
 import { useDemoMode } from '../contexts/DemoContext';
 import { DEMO_CARDS, DEMO_CATALOG, DEMO_SUGGESTIONS } from '../data/demoData';
 
@@ -320,5 +320,15 @@ export function useInsightsSuggestions() {
 export function useInsightExecute() {
   return useMutation<InsightResponse, Error, string>({
     mutationFn: (insightId: string) => api.executeInsight(insightId),
+  });
+}
+
+// Hook for fetching per-card price history for chart rendering
+export function usePriceHistory(cardId: number | null | undefined, days = 90) {
+  return useQuery<PriceHistoryResponse>({
+    queryKey: ['price-history', cardId, days],
+    queryFn: () => api.getPriceHistory(cardId!, days),
+    enabled: cardId != null,
+    staleTime: 5 * 60 * 1000, // 5 minutes — history does not change frequently
   });
 }

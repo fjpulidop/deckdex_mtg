@@ -1,5 +1,4 @@
-import { useState, useEffect } from 'react';
-import { api } from '../api/client';
+import { useImageCache } from './useImageCache';
 
 interface CardImageState {
   src: string | null;
@@ -8,42 +7,11 @@ interface CardImageState {
 }
 
 /**
- * Fetch a card image via authenticated request and return a Blob URL.
- * The Blob URL is revoked automatically on unmount or when cardId changes.
+ * Fetch a card image via authenticated request and return a cached Blob URL.
+ *
+ * Delegates to useImageCache — images are cached for the browser session and
+ * never re-fetched, regardless of how many times the hook mounts or unmounts.
  */
 export function useCardImage(cardId: number | null): CardImageState {
-  const [state, setState] = useState<CardImageState>({ src: null, loading: false, error: false });
-
-  useEffect(() => {
-    if (cardId == null) {
-      // eslint-disable-next-line react-hooks/set-state-in-effect -- intentional: reset state when no card selected
-      setState({ src: null, loading: false, error: false });
-      return;
-    }
-
-    let blobUrl: string | null = null;
-    let cancelled = false;
-
-    setState({ src: null, loading: true, error: false });
-
-    api.fetchCardImage(cardId).then((url) => {
-      if (cancelled) {
-        URL.revokeObjectURL(url);
-        return;
-      }
-      blobUrl = url;
-      setState({ src: url, loading: false, error: false });
-    }).catch(() => {
-      if (!cancelled) {
-        setState({ src: null, loading: false, error: true });
-      }
-    });
-
-    return () => {
-      cancelled = true;
-      if (blobUrl) URL.revokeObjectURL(blobUrl);
-    };
-  }, [cardId]);
-
-  return state;
+  return useImageCache(cardId);
 }

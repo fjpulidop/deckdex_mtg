@@ -79,6 +79,19 @@ class FilterOptions(BaseModel):
     sets: List[str]
 
 
+class PriceHistoryPoint(BaseModel):
+    recorded_at: str
+    price: float
+    source: str
+    currency: str
+
+
+class PriceHistoryResponse(BaseModel):
+    card_id: int
+    currency: str
+    points: List[PriceHistoryPoint]
+
+
 # ---------------------------------------------------------------------------
 # GET /api/cards/filter-options  (must be registered before /{card_id_or_name})
 # ---------------------------------------------------------------------------
@@ -282,6 +295,44 @@ async def get_card_image(id: int, user_id: int = Depends(get_current_user_id)):
         return Response(content=data, media_type=media_type)
     except FileNotFoundError:
         raise HTTPException(status_code=404, detail="Card or image not found")
+
+
+# ---------------------------------------------------------------------------
+# GET /api/cards/{id}/price-history
+# ---------------------------------------------------------------------------
+
+
+@router.get("/{id}/price-history", response_model=PriceHistoryResponse)
+async def get_card_price_history(
+    id: int,
+    days: int = Query(default=90, ge=1, le=365),
+    user_id: int = Depends(get_current_user_id),
+):
+    """
+    Return price history for a card over the last `days` days (default: 90, max: 365).
+    Points are ordered oldest-first for chart rendering.
+    Returns empty points list (not an error) if card exists but has no history yet.
+    Requires PostgreSQL. Returns 501 if DATABASE_URL is not set.
+    """
+    repo = get_collection_repo()
+    if repo is None:
+        raise HTTPException(
+            status_code=501,
+            detail="Price history requires PostgreSQL. Set DATABASE_URL.",
+        )
+    card = repo.get_card_by_id(id, user_id=user_id)
+    if card is None:
+        raise HTTPException(status_code=404, detail=f"Card id {id} not found")
+    try:
+        points = repo.get_price_history(id, days=days)
+        return PriceHistoryResponse(
+            card_id=id,
+            currency="eur",
+            points=[PriceHistoryPoint(**p) for p in points],
+        )
+    except Exception as e:
+        logger.error("Error fetching price history for card %s: %s", id, e)
+        raise HTTPException(status_code=500, detail="Failed to fetch price history")
 
 
 # ---------------------------------------------------------------------------

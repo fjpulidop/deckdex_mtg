@@ -197,6 +197,16 @@ app.include_router(progress.router)
 @app.on_event("startup")
 async def startup_event():
     """Application startup tasks"""
+    from .dependencies import get_job_repo
+
+    job_repo = get_job_repo()
+    if job_repo is not None:
+        try:
+            count = job_repo.mark_orphans_as_error()
+            if count > 0:
+                logger.warning(f"Marked {count} orphaned running jobs as error on startup")
+        except Exception as e:
+            logger.warning(f"Orphan job cleanup failed on startup: {e}")
     logger.info("API startup complete")
 
 

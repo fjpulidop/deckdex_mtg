@@ -363,6 +363,7 @@ class ProcessorService:
         self._loop = asyncio.get_event_loop()
         with self._lock:
             self.status = "running"
+        self._persist_job_start("update_price")
         try:
             processor = MagicCardProcessor(self.config)
             executor = ThreadPoolExecutor(max_workers=1)
@@ -404,6 +405,7 @@ class ProcessorService:
                     self.status = "complete"
                 else:
                     self.status = "error"
+            self._persist_job_end(self.status, result)
             if not self._cancel_flag.is_set():
                 await self._emit_progress("complete", {"status": self.status, "summary": result})
             logger.info(f"Single-card price update finished (job_id={self.job_id}, status={self.status})")
@@ -412,6 +414,7 @@ class ProcessorService:
             logger.error(f"Error in update_single_card_price_async: {e}")
             with self._lock:
                 self.status = "error"
+            self._persist_job_end("error", {"status": "error", "error": str(e)})
             await self._emit_progress("complete", {"status": "error", "summary": {"status": "error", "error": str(e)}})
             raise
 

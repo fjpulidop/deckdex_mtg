@@ -136,6 +136,19 @@ export interface JobHistoryItem {
   result: Record<string, unknown> | null;
 }
 
+export interface PriceHistoryPoint {
+  recorded_at: string;
+  price: number;
+  source: string;
+  currency: string;
+}
+
+export interface PriceHistoryResponse {
+  card_id: number;
+  currency: string;
+  points: PriceHistoryPoint[];
+}
+
 export interface DeckListItem {
   id: number;
   name: string;
@@ -524,6 +537,12 @@ export const api = {
   getJobHistory: async (limit = 50): Promise<JobHistoryItem[]> => {
     const response = await apiFetch(`${API_BASE}/jobs/history?limit=${limit}`);
     if (!response.ok) throw new Error('Failed to fetch job history');
+    return response.json();
+  },
+
+  getPriceHistory: async (cardId: number, days = 90): Promise<PriceHistoryResponse> => {
+    const response = await apiFetch(`${API_BASE}/cards/${cardId}/price-history?days=${days}`);
+    if (!response.ok) throw new Error('Failed to fetch price history');
     return response.json();
   },
 
