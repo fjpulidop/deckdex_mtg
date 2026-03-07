@@ -47,6 +47,32 @@
 - `openspec instructions apply --change "<name>" --json` gives task list and context files
 - Manually create specs in `openspec/changes/<name>/specs/<capability>/spec.md` when needed
 - When Bash is denied: create change artifacts manually (proposal.md, design.md, tasks.md) in `openspec/changes/<name>/` and archive to `openspec/changes/archive/YYYY-MM-DD-<name>/`
+- `openspec archive "<name>" -y --skip-specs` — use when spec delta files don't use exact ADDED/MODIFIED/REMOVED/RENAMED format
+- Run `openspec` commands from `/Users/javi/repos/deckdex_mtg/` (main repo root), NOT from worktrees
+
+## Job Persistence Fixes (2026-03-07)
+
+### Patching Direct Function Calls vs Depends
+- `get_job_repo()` is called DIRECTLY in routes (not via `Depends`), so patch at `backend.api.routes.process.get_job_repo` not via `dependency_overrides`
+- Same applies to `get_collection_repo()`, `get_catalog_repo()` in route bodies
+
+### Catalog Service Lock Testing
+- `_sync_lock` is module-global in `catalog_service.py` — tests calling `start_sync` must release it in `tearDown`; lock may still be held if background thread hasn't finished
+- Pattern: `if cs._sync_lock.locked(): cs._sync_lock.release()` in both setUp and tearDown
+
+### `import X` Local Binding Pitfall
+- `import X` anywhere in a function creates a local binding for `X` in the ENTIRE function scope
+- If `X` is used before the `import X` line → `UnboundLocalError` at the earlier usage
+- Fix: move `import X` to the top of the function, or use module-level import
+
+### Status Canonical Values
+- `'running'`, `'complete'`, `'error'`, `'cancelled'` — NOT `'completed'` or `'failed'`
+- `update_job_status` CASE expression uses these exact strings to set `completed_at`
+
+### openspec Archive with MODIFIED specs
+- MODIFIED requires the exact `### Requirement: Header` to exist in the target spec file before archiving
+- If missing: add the section to the target spec manually, then archive
+- Fallback: `openspec archive "<name>" -y --skip-specs` skips spec update entirely
 
 ## SQL Pagination and Filtering (2026-03-06)
 
@@ -66,7 +92,8 @@
 - `useCards()` returns `{ data: CardPage | undefined }` — access via `data.items`
 
 ### Route Ordering Rule
-- Specific routes (`/filter-options`, `/suggest`, `/resolve`) must be before `/{card_id_or_name}`
+- Specific routes (`/filter-options`, `/suggest`, `/resolve`, `/{id}/price-history`, `/{id}/image`) must be before `/{card_id_or_name}`
+- FastAPI matches more-specific paths first when path segments are concrete
 
 ### Test Mocking for Dual-Path Routes
 - Always mock BOTH `get_collection_repo` (return None) AND `get_cached_collection` for unit tests
@@ -107,3 +134,27 @@
 ### InsightResponse `hideQuestion` prop (added 2026-03-05)
 - `frontend/src/components/insights/InsightResponse.tsx` accepts `hideQuestion?: boolean` (default false)
 - When true: renders renderers in React fragment, no outer div/h3. Use when parent owns card chrome.
+
+## Frontend Test Gotchas (card-gallery-view, 2026-03-07)
+
+### localStorage in jsdom (vitest)
+- jsdom's `localStorage` may NOT expose `clear()`/`removeItem()` as callable functions
+- Use a manual mock via `Object.defineProperty(window, 'localStorage', { value: mockObj, writable: true })`
+- Store state in a plain JS object, reset it in beforeEach/afterEach
+
+### IntersectionObserver mock must be a regular function
+- Arrow functions can't be `new`-ed — always use `function MockIO(callback) {...}`
+- TDZ issue: if callback fires synchronously (common in mocks), don't reference the variable being assigned inside the callback
+- Pattern: use a `ref` so `observerRef.current?.disconnect()` is safe as a null-safe call
+
+### Module-level cache in hooks
+- Don't use `vi.resetModules()` to reset module-level Maps — it breaks the mock chain
+- Use unique numeric IDs per test to avoid cache pollution between tests
+
+### `global` vs `globalThis` in test files
+- `global` is not recognized in TypeScript's browser/jsdom environment
+- Use `(globalThis as any).IntersectionObserver = ...` to set global mocks
+
+### openspec archive
+- Run from main repo root, not worktree
+- Use `--skip-specs -y` when spec format doesn't use exact ADDED/MODIFIED/REMOVED/RENAMED sections

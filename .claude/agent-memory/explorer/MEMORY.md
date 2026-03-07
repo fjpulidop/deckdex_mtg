@@ -63,3 +63,35 @@
 - Recommendation: build reusable Modal wrapper component encapsulating all a11y patterns
 - Quick wins (Tier 1): dialog roles, role="alert", aria-labels, label associations, aria-sort (~2hrs)
 - ActionButtons.tsx has hardcoded English strings (bypasses i18n)
+
+## Card Gallery View Exploration (2026-03-07)
+- Full exploration completed, see product-ideation-explorer/card-gallery-view-exploration.md
+- ZERO gallery/grid view exists -- table-only display
+- Image infra: per-card endpoint, filesystem ImageStore, useCardImage hook (Blob URLs, no cross-component cache)
+- 50 cards/page = 50 individual image fetches; client-side blob cache is prerequisite for gallery
+- Architecture: Dashboard owns toggle, renders CardTable OR CardGallery (shared props interface)
+- Moxfield/Archidekt both default to gallery -- significant competitive gap
+
+## Price History Exploration (2026-03-07)
+- Full exploration completed, see product-ideation-explorer/price-history-exploration.md
+- PriceHistory entity defined in data-model spec but NEVER implemented (zero migrations, zero code)
+- Price updates overwrite price_eur in-place -- all previous prices permanently lost
+- PriceChart.tsx exists but is dead code (mock data, "Coming Soon", never imported anywhere)
+- No charting library in frontend dependencies
+- price_eur stored as TEXT throughout -- price_history table should use NUMERIC(10,2)
+- Phase 1 (highest priority, lowest effort): create price_history table + INSERT on update + collection_value_snapshots
+- Key insight: every day without Phase 1 is permanently lost price history data
+- Differentiation: personal portfolio value tracking (none of Moxfield/Archidekt/EDHREC do this)
+
+## Job Persistence Exploration (2026-03-07)
+- Full exploration completed, see product-ideation-explorer/job-persistence-exploration.md
+- Hybrid architecture: in-memory (_active_jobs, _job_results, _job_types module globals) + Postgres (jobs table)
+- Jobs table exists (migration 008): id UUID, user_id, type, status, created_at, completed_at, result JSONB
+- CRITICAL: GET /api/jobs/{job_id} only checks in-memory -- returns 404 after restart
+- CRITICAL: No orphaned job cleanup -- 'running' rows persist forever after crash
+- CRITICAL: Route ordering bug -- /api/jobs/history matched as /api/jobs/{job_id}
+- BUG: Catalog sync uses raw SQL with wrong status values ('completed'/'failed' vs 'complete'/'error')
+- BUG: Single-card price update NOT persisted to DB at all
+- No progress or error log persistence -- in-memory only
+- WebSocket validates against in-memory only -- rejects valid DB jobs after restart
+- Top fixes: (1) orphaned job cleanup on startup, (2) route ordering, (3) normalize statuses, (4) DB fallback

@@ -60,6 +60,16 @@
 - Top 5 actions: (1) create CI workflow, (2) add ruff, (3) pin Python 3.11, (4) set coverage threshold, (5) branch protection
 - DB migrations are raw SQL files, not Alembic -- CI needs Postgres service container
 
+## Card Gallery View Exploration (2026-03-07)
+- See `card-gallery-view-exploration.md` for full analysis
+- ZERO gallery/grid view exists -- only CardTable (table layout)
+- Image infra: per-card API endpoint, filesystem ImageStore (scryfall_id key), useCardImage hook (Blob URLs, no client cache)
+- Key bottleneck: 50 cards/page = 50 individual image API calls with no caching between mounts
+- Top priority: client-side blob cache -> view toggle -> CardGallery component -> lazy loading -> skeletons
+- Architecture recommendation: Dashboard owns toggle, renders CardTable OR CardGallery (Option B -- shared props interface)
+- Competitive gap: Moxfield/Archidekt both default to gallery; DeckDex table-only is a significant UX gap
+- Auth consideration: images served via cookie auth; Blob URL approach needed (plain img src won't send cookies)
+
 ## Key Architectural Insights
 - Decks only reference cards in collection (cards table) -- cannot add cards user doesn't own
 - catalog_cards (Scryfall bulk data) exists with legalities, could power format validation and wishlist features
@@ -67,3 +77,13 @@
 - Card picker adds cards one-by-one via sequential API calls (N+1 pattern)
 - Cards table has: type_line, keywords, power, toughness, edhrec_rank, release_date, game_strategy, tier -- many unused in analytics
 - Cache is per-process in-memory dicts with 30s TTL, no invalidation on data mutation
+
+## Job Persistence Exploration (2026-03-07)
+- See `job-persistence-exploration.md` for full analysis
+- Hybrid in-memory + Postgres jobs system; DB table exists but underused
+- 3 critical bugs: GET /jobs/{id} ignores DB, no orphan cleanup on startup, route ordering (/history vs /{job_id})
+- Catalog sync uses raw SQL + wrong status values; single-card price update not persisted at all
+- No progress/error persistence; no job cleanup policy; jobs table grows unbounded
+- WebSocket endpoint only validates in-memory -- fails after restart for valid DB jobs
+- 13 improvement ideas ranked; top 4 are trivial fixes (< 1hr each, high impact)
+- Key insight: hybrid approach is fine for localhost single-server; gaps are in restart recovery and data consistency
