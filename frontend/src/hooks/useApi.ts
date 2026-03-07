@@ -175,6 +175,7 @@ export function useWebSocket(jobId: string | null) {
   const [errors, setErrors] = React.useState<Array<{card_name: string; message: string}>>([]);
   const [complete, setComplete] = React.useState(false);
   const [summary, setSummary] = React.useState<Record<string, unknown> | null>(null);
+  const [retryAttempt, setRetryAttempt] = React.useState(0);
 
   React.useEffect(() => {
     if (!jobId) return;
@@ -184,15 +185,20 @@ export function useWebSocket(jobId: string | null) {
     setComplete(false);
     setSummary(null);
     setStatus('connecting');
+    setRetryAttempt(0);
 
     let cancelled = false;
     let retryCount = 0;
     let retryTimer: ReturnType<typeof setTimeout> | null = null;
     let currentWs: WebSocket | null = null;
+    let hasConnectedOnce = false;
     const MAX_RETRIES = 5;
     const BASE_DELAY = 1000; // 1s, doubles each retry up to 16s
 
-    // Fetch current job state via REST (used on initial connect and reconnects)
+    // Fetch current job state via REST — only called on reconnect to reconcile
+    // state missed during the outage. On initial connect the server delivers the
+    // current progress snapshot in the `connected` ack, so the REST call is not
+    // needed and would cause a state flicker race.
     const fetchRestState = () => {
       api.getJobStatus(jobId).then((jobStatus) => {
         if (cancelled) return;
@@ -221,7 +227,6 @@ export function useWebSocket(jobId: string | null) {
     const connect = () => {
       if (cancelled) return;
       setStatus('connecting');
-      fetchRestState();
 
       const wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
       const wsHost = window.location.host;
@@ -230,8 +235,14 @@ export function useWebSocket(jobId: string | null) {
 
       ws.onopen = () => {
         if (cancelled) { ws.close(); return; }
+        if (hasConnectedOnce) {
+          // This is a reconnect — recover any state missed during the outage
+          fetchRestState();
+        }
+        hasConnectedOnce = true;
         setStatus('connected');
-        retryCount = 0; // reset on successful connection
+        setRetryAttempt(0);
+        retryCount = 0;
       };
 
       ws.onmessage = (event) => {
@@ -269,6 +280,7 @@ export function useWebSocket(jobId: string | null) {
         if (event.code !== 1000 && retryCount < MAX_RETRIES) {
           const delay = Math.min(BASE_DELAY * Math.pow(2, retryCount), 16000);
           retryCount++;
+          setRetryAttempt(retryCount);
           retryTimer = setTimeout(connect, delay);
         }
       };
@@ -283,7 +295,7 @@ export function useWebSocket(jobId: string | null) {
     };
   }, [jobId]);
 
-  return { status, progress, errors, complete, summary };
+  return { status, progress, errors, complete, summary, retryAttempt };
 }
 
 // Hook for fetching insights catalog
