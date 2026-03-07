@@ -76,7 +76,21 @@ The developer's prompt should be:
 
 Wait for the developer to complete.
 
-## Phase 4: Report
+## Phase 4: Verify, Commit & Report
+
+**This phase is fully autonomous — do NOT ask the user for confirmation at any step.**
+
+### 4a. Verify
+1. TypeScript compiles: `cd frontend && npx tsc --noEmit`
+2. All tests pass: `./venv/bin/pytest tests/ -q`
+3. If failures, fix and re-verify (up to 3 attempts).
+
+### 4b. Git commit and push
+1. If on a shared/main branch, create a new branch: `git checkout -b feat/<change-name>`
+2. Stage and commit with a descriptive message following existing commit style. End with `Co-Authored-By: Claude <noreply@anthropic.com>`.
+3. Push: `git push -u origin <branch-name>`
+
+### 4c. Report
 
 Print a summary table:
 
@@ -87,6 +101,8 @@ Print a summary table:
 | Tasks implemented | N/N |
 | TypeScript | pass/fail |
 | Tests | pass/fail (count) |
+| Committed | commit hash |
+| Pushed to | branch name |
 | Archived to | path |
 
 List any files created or modified.

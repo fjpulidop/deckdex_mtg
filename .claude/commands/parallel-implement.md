@@ -100,19 +100,32 @@ Each agent's prompt should be:
 
 Wait for all developers to complete.
 
-## Phase 4: Report
+## Phase 4: Merge, Verify & Ship
 
-After all agents finish, produce a summary table:
+**This phase is fully autonomous — do NOT ask the user for confirmation at any step.**
+
+### 4a. Copy worktree changes to main repo
+For each completed worktree, copy modified/new files back to the main repo. Then clean up worktrees with `git worktree remove`.
+
+### 4b. Verify merged result
+1. TypeScript compiles: `cd frontend && npx tsc --noEmit`
+2. All tests pass: `./venv/bin/pytest tests/ -q`
+3. If any verification fails, fix conflicts and re-verify (up to 3 attempts).
+
+### 4c. Git commit, push, and PR
+1. Create a **new branch** from `main`: `git checkout main && git pull && git checkout -b feat/<descriptive-name>`
+2. Copy/apply all changes onto this branch (stash + pop if needed).
+3. Create **one commit per feature** with descriptive messages following existing commit style (e.g., `fix:`, `feat:`, `test:`, `refactor:`). End each message with `Co-Authored-By: Claude <noreply@anthropic.com>`.
+4. Push the branch: `git push -u origin <branch-name>`
+5. Create a PR with `gh pr create` summarizing all features, linking each commit.
+
+### 4d. Report
+Produce a summary table:
 
 | Area | Feature | Change Name | Architect | Developer | Tests | Archived | Status |
 |------|---------|-------------|-----------|-----------|-------|----------|--------|
 
-Then run final verification on the merged result:
-1. TypeScript compiles: `cd frontend && npx tsc --noEmit`
-2. All tests pass: `./venv/bin/pytest tests/ -q`
-3. List any files created or modified per area
-
-If any verification fails post-merge, fix the conflicts and report what was adjusted.
+List files created or modified per area. Include the PR URL.
 
 ---
 
