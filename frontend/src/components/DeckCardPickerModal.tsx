@@ -114,6 +114,7 @@ export function DeckCardPickerModal({ deckId, onClose, onAdded }: DeckCardPicker
         <div className="p-4 border-b border-gray-200 dark:border-gray-700 space-y-3">
           <input
             type="text"
+            aria-label={t('deckCardPicker.searchLabel')}
             placeholder={t('deckCardPicker.searchPlaceholder')}
             value={search}
             onChange={(e) => setSearch(e.target.value)}

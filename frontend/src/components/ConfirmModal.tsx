@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { AccessibleModal } from './AccessibleModal';
 
 interface ConfirmModalProps {
   isOpen: boolean;
@@ -39,7 +40,7 @@ export function ConfirmModal({
     if (isOpen) setPromptValue(promptDefault);
   }, [isOpen, promptDefault]);
 
-  // Focus confirm button or prompt input on open
+  // Focus confirm button or prompt input on open (overrides AccessibleModal's auto-focus)
   useEffect(() => {
     if (!isOpen) return;
     const timer = setTimeout(() => {
@@ -49,37 +50,14 @@ export function ConfirmModal({
     return () => clearTimeout(timer);
   }, [isOpen, promptLabel]);
 
-  // Escape to cancel
-  useEffect(() => {
-    if (!isOpen) return;
-    const handler = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') onCancel();
-    };
-    window.addEventListener('keydown', handler);
-    return () => window.removeEventListener('keydown', handler);
-  }, [isOpen, onCancel]);
-
-  if (!isOpen) return null;
-
-  const handleOverlayKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === 'Enter' && !promptLabel) {
-      onConfirm();
-    }
-  };
-
   return (
-    <div
-      className="fixed inset-0 bg-black/50 flex items-center justify-center z-[70] p-4"
-      onClick={onCancel}
-      onKeyDown={handleOverlayKeyDown}
-      role="dialog"
-      aria-modal="true"
-      aria-labelledby="confirm-modal-title"
+    <AccessibleModal
+      isOpen={isOpen}
+      onClose={onCancel}
+      titleId="confirm-modal-title"
+      className="z-[70]"
     >
-      <div
-        className="bg-white dark:bg-gray-800 rounded-xl shadow-2xl max-w-sm w-full p-6 flex flex-col gap-4"
-        onClick={e => e.stopPropagation()}
-      >
+      <div className="bg-white dark:bg-gray-800 rounded-xl shadow-2xl max-w-sm w-full p-6 flex flex-col gap-4">
         <h2 id="confirm-modal-title" className="text-lg font-semibold text-gray-900 dark:text-white">
           {title}
         </h2>
@@ -87,10 +65,14 @@ export function ConfirmModal({
 
         {promptLabel && (
           <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+            <label
+              htmlFor="confirm-modal-prompt"
+              className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1"
+            >
               {promptLabel}
             </label>
             <input
+              id="confirm-modal-prompt"
               ref={inputRef}
               type="text"
               value={promptValue}
@@ -125,6 +107,6 @@ export function ConfirmModal({
           </button>
         </div>
       </div>
-    </div>
+    </AccessibleModal>
   );
 }
