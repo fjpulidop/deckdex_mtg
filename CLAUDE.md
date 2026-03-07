@@ -78,9 +78,11 @@ Layer-specific conventions are in `.claude/rules/` (loaded conditionally per lay
 
 ⚠️ **Concurrency**: Do NOT run CLI and web simultaneously when using Google Sheets only — writes conflict. PostgreSQL (`DATABASE_URL` set) allows both.
 
-⚠️ **No auth**: App is localhost-only. Do not expose to the internet.
+⚠️ **Auth**: Google OAuth + JWT cookies. All data endpoints require `get_current_user`. Pydantic validation errors return HTTP 400 (NOT 422) via custom `validation_exception_handler`.
 
 ⚠️ **Job state**: lost on backend restart (in-memory, not persisted).
+
+⚠️ **Test isolation**: Pytest fixtures with mocked repos MUST use `scope="function"`. Module-scoped mocks cause cross-test pollution.
 
 ## OpenSpec
 
