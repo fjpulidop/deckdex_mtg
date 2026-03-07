@@ -81,17 +81,7 @@ def start_sync(
     # Record in jobs table
     if job_repo:
         try:
-            from sqlalchemy import text
-
-            engine = job_repo._engine()
-            with engine.connect() as conn:
-                conn.execute(
-                    text("""
-                        INSERT INTO jobs (id, type, status) VALUES (:id, 'catalog_sync', 'running')
-                    """),
-                    {"id": job_id},
-                )
-                conn.commit()
+            job_repo.create_job(user_id=None, job_type="catalog_sync", job_id=job_id)
         except Exception as e:
             logger.warning(f"Failed to record sync job in jobs table: {e}")
 
@@ -133,7 +123,7 @@ def start_sync(
         global _active_sync_job
         start_time = time.time()  # noqa: F823
         result_summary = {}
-        final_status = "completed"
+        final_status = "complete"
         try:
             sync = CatalogSyncJob(
                 catalog_repo=catalog_repo,
@@ -154,20 +144,7 @@ def start_sync(
             }
             if job_repo:
                 try:
-                    import json
-
-                    from sqlalchemy import text
-
-                    engine = job_repo._engine()
-                    with engine.connect() as conn:
-                        conn.execute(
-                            text("""
-                                UPDATE jobs SET status = 'completed', completed_at = NOW(),
-                                result = :result WHERE id = :id
-                            """),
-                            {"id": job_id, "result": json.dumps(result_summary)},
-                        )
-                        conn.commit()
+                    job_repo.update_job_status(job_id, "complete", result_summary)
                 except Exception as e:
                     logger.warning(f"Failed to update job record: {e}")
 
@@ -177,20 +154,7 @@ def start_sync(
             result_summary = {"error": str(e)[:500]}
             if job_repo:
                 try:
-                    import json
-
-                    from sqlalchemy import text
-
-                    engine = job_repo._engine()
-                    with engine.connect() as conn:
-                        conn.execute(
-                            text("""
-                                UPDATE jobs SET status = 'failed', completed_at = NOW(),
-                                result = :result WHERE id = :id
-                            """),
-                            {"id": job_id, "result": json.dumps(result_summary)},
-                        )
-                        conn.commit()
+                    job_repo.update_job_status(job_id, "error", result_summary)
                 except Exception:
                     pass
         finally:
@@ -202,8 +166,6 @@ def start_sync(
             if active_jobs is not None and job_id in active_jobs:
                 del active_jobs[job_id]
             if job_results is not None:
-                import time
-
                 job_results[job_id] = ({"status": final_status, **result_summary}, time.monotonic())
 
     thread = threading.Thread(target=_run, name=f"catalog-sync-{job_id}", daemon=True)

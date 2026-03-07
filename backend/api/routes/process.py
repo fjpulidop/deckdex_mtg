@@ -364,6 +364,18 @@ async def trigger_single_card_price_update(
     )
 
 
+@router.get("/jobs/history")
+async def get_job_history(
+    limit: int = 50,
+    user_id: int = Depends(get_current_user_id),
+):
+    """Return persisted job history for the authenticated user (requires Postgres)."""
+    job_repo = get_job_repo()
+    if job_repo is None:
+        return []
+    return job_repo.get_job_history(user_id, limit=min(limit, 100))
+
+
 @router.get("/jobs/{job_id}", response_model=JobStatus)
 async def get_job_status(job_id: str, user_id: int = Depends(get_current_user_id)):
     """Get status of a specific job."""
@@ -391,6 +403,22 @@ async def get_job_status(job_id: str, user_id: int = Depends(get_current_user_id
             start_time="",
             job_type=_job_types.get(job_id, "unknown"),
         )
+
+    # DB fallback: check Postgres for jobs that survived a restart
+    job_repo = get_job_repo()
+    if job_repo is not None:
+        try:
+            db_job = job_repo.get_job(job_id)
+            if db_job is not None:
+                return JobStatus(
+                    job_id=job_id,
+                    status=db_job["status"],
+                    progress=db_job.get("result") or {},
+                    start_time=db_job.get("created_at") or "",
+                    job_type=db_job.get("type", "unknown"),
+                )
+        except Exception as e:
+            logger.warning(f"DB fallback for job {job_id} failed: {e}")
 
     raise HTTPException(status_code=404, detail=f"Job {job_id} not found")
 
@@ -422,18 +450,6 @@ async def cancel_job(job_id: str, user_id: int = Depends(get_current_user_id)):
     _job_results[job_id] = ({"status": "cancelled", "message": "Job cancelled by user"}, time.monotonic())
 
     return {"job_id": job_id, "status": "cancelled", "message": "Job cancellation requested"}
-
-
-@router.get("/jobs/history")
-async def get_job_history(
-    limit: int = 50,
-    user_id: int = Depends(get_current_user_id),
-):
-    """Return persisted job history for the authenticated user (requires Postgres)."""
-    job_repo = get_job_repo()
-    if job_repo is None:
-        return []
-    return job_repo.get_job_history(user_id, limit=min(limit, 100))
 
 
 _JOB_RESULT_TTL_SECONDS = 3600  # 1 hour

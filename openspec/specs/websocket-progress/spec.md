@@ -6,6 +6,18 @@ Real-time progress for jobs. **Endpoint:** /ws/progress/{job_id}. Valid job_id r
 
 **Events (JSON):** type (progress|error|complete), timestamp ISO8601. Progress: current, total, percentage, batch_size, elapsed_seconds, estimated_remaining_seconds. Error: card_name, error_type, message; connection stays open; cap individual errors (e.g. 100) then summary. Complete: status (success|cancelled), total_processed, success_count, error_count, duration_seconds; then close 1000. **Lifecycle:** Client disconnect → process continues. Server error → error event, close 1011. Ping every 30s if idle. Cleanup job state 5 min after all disconnect + complete. **On connect:** If job running and progress>0, send current progress after "connected" ack. If job complete/error, send complete event from _job_results. "connected" includes job_status. New job (total 0) → ack only. Integrate with ProcessorService callback; queue events for async loop from thread. Isolate state per job_id. Log connect/disconnect at INFO; errors at ERROR.
 
+### Requirement: Job validation on WebSocket connect
+
+The WebSocket endpoint `/ws/progress/{job_id}` SHALL validate that the requested `job_id` exists before accepting the connection. If the job is not found, the server SHALL close the connection with code 4004 and reason "Job not found".
+
+#### Scenario: Valid in-memory job connects
+- **WHEN** a client connects to `/ws/progress/{job_id}` and the job exists in `_active_jobs` or `_job_results`
+- **THEN** the server SHALL accept the connection and send a `connected` acknowledgment event
+
+#### Scenario: Unknown job is rejected
+- **WHEN** a client connects to `/ws/progress/{job_id}` and the job does not exist
+- **THEN** the server SHALL close the connection with code 4004 and reason "Job not found"
+
 ### Requirement: Client-side WebSocket reconnection with exponential backoff
 
 The `useWebSocket` hook SHALL automatically reconnect when the WebSocket connection closes unexpectedly (close code other than 1000 normal closure). Reconnection SHALL use exponential backoff starting at 1 second, doubling each attempt up to a maximum interval of 16 seconds. The hook SHALL attempt at most 5 reconnections before giving up. On each reconnect, the hook SHALL fetch the current job state via `GET /api/jobs/{id}` to recover any missed events.

@@ -77,6 +77,56 @@ class JobRepository:
             conn.commit()
         logger.debug(f"Job {job_id} updated: status={status}")
 
+    def get_job(self, job_id: str) -> Optional[Dict[str, Any]]:
+        """Return a single job row by UUID, or None if not found."""
+        from sqlalchemy import text
+
+        engine = self._get_engine()
+        with engine.connect() as conn:
+            row = (
+                conn.execute(
+                    text("""
+                        SELECT id, user_id, type, status, created_at, completed_at, result
+                        FROM jobs
+                        WHERE id = :id::uuid
+                    """),
+                    {"id": job_id},
+                )
+                .mappings()
+                .fetchone()
+            )
+        if row is None:
+            return None
+        return {
+            "job_id": str(row["id"]),
+            "user_id": row["user_id"],
+            "type": row["type"],
+            "status": row["status"],
+            "created_at": row["created_at"].isoformat() if row["created_at"] else None,
+            "completed_at": row["completed_at"].isoformat() if row["completed_at"] else None,
+            "result": row["result"],
+        }
+
+    def mark_orphans_as_error(self, message: str = "Server restarted while job was running") -> int:
+        """Mark all running jobs as error. Returns count of affected rows."""
+        from sqlalchemy import text
+
+        engine = self._get_engine()
+        result_payload = json.dumps({"error": message})
+        with engine.connect() as conn:
+            result = conn.execute(
+                text("""
+                    UPDATE jobs
+                    SET status = 'error',
+                        completed_at = NOW() AT TIME ZONE 'utc',
+                        result = :result::jsonb
+                    WHERE status = 'running'
+                """),
+                {"result": result_payload},
+            )
+            conn.commit()
+        return result.rowcount
+
     def get_job_history(self, user_id: int, limit: int = 50) -> List[Dict[str, Any]]:
         """Return recent jobs for a user, ordered by created_at DESC."""
         from sqlalchemy import text
