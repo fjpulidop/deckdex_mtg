@@ -30,10 +30,9 @@ os.environ.setdefault("GOOGLE_OAUTH_CLIENT_SECRET", "test-client-secret")
 from fastapi.testclient import TestClient
 from jose import jwt
 
-from backend.api.main import app
-import backend.api.routes.auth as auth_module
 import backend.api.dependencies as deps_module
-
+import backend.api.routes.auth as auth_module
+from backend.api.main import app
 
 # ---------------------------------------------------------------------------
 # Helpers

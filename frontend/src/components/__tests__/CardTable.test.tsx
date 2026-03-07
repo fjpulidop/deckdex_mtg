@@ -35,32 +35,24 @@ describe('CardTable', () => {
     expect(screen.getByText('Counterspell')).toBeInTheDocument();
   });
 
-  it('sorts by price ascending on first Price header click', async () => {
+  it('calls onSortChange with price asc on first Price header click', async () => {
     const user = userEvent.setup();
-    render(<CardTable cards={MOCK_CARDS} />);
+    const onSortChange = vi.fn();
+    render(<CardTable cards={MOCK_CARDS} sortBy="created_at" sortDir="desc" onSortChange={onSortChange} />);
 
-    // Default sort is by created_at desc. Click Price to sort asc.
     await user.click(screen.getByText(/^Price/));
 
-    const rows = within(document.querySelector('tbody')!).getAllByRole('row');
-    // Ascending: 0.5 < 1.2 < 25000
-    expect(rows[0]).toHaveTextContent('Lightning Bolt');
-    expect(rows[1]).toHaveTextContent('Counterspell');
-    expect(rows[2]).toHaveTextContent('Black Lotus');
+    expect(onSortChange).toHaveBeenCalledWith('price', 'asc');
   });
 
-  it('sorts by price descending on second Price header click', async () => {
+  it('calls onSortChange with price desc when already sorting price asc', async () => {
     const user = userEvent.setup();
-    render(<CardTable cards={MOCK_CARDS} />);
+    const onSortChange = vi.fn();
+    render(<CardTable cards={MOCK_CARDS} sortBy="price" sortDir="asc" onSortChange={onSortChange} />);
 
     await user.click(screen.getByText(/^Price/));
-    await user.click(screen.getByText(/^Price/));
 
-    const rows = within(document.querySelector('tbody')!).getAllByRole('row');
-    // Descending: 25000 > 1.2 > 0.5
-    expect(rows[0]).toHaveTextContent('Black Lotus');
-    expect(rows[1]).toHaveTextContent('Counterspell');
-    expect(rows[2]).toHaveTextContent('Lightning Bolt');
+    expect(onSortChange).toHaveBeenCalledWith('price', 'desc');
   });
 
   it('calls onRowClick with the card when a row is clicked', async () => {

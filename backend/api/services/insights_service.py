@@ -11,8 +11,14 @@ from typing import Any, Dict, List, Optional
 
 from ..utils.color import (
     COLOR_DISPLAY as _COLOR_DISPLAY,
+)
+from ..utils.color import (
     VALID_COLORS as _VALID_COLORS,
+)
+from ..utils.color import (
     WUBRG_ORDER as _WUBRG_ORDER,
+)
+from ..utils.color import (
     normalize_color_identity as _normalize_color_identity,
 )
 
