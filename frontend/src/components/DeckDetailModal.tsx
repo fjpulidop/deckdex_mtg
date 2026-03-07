@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { BarChart, Bar, XAxis, YAxis, ResponsiveContainer, Cell } from 'recharts';
 import { api, DeckCard, DeckImportResponse } from '../api/client';
+import { formatCurrency } from './analytics/constants';
 import { useCardImage } from '../hooks/useCardImage';
 import { DeckCardPickerModal } from './DeckCardPickerModal';
 import { CardDetailModal } from './CardDetailModal';
@@ -16,10 +17,6 @@ function parsePrice(price: string | undefined): number {
   const s = String(price).replace(/,/g, '.').trim();
   const n = parseFloat(s);
   return Number.isFinite(n) ? n : 0;
-}
-
-function formatDeckCurrency(value: number): string {
-  return new Intl.NumberFormat('es-ES', { style: 'currency', currency: 'EUR', minimumFractionDigits: 2 }).format(value);
 }
 
 function cmcBucket(cmc: number | undefined): number {
@@ -310,7 +307,7 @@ export function DeckDetailModal({ deckId, onClose, onDeleted }: DeckDetailModalP
               <div className="flex items-center shrink-0">
                 <span className="text-sm font-medium text-gray-500 dark:text-gray-400">{t('deckDetail.total')}</span>
                 <span className="ml-1.5 text-base font-bold text-green-600 dark:text-green-400">
-                  {formatDeckCurrency(totalDeckValue)}
+                  {formatCurrency(totalDeckValue)}
                 </span>
               </div>
               {/* Mana curve — wrapper + CSS ensure axis labels visible in dark mode */}

@@ -244,6 +244,59 @@ class DeckRepository:
             conn.commit()
             return result.rowcount > 0
 
+    def add_cards_batch(
+        self,
+        deck_id: int,
+        card_ids: List[int],
+        user_id: Optional[int] = None,
+    ) -> Dict[str, Any]:
+        """Add multiple cards from the collection to a deck in one transaction.
+
+        Cards not found in the user's collection are skipped and returned in not_found.
+        Existing deck_cards entries have their quantity incremented by 1 (same as add_card).
+        Returns {"added": [int, ...], "not_found": [int, ...]}.
+        """
+        from sqlalchemy import text
+
+        if not card_ids:
+            return {"added": [], "not_found": []}
+
+        engine = self._get_engine()
+        with engine.connect() as conn:
+            # 1. Validate cards exist in user's collection (single query)
+            card_where = "id = ANY(:ids)"
+            card_params: Dict[str, Any] = {"ids": list(card_ids)}
+            if user_id is not None:
+                card_where += " AND user_id = :user_id"
+                card_params["user_id"] = user_id
+
+            rows = (
+                conn.execute(
+                    text(f"SELECT id FROM cards WHERE {card_where}"),
+                    card_params,
+                )
+                .mappings()
+                .fetchall()
+            )
+            valid_ids = {r["id"] for r in rows}
+            not_found = [cid for cid in card_ids if cid not in valid_ids]
+
+            # 2. Insert all valid cards in one transaction
+            for cid in valid_ids:
+                conn.execute(
+                    text("""
+                        INSERT INTO deck_cards (deck_id, card_id, quantity, is_commander)
+                        VALUES (:deck_id, :card_id, 1, false)
+                        ON CONFLICT (deck_id, card_id) DO UPDATE
+                        SET quantity = deck_cards.quantity + 1
+                    """),
+                    {"deck_id": deck_id, "card_id": cid},
+                )
+            if valid_ids:
+                conn.commit()
+
+        return {"added": sorted(list(valid_ids)), "not_found": not_found}
+
     def find_card_ids_by_names(self, names: List[str], user_id: Optional[int] = None) -> Dict[str, int]:
         """Return a mapping of lowercase card name → card id for names found in the collection.
 
