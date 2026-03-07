@@ -76,6 +76,25 @@
 - `COUNT(*) OVER() AS total_count, * FROM cards WHERE ... LIMIT :limit OFFSET :offset`
 - Single query returns both rows AND total — no second COUNT(*) query needed
 
+## Server-Side Sorting (2026-03-07)
+
+### Sort Column Whitelist Pattern
+- Backend: `_ALLOWED_SORT_COLUMNS` set in route validates input; `_SORT_COLUMN_MAP` dict in `PostgresCollectionRepository` is the second defense layer before string interpolation
+- Unknown sort columns fall back to `created_at` (never raise 422 — degrade gracefully)
+- Allowed: `name, created_at, price_eur, quantity, set_name, rarity, cmc`
+- `NULLS LAST` always, regardless of direction — ensures consistent UX
+
+### Frontend Column Mapping
+- Frontend `price` column → API `sort_by=price_eur` (DB column name)
+- Map is owned in Dashboard: `API_SORT_COLUMN = { price: 'price_eur' }`
+- `type` column header click is not server-sortable — backend silently falls back
+
+### Controlled Sort + Pagination Props
+- Dashboard owns `page`, `sortBy`, `sortDir` state; passes as props to CardTable
+- CardTable becomes fully controlled for sort/page — no local state for these
+- `onSortChange(key, dir)` callback; `onPageChange(newPage)` callback
+- Reset `page = 1` whenever filters or sort change
+
 ## Frontend Insights Component Patterns
 
 ### CollectionInsights (insight-history change, 2026-03-05)
