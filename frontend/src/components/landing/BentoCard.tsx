@@ -10,6 +10,7 @@ interface BentoCardProps {
   gradientFrom: string;
   gradientTo: string;
   illustrationIcon?: ReactNode;
+  iconColor?: string;
 }
 
 export const BentoCard = ({
@@ -21,6 +22,7 @@ export const BentoCard = ({
   gradientFrom,
   gradientTo,
   illustrationIcon,
+  iconColor,
 }: BentoCardProps) => {
   const sizeClasses = {
     small: 'lg:col-span-1 lg:row-span-1 h-96',
@@ -72,7 +74,7 @@ export const BentoCard = ({
         <div className={`relative w-full ${size === 'large' ? 'h-48' : size === 'medium' ? 'h-40' : 'h-32'} rounded-lg bg-gradient-to-br ${gradientFrom} ${gradientTo} flex items-center justify-center border border-slate-600/30 overflow-hidden`}>
           <div className="absolute inset-0 bg-gradient-to-br from-white/5 to-transparent" />
           {illustrationIcon && (
-            <div className="relative text-white/20 group-hover:text-white/30 transition-colors duration-300">
+            <div className={`relative transition-colors duration-300 ${iconColor ?? 'text-white/40 group-hover:text-white/60'}`}>
               {illustrationIcon}
             </div>
           )}
