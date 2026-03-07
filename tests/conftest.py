@@ -62,7 +62,7 @@ SAMPLE_CARDS = [
 # ---------------------------------------------------------------------------
 
 
-@pytest.fixture(scope="module")
+@pytest.fixture(scope="function")
 def client():
     """Configured TestClient with auth override."""
     app.dependency_overrides[get_current_user_id] = lambda: 1

@@ -14,10 +14,6 @@ import backend.api.routes.analytics as _analytics_mod
 from backend.api.dependencies import get_current_user_id
 from backend.api.main import app
 
-app.dependency_overrides[get_current_user_id] = lambda: 1
-
-client = TestClient(app)
-
 SAMPLE_CARDS = [
     {
         "name": "Lightning Bolt",
@@ -57,12 +53,21 @@ RARITY_CARDS = [
 # Jobs
 # ---------------------------------------------------------------------------
 class TestJobs(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        app.dependency_overrides[get_current_user_id] = lambda: 1
+        cls.client = TestClient(app)
+
+    @classmethod
+    def tearDownClass(cls):
+        app.dependency_overrides.pop(get_current_user_id, None)
+
     def test_jobs_returns_200(self):
-        response = client.get("/api/jobs")
+        response = self.client.get("/api/jobs")
         self.assertEqual(response.status_code, 200)
 
     def test_jobs_returns_list(self):
-        response = client.get("/api/jobs")
+        response = self.client.get("/api/jobs")
         self.assertIsInstance(response.json(), list)
 
 
@@ -70,12 +75,21 @@ class TestJobs(unittest.TestCase):
 # Analytics — rarity
 # ---------------------------------------------------------------------------
 class TestAnalyticsRarity(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        app.dependency_overrides[get_current_user_id] = lambda: 1
+        cls.client = TestClient(app)
+
+    @classmethod
+    def tearDownClass(cls):
+        app.dependency_overrides.pop(get_current_user_id, None)
+
     def test_rarity_returns_200(self):
         with (
             patch("backend.api.routes.analytics.get_collection_repo", return_value=None),
             patch("backend.api.routes.analytics.get_cached_collection", return_value=[]),
         ):
-            response = client.get("/api/analytics/rarity")
+            response = self.client.get("/api/analytics/rarity")
         self.assertEqual(response.status_code, 200)
 
     def test_rarity_returns_list(self):
@@ -83,7 +97,7 @@ class TestAnalyticsRarity(unittest.TestCase):
             patch("backend.api.routes.analytics.get_collection_repo", return_value=None),
             patch("backend.api.routes.analytics.get_cached_collection", return_value=SAMPLE_CARDS),
         ):
-            response = client.get("/api/analytics/rarity")
+            response = self.client.get("/api/analytics/rarity")
         self.assertIsInstance(response.json(), list)
 
     def test_rarity_aggregates_correctly(self):
@@ -91,7 +105,7 @@ class TestAnalyticsRarity(unittest.TestCase):
             patch("backend.api.routes.analytics.get_collection_repo", return_value=None),
             patch("backend.api.routes.analytics.get_cached_collection", return_value=RARITY_CARDS),
         ):
-            response = client.get("/api/analytics/rarity")
+            response = self.client.get("/api/analytics/rarity")
         self.assertEqual(response.status_code, 200)
         data = response.json()
         # Build a dict for easy lookup
@@ -104,12 +118,21 @@ class TestAnalyticsRarity(unittest.TestCase):
 # Analytics — sets
 # ---------------------------------------------------------------------------
 class TestAnalyticsSets(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        app.dependency_overrides[get_current_user_id] = lambda: 1
+        cls.client = TestClient(app)
+
+    @classmethod
+    def tearDownClass(cls):
+        app.dependency_overrides.pop(get_current_user_id, None)
+
     def test_sets_returns_200(self):
         with (
             patch("backend.api.routes.analytics.get_collection_repo", return_value=None),
             patch("backend.api.routes.analytics.get_cached_collection", return_value=SAMPLE_CARDS),
         ):
-            response = client.get("/api/analytics/sets")
+            response = self.client.get("/api/analytics/sets")
         self.assertEqual(response.status_code, 200)
 
     def test_sets_contains_set_name_key(self):
@@ -117,7 +140,7 @@ class TestAnalyticsSets(unittest.TestCase):
             patch("backend.api.routes.analytics.get_collection_repo", return_value=None),
             patch("backend.api.routes.analytics.get_cached_collection", return_value=SAMPLE_CARDS),
         ):
-            response = client.get("/api/analytics/sets")
+            response = self.client.get("/api/analytics/sets")
         data = response.json()
         self.assertTrue(len(data) > 0)
         self.assertIn("set_name", data[0])
@@ -129,7 +152,7 @@ class TestAnalyticsSets(unittest.TestCase):
             patch("backend.api.routes.analytics.get_collection_repo", return_value=None),
             patch("backend.api.routes.analytics.get_cached_collection", return_value=SAMPLE_CARDS),
         ):
-            response = client.get("/api/analytics/sets")
+            response = self.client.get("/api/analytics/sets")
         by_set = {item["set_name"]: item["count"] for item in response.json()}
         self.assertEqual(by_set.get("M10"), 2)
         self.assertEqual(by_set.get("LEA"), 1)
@@ -140,12 +163,21 @@ class TestAnalyticsSets(unittest.TestCase):
 # GET /api/cards/ now returns { items, total, limit, offset }
 # ---------------------------------------------------------------------------
 class TestCardsColorFilter(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        app.dependency_overrides[get_current_user_id] = lambda: 1
+        cls.client = TestClient(app)
+
+    @classmethod
+    def tearDownClass(cls):
+        app.dependency_overrides.pop(get_current_user_id, None)
+
     def test_cards_color_identity_filter(self):
         with (
             patch("backend.api.routes.cards.get_collection_repo", return_value=None),
             patch("backend.api.routes.cards.get_cached_collection", return_value=SAMPLE_CARDS),
         ):
-            response = client.get("/api/cards?color_identity=U")
+            response = self.client.get("/api/cards?color_identity=U")
         self.assertEqual(response.status_code, 200)
         data = response.json()
         items = data["items"]
@@ -158,7 +190,7 @@ class TestCardsColorFilter(unittest.TestCase):
             patch("backend.api.routes.cards.get_collection_repo", return_value=None),
             patch("backend.api.routes.cards.get_cached_collection", return_value=SAMPLE_CARDS),
         ):
-            response = client.get("/api/cards?color_identity=R")
+            response = self.client.get("/api/cards?color_identity=R")
         self.assertEqual(response.status_code, 200)
         data = response.json()
         items = data["items"]
@@ -190,6 +222,15 @@ TYPE_CARDS = [
 # Analytics — color-identity
 # ---------------------------------------------------------------------------
 class TestAnalyticsColorIdentity(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        app.dependency_overrides[get_current_user_id] = lambda: 1
+        cls.client = TestClient(app)
+
+    @classmethod
+    def tearDownClass(cls):
+        app.dependency_overrides.pop(get_current_user_id, None)
+
     def setUp(self):
         _analytics_mod._analytics_cache.clear()
 
@@ -198,7 +239,7 @@ class TestAnalyticsColorIdentity(unittest.TestCase):
             patch("backend.api.routes.analytics.get_collection_repo", return_value=None),
             patch("backend.api.routes.analytics.get_cached_collection", return_value=[]),
         ):
-            response = client.get("/api/analytics/color-identity")
+            response = self.client.get("/api/analytics/color-identity")
         self.assertEqual(response.status_code, 200)
 
     def test_color_identity_response_shape(self):
@@ -206,7 +247,7 @@ class TestAnalyticsColorIdentity(unittest.TestCase):
             patch("backend.api.routes.analytics.get_collection_repo", return_value=None),
             patch("backend.api.routes.analytics.get_cached_collection", return_value=SAMPLE_CARDS),
         ):
-            response = client.get("/api/analytics/color-identity")
+            response = self.client.get("/api/analytics/color-identity")
         self.assertEqual(response.status_code, 200)
         data = response.json()
         self.assertIsInstance(data, list)
@@ -226,7 +267,7 @@ class TestAnalyticsColorIdentity(unittest.TestCase):
             patch("backend.api.routes.analytics.get_collection_repo", return_value=None),
             patch("backend.api.routes.analytics.get_cached_collection", return_value=fixture),
         ):
-            response = client.get("/api/analytics/color-identity")
+            response = self.client.get("/api/analytics/color-identity")
         self.assertEqual(response.status_code, 200)
         data = response.json()
         by_identity = {item["color_identity"]: item["count"] for item in data}
@@ -239,6 +280,15 @@ class TestAnalyticsColorIdentity(unittest.TestCase):
 # Analytics — cmc
 # ---------------------------------------------------------------------------
 class TestAnalyticsCmc(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        app.dependency_overrides[get_current_user_id] = lambda: 1
+        cls.client = TestClient(app)
+
+    @classmethod
+    def tearDownClass(cls):
+        app.dependency_overrides.pop(get_current_user_id, None)
+
     def setUp(self):
         _analytics_mod._analytics_cache.clear()
 
@@ -247,7 +297,7 @@ class TestAnalyticsCmc(unittest.TestCase):
             patch("backend.api.routes.analytics.get_collection_repo", return_value=None),
             patch("backend.api.routes.analytics.get_cached_collection", return_value=[]),
         ):
-            response = client.get("/api/analytics/cmc")
+            response = self.client.get("/api/analytics/cmc")
         self.assertEqual(response.status_code, 200)
 
     def test_cmc_response_shape(self):
@@ -255,7 +305,7 @@ class TestAnalyticsCmc(unittest.TestCase):
             patch("backend.api.routes.analytics.get_collection_repo", return_value=None),
             patch("backend.api.routes.analytics.get_cached_collection", return_value=SAMPLE_CARDS),
         ):
-            response = client.get("/api/analytics/cmc")
+            response = self.client.get("/api/analytics/cmc")
         self.assertEqual(response.status_code, 200)
         data = response.json()
         self.assertIsInstance(data, list)
@@ -271,7 +321,7 @@ class TestAnalyticsCmc(unittest.TestCase):
             patch("backend.api.routes.analytics.get_collection_repo", return_value=None),
             patch("backend.api.routes.analytics.get_cached_collection", return_value=fixture),
         ):
-            response = client.get("/api/analytics/cmc")
+            response = self.client.get("/api/analytics/cmc")
         self.assertEqual(response.status_code, 200)
         data = response.json()
         cmc_values = [item["cmc"] for item in data]
@@ -283,7 +333,7 @@ class TestAnalyticsCmc(unittest.TestCase):
             patch("backend.api.routes.analytics.get_collection_repo", return_value=None),
             patch("backend.api.routes.analytics.get_cached_collection", return_value=fixture),
         ):
-            response = client.get("/api/analytics/cmc")
+            response = self.client.get("/api/analytics/cmc")
         self.assertEqual(response.status_code, 200)
         data = response.json()
         cmc_values = [item["cmc"] for item in data]
@@ -300,7 +350,7 @@ class TestAnalyticsCmc(unittest.TestCase):
             patch("backend.api.routes.analytics.get_collection_repo", return_value=None),
             patch("backend.api.routes.analytics.get_cached_collection", return_value=fixture),
         ):
-            response = client.get("/api/analytics/cmc")
+            response = self.client.get("/api/analytics/cmc")
         self.assertEqual(response.status_code, 200)
         data = response.json()
         cmc_order = [item["cmc"] for item in data]
@@ -311,6 +361,15 @@ class TestAnalyticsCmc(unittest.TestCase):
 # Analytics — type
 # ---------------------------------------------------------------------------
 class TestAnalyticsType(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        app.dependency_overrides[get_current_user_id] = lambda: 1
+        cls.client = TestClient(app)
+
+    @classmethod
+    def tearDownClass(cls):
+        app.dependency_overrides.pop(get_current_user_id, None)
+
     def setUp(self):
         _analytics_mod._analytics_cache.clear()
 
@@ -319,7 +378,7 @@ class TestAnalyticsType(unittest.TestCase):
             patch("backend.api.routes.analytics.get_collection_repo", return_value=None),
             patch("backend.api.routes.analytics.get_cached_collection", return_value=[]),
         ):
-            response = client.get("/api/analytics/type")
+            response = self.client.get("/api/analytics/type")
         self.assertEqual(response.status_code, 200)
 
     def test_type_response_shape(self):
@@ -327,7 +386,7 @@ class TestAnalyticsType(unittest.TestCase):
             patch("backend.api.routes.analytics.get_collection_repo", return_value=None),
             patch("backend.api.routes.analytics.get_cached_collection", return_value=TYPE_CARDS),
         ):
-            response = client.get("/api/analytics/type")
+            response = self.client.get("/api/analytics/type")
         self.assertEqual(response.status_code, 200)
         data = response.json()
         self.assertIsInstance(data, list)
@@ -342,7 +401,7 @@ class TestAnalyticsType(unittest.TestCase):
             patch("backend.api.routes.analytics.get_collection_repo", return_value=None),
             patch("backend.api.routes.analytics.get_cached_collection", return_value=TYPE_CARDS),
         ):
-            response = client.get("/api/analytics/type")
+            response = self.client.get("/api/analytics/type")
         self.assertEqual(response.status_code, 200)
         data = response.json()
         by_type = {item["type_line"]: item["count"] for item in data}
@@ -354,7 +413,7 @@ class TestAnalyticsType(unittest.TestCase):
             patch("backend.api.routes.analytics.get_collection_repo", return_value=None),
             patch("backend.api.routes.analytics.get_cached_collection", return_value=TYPE_CARDS),
         ):
-            response = client.get("/api/analytics/type")
+            response = self.client.get("/api/analytics/type")
         self.assertEqual(response.status_code, 200)
         data = response.json()
         by_type = {item["type_line"]: item["count"] for item in data}
@@ -375,7 +434,7 @@ class TestAnalyticsType(unittest.TestCase):
             patch("backend.api.routes.analytics.get_collection_repo", return_value=None),
             patch("backend.api.routes.analytics.get_cached_collection", return_value=fixture),
         ):
-            response = client.get("/api/analytics/type")
+            response = self.client.get("/api/analytics/type")
         self.assertEqual(response.status_code, 200)
         data = response.json()
         self.assertEqual(len(data), 1)
@@ -386,16 +445,25 @@ class TestAnalyticsType(unittest.TestCase):
 # Cards — price history
 # ---------------------------------------------------------------------------
 class TestCardPriceHistory(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        app.dependency_overrides[get_current_user_id] = lambda: 1
+        cls.client = TestClient(app)
+
+    @classmethod
+    def tearDownClass(cls):
+        app.dependency_overrides.pop(get_current_user_id, None)
+
     def test_price_history_501_without_postgres(self):
         with patch("backend.api.routes.cards.get_collection_repo", return_value=None):
-            response = client.get("/api/cards/1/price-history")
+            response = self.client.get("/api/cards/1/price-history")
         self.assertEqual(response.status_code, 501)
 
     def test_price_history_404_card_not_found(self):
         mock_repo = MagicMock()
         mock_repo.get_card_by_id.return_value = None
         with patch("backend.api.routes.cards.get_collection_repo", return_value=mock_repo):
-            response = client.get("/api/cards/99/price-history")
+            response = self.client.get("/api/cards/99/price-history")
         self.assertEqual(response.status_code, 404)
 
     def test_price_history_200_with_data(self):
@@ -405,7 +473,7 @@ class TestCardPriceHistory(unittest.TestCase):
             {"recorded_at": "2024-01-01T00:00:00", "price": 0.5, "source": "scryfall", "currency": "eur"}
         ]
         with patch("backend.api.routes.cards.get_collection_repo", return_value=mock_repo):
-            response = client.get("/api/cards/1/price-history")
+            response = self.client.get("/api/cards/1/price-history")
         self.assertEqual(response.status_code, 200)
         data = response.json()
         self.assertIn("card_id", data)
@@ -424,7 +492,7 @@ class TestCardPriceHistory(unittest.TestCase):
         mock_repo.get_card_by_id.return_value = {"id": 1, "name": "Lightning Bolt"}
         mock_repo.get_price_history.return_value = []
         with patch("backend.api.routes.cards.get_collection_repo", return_value=mock_repo):
-            response = client.get("/api/cards/1/price-history")
+            response = self.client.get("/api/cards/1/price-history")
         self.assertEqual(response.status_code, 200)
         data = response.json()
         self.assertEqual(data["points"], [])
