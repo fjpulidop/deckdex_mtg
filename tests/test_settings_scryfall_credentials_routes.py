@@ -10,14 +10,13 @@ Patches:
 - get_current_user_id via app.dependency_overrides
 """
 
-from unittest.mock import MagicMock, call, patch
+from unittest.mock import MagicMock, patch
 
 import pytest
 from fastapi.testclient import TestClient
 
 from backend.api.dependencies import get_current_user_id
 from backend.api.main import app
-
 
 # ---------------------------------------------------------------------------
 # Fixtures
