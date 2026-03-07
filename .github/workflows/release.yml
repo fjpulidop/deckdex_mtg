@@ -1,0 +1,88 @@
+name: Release
+
+on:
+  workflow_dispatch:
+    inputs:
+      bump:
+        description: "Version bump type"
+        required: true
+        type: choice
+        options:
+          - patch
+          - minor
+          - major
+
+jobs:
+  release:
+    name: Create Release
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Get latest tag
+        id: latest_tag
+        run: |
+          TAG=$(git tag -l 'v*' --sort=-v:refname | head -n1)
+          if [ -z "$TAG" ]; then
+            echo "tag=v0.0.0" >> "$GITHUB_OUTPUT"
+          else
+            echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Calculate next version
+        id: next_version
+        run: |
+          CURRENT="${{ steps.latest_tag.outputs.tag }}"
+          CURRENT="${CURRENT#v}"
+          IFS='.' read -r MAJOR MINOR PATCH <<< "$CURRENT"
+
+          case "${{ inputs.bump }}" in
+            major) MAJOR=$((MAJOR + 1)); MINOR=0; PATCH=0 ;;
+            minor) MINOR=$((MINOR + 1)); PATCH=0 ;;
+            patch) PATCH=$((PATCH + 1)) ;;
+          esac
+
+          echo "version=v${MAJOR}.${MINOR}.${PATCH}" >> "$GITHUB_OUTPUT"
+
+      - name: Generate changelog
+        id: changelog
+        run: |
+          PREV_TAG="${{ steps.latest_tag.outputs.tag }}"
+          NEXT_VERSION="${{ steps.next_version.outputs.version }}"
+
+          # Check if previous tag exists in git
+          if git rev-parse "$PREV_TAG" >/dev/null 2>&1; then
+            RANGE="${PREV_TAG}..HEAD"
+          else
+            RANGE="HEAD"
+          fi
+
+          # Collect merged PR titles via merge commits
+          CHANGELOG=$(git log "$RANGE" --merges --pretty=format:"- %s" | sed 's/Merge pull request #\([0-9]*\) from [^ ]*/PR #\1:/' || true)
+
+          # Fallback to regular commits if no merge commits
+          if [ -z "$CHANGELOG" ]; then
+            CHANGELOG=$(git log "$RANGE" --no-merges --pretty=format:"- %s")
+          fi
+
+          # Write to file to preserve newlines
+          echo "$CHANGELOG" > /tmp/changelog.txt
+
+      - name: Create tag
+        run: |
+          git tag "${{ steps.next_version.outputs.version }}"
+          git push origin "${{ steps.next_version.outputs.version }}"
+
+      - name: Create GitHub Release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release create "${{ steps.next_version.outputs.version }}" \
+            --title "${{ steps.next_version.outputs.version }}" \
+            --notes-file /tmp/changelog.txt
