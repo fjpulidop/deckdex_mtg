@@ -37,12 +37,23 @@ export function AetherParticles() {
   const particlesRef = useRef<Particle[]>([]);
   const animFrameRef = useRef<number>(0);
   const lastFrameRef = useRef<number>(0);
+  const pausedRef = useRef<boolean>(false);
   const { theme } = useTheme();
   const reducedMotion = useReducedMotion();
   const isDark = theme === 'dark';
 
   const opacityMax = isDark ? 0.3 : 0.15;
   const opacityMin = 0.03;
+
+  // Refs to hold current theme values so animation callbacks stay stable across theme changes
+  const isDarkRef = useRef<boolean>(isDark);
+  const opacityMaxRef = useRef<number>(opacityMax);
+
+  // Sync theme values into refs without restarting the animation loop
+  useEffect(() => {
+    isDarkRef.current = isDark;
+    opacityMaxRef.current = opacityMax;
+  }, [isDark, opacityMax]);
 
   const initParticles = useCallback((width: number, height: number) => {
     particlesRef.current = Array.from({ length: PARTICLE_COUNT }, () =>
@@ -56,16 +67,16 @@ export function AetherParticles() {
 
       for (const p of particlesRef.current) {
         const color = MANA_COLORS[p.colorKey];
-        const hex = isDark ? color.dark : color.light;
-        ctx.globalAlpha = Math.min(p.opacity, opacityMax);
+        const hex = isDarkRef.current ? color.dark : color.light;
+        ctx.globalAlpha = Math.min(p.opacity, opacityMaxRef.current);
         ctx.beginPath();
         ctx.arc(p.x, p.y, p.radius, 0, Math.PI * 2);
         ctx.fillStyle = hex;
         ctx.fill();
 
         // Subtle glow in dark mode
-        if (isDark) {
-          ctx.globalAlpha = Math.min(p.opacity * 0.3, opacityMax * 0.3);
+        if (isDarkRef.current) {
+          ctx.globalAlpha = Math.min(p.opacity * 0.3, opacityMaxRef.current * 0.3);
           ctx.beginPath();
           ctx.arc(p.x, p.y, p.radius * 3, 0, Math.PI * 2);
           ctx.fillStyle = hex;
@@ -74,7 +85,7 @@ export function AetherParticles() {
       }
       ctx.globalAlpha = 1;
     },
-    [isDark, opacityMax]
+    [] // stable: reads theme state via refs
   );
 
   /* eslint-disable react-hooks/immutability -- mutating ref contents (particle positions) is intentional for canvas animation */
@@ -92,12 +103,12 @@ export function AetherParticles() {
 
         // Pulse opacity
         p.opacity += p.opacityDir;
-        if (p.opacity >= opacityMax || p.opacity <= opacityMin) {
+        if (p.opacity >= opacityMaxRef.current || p.opacity <= opacityMin) {
           p.opacityDir *= -1;
         }
       }
     },
-    [opacityMax]
+    [] // stable: reads opacityMax via ref
   );
   /* eslint-enable react-hooks/immutability */
 
@@ -143,14 +154,32 @@ export function AetherParticles() {
       }
       animFrameRef.current = requestAnimationFrame(animate);
     };
-    animFrameRef.current = requestAnimationFrame(animate);
+
+    // Pause immediately if document is already hidden at mount time
+    if (document.hidden) {
+      pausedRef.current = true;
+    } else {
+      animFrameRef.current = requestAnimationFrame(animate);
+    }
+
+    const handleVisibility = () => {
+      if (document.hidden) {
+        pausedRef.current = true;
+        cancelAnimationFrame(animFrameRef.current);
+      } else {
+        pausedRef.current = false;
+        animFrameRef.current = requestAnimationFrame(animate);
+      }
+    };
+    document.addEventListener('visibilitychange', handleVisibility);
 
     return () => {
       cancelAnimationFrame(animFrameRef.current);
       window.removeEventListener('resize', onResize);
+      document.removeEventListener('visibilitychange', handleVisibility);
       clearTimeout(resizeTimer);
     };
-  }, [draw, update, initParticles, reducedMotion]);
+  }, [reducedMotion, initParticles, draw, update]);
 
   return (
     <canvas
