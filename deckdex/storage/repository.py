@@ -208,6 +208,28 @@ class CollectionRepository(ABC):
         """
         return []
 
+    def get_type_line_data(
+        self,
+        user_id: Optional[int],
+        filters: Optional[Dict[str, Any]] = None,
+    ) -> List[Dict[str, Any]]:
+        """Return lightweight rows of (type_line, quantity) for filtered cards.
+
+        Used by the analytics/type endpoint to perform Python-level primary-type
+        extraction over a SQL-filtered result set.
+
+        Default: returns []. Postgres subclass executes:
+            SELECT type_line, quantity FROM cards {where}
+
+        Args:
+            user_id: Filter cards by this user.
+            filters: Same filter dict as get_cards_filtered.
+
+        Returns:
+            List of {'type_line': str | None, 'quantity': int}
+        """
+        return []
+
     def get_filter_options(
         self,
         user_id: Optional[int],
@@ -739,6 +761,28 @@ class PostgresCollectionRepository(CollectionRepository):
         with engine.connect() as conn:
             rows = conn.execute(text(sql), params).fetchall()
         return [{"label": r[0], "count": int(r[1] or 0)} for r in rows]
+
+    def get_type_line_data(
+        self,
+        user_id: Optional[int],
+        filters: Optional[Dict[str, Any]] = None,
+    ) -> List[Dict[str, Any]]:
+        """Return lightweight rows of (type_line, quantity) for filtered cards.
+
+        Executes SELECT type_line, quantity FROM cards {where} using the standard
+        filter clause builder. Used by the analytics/type endpoint.
+
+        Returns:
+            List of {'type_line': str | None, 'quantity': int}
+        """
+        from sqlalchemy import text
+
+        engine = self._get_engine()
+        where, params = self._build_filter_clauses(filters, user_id)
+        sql = f"SELECT type_line, quantity FROM cards {where}"
+        with engine.connect() as conn:
+            rows = conn.execute(text(sql), params).fetchall()
+        return [{"type_line": row[0], "quantity": int(row[1] or 1)} for row in rows]
 
     def get_filter_options(
         self,

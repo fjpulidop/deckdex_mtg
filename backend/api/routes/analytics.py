@@ -493,44 +493,14 @@ async def analytics_type(
     try:
         repo = get_collection_repo()
         if repo is not None:
-            # Fetch only type_line + quantity for filtered cards via SQL
-            from sqlalchemy import text
-
-            from ..dependencies import get_collection_repo as _get_repo
-
-            _repo = _get_repo()
-            from deckdex.storage.repository import PostgresCollectionRepository
-
-            if isinstance(_repo, PostgresCollectionRepository):
-                filters_dict = _make_filters(
-                    search, rarity, type_filter, set_name, price_min, price_max, color_identity, cmc
-                )
-                where, params = _repo._build_filter_clauses(filters_dict, user_id)
-                sql = f"SELECT type_line, quantity FROM cards {where}"
-                engine = _repo._get_engine()
-                with engine.connect() as conn:
-                    rows = conn.execute(text(sql), params).fetchall()
-                counter: Counter = Counter()
-                for type_line, qty in rows:
-                    primary = _extract_primary_type(type_line or "")
-                    counter[primary] += int(qty or 1)
-            else:
-                # Fallback: load all cards (shouldn't happen for Postgres)
-                cards = _filtered_collection(
-                    search,
-                    rarity,
-                    type_filter,
-                    set_name,
-                    price_min,
-                    price_max,
-                    color_identity=color_identity,
-                    cmc=cmc,
-                    user_id=user_id,
-                )
-                counter = Counter()
-                for c in cards:
-                    primary = _extract_primary_type(c.get("type_line") or c.get("type") or "")
-                    counter[primary] += int(c.get("quantity") or 1)
+            filters_dict = _make_filters(
+                search, rarity, type_filter, set_name, price_min, price_max, color_identity, cmc
+            )
+            rows = repo.get_type_line_data(user_id=user_id, filters=filters_dict)
+            counter: Counter = Counter()
+            for row in rows:
+                primary = _extract_primary_type(row.get("type_line") or "")
+                counter[primary] += int(row.get("quantity") or 1)
         else:
             cards = _filtered_collection(
                 search,
