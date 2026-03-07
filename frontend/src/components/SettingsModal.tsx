@@ -48,7 +48,7 @@ export function SettingsModal({ onClose }: SettingsModalProps) {
       setScryfallMessage(r.configured ? t('settings.credentialsSaved') : t('settings.credentialsCleared'));
       if (r.configured) setScryfallJson('');
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Failed to save Scryfall credentials');
+      setError(e instanceof Error ? e.message : t('settings.errors.failedToSave'));
     } finally {
       setScryfallLoading(false);
     }
@@ -78,7 +78,7 @@ export function SettingsModal({ onClose }: SettingsModalProps) {
       const r = await api.importFromFile(file);
       setImportFileResult(t('settings.importedCards', { count: r.imported }));
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Import failed');
+      setError(e instanceof Error ? e.message : t('settings.errors.importFailed'));
     } finally {
       setImportFileLoading(false);
       e.target.value = '';
@@ -123,7 +123,11 @@ export function SettingsModal({ onClose }: SettingsModalProps) {
                 className="border border-gray-300 dark:border-gray-600 rounded px-3 py-2 text-sm font-mono bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400"
               />
               <div className="flex flex-wrap gap-2 items-center">
+                <label htmlFor="settings-scryfall-file" className="sr-only">
+                  {t('settings.scryfallFileLabel')}
+                </label>
                 <input
+                  id="settings-scryfall-file"
                   type="file"
                   accept=".json"
                   onChange={handleScryfallFileChange}
@@ -147,7 +151,7 @@ export function SettingsModal({ onClose }: SettingsModalProps) {
                         setScryfallConfigured(false);
                         setScryfallMessage(t('settings.credentialsCleared2'));
                       } catch (e) {
-                        setError(e instanceof Error ? e.message : 'Failed to clear credentials');
+                        setError(e instanceof Error ? e.message : t('settings.errors.failedToClear'));
                       }
                     }}
                     className="px-4 py-2 border border-gray-300 dark:border-gray-600 rounded hover:bg-gray-50 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-200"
@@ -187,7 +191,7 @@ export function SettingsModal({ onClose }: SettingsModalProps) {
                     setScryfallEnabled(r.scryfall_enabled);
                   } catch (e) {
                     setScryfallEnabled(!newVal);
-                    setError(e instanceof Error ? e.message : 'Failed to update setting');
+                    setError(e instanceof Error ? e.message : t('settings.errors.failedToUpdate'));
                   } finally {
                     setScryfallToggleLoading(false);
                   }
@@ -213,7 +217,11 @@ export function SettingsModal({ onClose }: SettingsModalProps) {
             <p className="mb-2 text-sm text-gray-600 dark:text-gray-400">
               {t('settings.quickImportDesc')}
             </p>
+            <label htmlFor="settings-import-file" className="sr-only">
+              {t('settings.importFileLabel')}
+            </label>
             <input
+              id="settings-import-file"
               type="file"
               accept=".csv,.json"
               onChange={handleFileChange}

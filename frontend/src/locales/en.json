@@ -103,6 +103,7 @@
     "imageUnavailable": "Image unavailable",
     "imageNotAvailable": "Image not available",
     "viewLarger": "View image larger",
+    "lightboxTitle": "Card image: {{name}}",
     "close": "Close",
     "saving": "Saving…",
     "save": "Save",
@@ -133,6 +134,7 @@
     }
   },
   "deckDetail": {
+    "lightboxTitle": "Card image: {{name}}",
     "total": "Total",
     "cmc": "CMC",
     "addCard": "Add card",
@@ -161,7 +163,9 @@
     "success": "{{count}} cards imported",
     "skippedTitle": "Not in your collection ({{count}}):",
     "done": "Done",
-    "notInCollection": "not in collection"
+    "notInCollection": "not in collection",
+    "importFailed": "Import failed",
+    "textareaLabel": "Deck list"
   },
   "confirmModal": {
     "confirm": "Confirm",
@@ -254,7 +258,15 @@
     "invalidJsonFile": "The selected file is not valid JSON.",
     "importedCards_one": "Imported {{count}} card.",
     "importedCards_other": "Imported {{count}} cards.",
-    "scryfallCredentialsLabel": "Scryfall credentials JSON"
+    "scryfallCredentialsLabel": "Scryfall credentials JSON",
+    "importFileLabel": "Import collection file (CSV or JSON)",
+    "scryfallFileLabel": "Scryfall credentials JSON file",
+    "errors": {
+      "failedToSave": "Failed to save Scryfall credentials",
+      "importFailed": "Import failed",
+      "failedToClear": "Failed to clear credentials",
+      "failedToUpdate": "Failed to update setting"
+    }
   },
   "insights": {
     "title": "Collection Insights",
@@ -271,7 +283,23 @@
       "ranking": "Ranking",
       "patterns": "Patterns",
       "activity": "Activity"
+    },
+    "list": {
+      "noItems": "No items to display"
+    },
+    "timeline": {
+      "noData": "No timeline data available",
+      "cardCount": "{{count}} cards"
+    },
+    "comparison": {
+      "present": "Present",
+      "missing": "Missing"
     }
+  },
+  "errorBoundary": {
+    "title": "Something went wrong",
+    "description": "The application encountered an error. Please refresh the page or check the console.",
+    "refresh": "Refresh Page"
   },
   "deckCardPicker": {
     "title": "Add cards from collection",
@@ -450,6 +478,7 @@
     "startSync": "Start Sync",
     "syncCompleted": "Catalog sync completed successfully.",
     "syncAlreadyInProgress": "Sync already in progress",
+    "syncEncounteredError": "Sync encountered an error",
     "failedToStartSync": "Failed to start sync",
     "syncFailed": "Sync failed",
     "failedToLoad": "Failed to load sync status",

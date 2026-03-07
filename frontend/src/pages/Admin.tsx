@@ -73,7 +73,7 @@ export function Admin() {
           setSuccessMsg(t('admin.syncCompleted'));
           fetchStatus();
         } else if (data.type === 'error') {
-          setError(data.message || 'Sync encountered an error');
+          setError(data.message || t('admin.syncEncounteredError'));
         }
       } catch {
         // ignore parse errors
@@ -106,7 +106,7 @@ export function Admin() {
       const result = await api.adminTriggerCatalogSync();
       setJobId(result.job_id);
     } catch (e) {
-      const msg = e instanceof Error ? e.message : 'Failed to start sync';
+      const msg = e instanceof Error ? e.message : t('admin.failedToStartSync');
       if (msg.includes('already in progress') || msg.includes('409')) {
         setError(t('admin.syncAlreadyInProgress'));
       } else {

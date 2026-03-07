@@ -4,7 +4,7 @@ Explore multiple areas, pick the best improvement for each, and implement them a
 
 **Input:** $ARGUMENTS (comma-separated areas, e.g. "Analytics, Deck Builder, Testing")
 
-**IMPORTANT:** Before running, ensure Read/Write/Bash/Glob/Grep permissions are set to "allow" — background agents cannot request permissions interactively.
+**IMPORTANT:** Before running, ensure Read/Write/Bash/Glob/Grep permissions are set to "allow" — background agents cannot request permissions interactively. Worktree-isolated agents especially need Bash for CI verification and git operations.
 
 ---
 
@@ -68,6 +68,16 @@ Each agent's prompt should be:
 
 Wait for all architects to complete. Briefly review their output to confirm artifacts were created.
 
+### 3a.1 Identify shared file conflicts
+
+Before launching developers, scan all tasks.md files to identify **shared files** that multiple features will modify (common culprits: `client.ts`, `en.json`, `es.json`, `useApi.ts`, `App.tsx`).
+
+For each shared file, decide:
+- **Assign ownership**: Only ONE developer modifies it. Others document what they need in their tasks.md but skip the actual edit.
+- **Or split cleanly**: If additions are independent (e.g., new interface + new method in client.ts), let each developer add their piece and the orchestrator merges.
+
+Document the ownership plan before launching developers — this prevents manual merge headaches in Phase 4.
+
 ## Phase 3b: Implement (parallel, isolated worktrees)
 
 For each change with completed artifacts, launch a **developer** agent in an isolated worktree (`subagent_type: developer`, `isolation: worktree`, `run_in_background: true`).
@@ -94,7 +104,8 @@ Each agent's prompt should be:
 >    - `cd frontend && npx tsc --noEmit`
 >    - `cd frontend && npx vitest run`
 >    Fix failures (up to 3 attempts).
-> 5. **Archive**: Run `openspec sync-specs` then `openspec archive change "<name>"`.
+> 5. **Commit your changes**: `git add -A && git commit -m "feat: <change-name>"` — this makes merge easier.
+> 6. **Do NOT archive** — the orchestrator handles archival after merge.
 >
 > **Rules:**
 > - Never ask for clarification. The architect's artifacts have your answers.
@@ -102,8 +113,11 @@ Each agent's prompt should be:
 > - Backend: thin routes, services for logic, Pydantic models.
 > - Frontend: functional components, TanStack Query, Tailwind, strict TypeScript, i18n in en.json + es.json.
 > - Tests: pytest functions in `tests/`, mock external deps, use `dependency_overrides` with setUp/tearDown per class (NOT module-level).
-> - Use `openspec` CLI commands throughout — this is non-negotiable.
+> - **Test isolation**: All pytest fixtures with mocked repos/services MUST use `scope="function"` (NOT `scope="module"`). Module-scoped mocks cause cross-test pollution.
+> - **Temp dir assertions**: All file-existence assertions MUST be inside the `with tempfile.TemporaryDirectory()` block — the directory is deleted when the block exits.
+> - **HTTP status codes**: This project's `validation_exception_handler` converts Pydantic `RequestValidationError` to HTTP 400 (NOT 422). Always expect 400 for validation errors.
 > - If a task is unclear, refer back to design.md for the architectural decision.
+> - **Shared files**: <list any shared file ownership rules from step 3a.1 here>
 
 Wait for all developers to complete.
 
@@ -111,8 +125,13 @@ Wait for all developers to complete.
 
 **This phase is fully autonomous — do NOT ask the user for confirmation at any step.**
 
-### 4a. Copy worktree changes to main repo
-For each completed worktree, copy modified/new files back to the main repo. Then clean up worktrees with `git worktree remove`.
+### 4a. Merge worktree changes to main repo
+
+For each completed worktree:
+1. **Get the diff**: `cd <worktree> && git diff HEAD --name-only` to identify changed files (developers should have committed, so use `git diff main..HEAD --name-only` if committed).
+2. **Copy feature-specific files**: Only copy files unique to this feature. Skip shared files (client.ts, en.json, es.json) — merge those manually.
+3. **Merge shared files**: For files modified by multiple developers, read each version, identify the additions, and splice them into the main repo's version. Never blindly overwrite.
+4. **Clean up**: `git worktree remove --force <worktree>`
 
 ### 4b. Launch Reviewer agent
 

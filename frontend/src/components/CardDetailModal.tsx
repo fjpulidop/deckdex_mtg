@@ -72,17 +72,6 @@ export function CardDetailModal({
     setEditForm(cardToEditForm(card));
   }, [card]);
 
-  useEffect(() => {
-    if (!imageLightboxOpen) return;
-    const onKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') {
-        e.stopPropagation();
-        setImageLightboxOpen(false);
-      }
-    };
-    window.addEventListener('keydown', onKeyDown);
-    return () => window.removeEventListener('keydown', onKeyDown);
-  }, [imageLightboxOpen]);
 
   const priceStr = card.price && card.price !== 'N/A' ? `€${card.price}` : 'N/A';
 
@@ -440,24 +429,30 @@ export function CardDetailModal({
 
       {/* Lightbox: larger image, click or Escape to close */}
       {imageLightboxOpen && imageUrl && (
-        <div
-          className="fixed inset-0 z-[60] flex items-center justify-center bg-black/70 cursor-zoom-out p-4"
-          onClick={e => {
-            e.stopPropagation();
-            setImageLightboxOpen(false);
-          }}
-          role="button"
-          tabIndex={0}
-          aria-label={t('cardDetail.close')}
-          onKeyDown={e => e.key === 'Enter' && setImageLightboxOpen(false)}
+        <AccessibleModal
+          isOpen={true}
+          onClose={() => setImageLightboxOpen(false)}
+          titleId="card-detail-lightbox-title"
+          className="z-[60] cursor-zoom-out"
         >
-          <img
-            src={imageUrl}
-            alt={displayName}
-            className="max-w-[488px] max-h-[680px] w-auto h-auto object-contain rounded-lg shadow-2xl pointer-events-none"
-            aria-hidden
-          />
-        </div>
+          <div
+            tabIndex={0}
+            role="button"
+            aria-label={t('common.close')}
+            onClick={() => setImageLightboxOpen(false)}
+            onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') setImageLightboxOpen(false); }}
+            className="outline-none p-4"
+          >
+            <span id="card-detail-lightbox-title" className="sr-only">
+              {t('cardDetail.lightboxTitle', { name: displayName })}
+            </span>
+            <img
+              src={imageUrl}
+              alt={displayName}
+              className="max-w-[488px] max-h-[680px] w-auto h-auto object-contain rounded-lg shadow-2xl"
+            />
+          </div>
+        </AccessibleModal>
       )}
     </>
   );

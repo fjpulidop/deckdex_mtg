@@ -100,6 +100,7 @@
     "failed": "Error"
   },
   "cardDetail": {
+    "lightboxTitle": "Imagen de la carta: {{name}}",
     "imageUnavailable": "Imagen no disponible",
     "imageNotAvailable": "Imagen no disponible",
     "viewLarger": "Ver imagen ampliada",
@@ -133,6 +134,7 @@
     }
   },
   "deckDetail": {
+    "lightboxTitle": "Imagen de la carta: {{name}}",
     "total": "Total",
     "cmc": "CMC",
     "addCard": "Añadir carta",
@@ -161,7 +163,9 @@
     "success": "{{count}} cartas importadas",
     "skippedTitle": "No está en tu colección ({{count}}):",
     "done": "Hecho",
-    "notInCollection": "no en colección"
+    "notInCollection": "no en colección",
+    "importFailed": "Error al importar",
+    "textareaLabel": "Lista del mazo"
   },
   "confirmModal": {
     "confirm": "Confirmar",
@@ -254,7 +258,15 @@
     "invalidJsonFile": "El archivo seleccionado no es un JSON válido.",
     "importedCards_one": "Importada {{count}} carta.",
     "importedCards_other": "Importadas {{count}} cartas.",
-    "scryfallCredentialsLabel": "JSON de credenciales de Scryfall"
+    "scryfallCredentialsLabel": "JSON de credenciales de Scryfall",
+    "importFileLabel": "Archivo de importación de colección (CSV o JSON)",
+    "scryfallFileLabel": "Archivo JSON de credenciales de Scryfall",
+    "errors": {
+      "failedToSave": "Error al guardar las credenciales de Scryfall",
+      "importFailed": "Error al importar",
+      "failedToClear": "Error al eliminar las credenciales",
+      "failedToUpdate": "Error al actualizar el ajuste"
+    }
   },
   "insights": {
     "title": "Análisis de colección",
@@ -271,7 +283,23 @@
       "ranking": "Ranking",
       "patterns": "Patrones",
       "activity": "Actividad"
+    },
+    "list": {
+      "noItems": "No hay elementos para mostrar"
+    },
+    "timeline": {
+      "noData": "No hay datos de cronología disponibles",
+      "cardCount": "{{count}} cartas"
+    },
+    "comparison": {
+      "present": "Presente",
+      "missing": "Ausente"
     }
+  },
+  "errorBoundary": {
+    "title": "Algo salió mal",
+    "description": "La aplicación encontró un error. Por favor, recarga la página o revisa la consola.",
+    "refresh": "Recargar página"
   },
   "deckCardPicker": {
     "title": "Añadir cartas de la colección",
@@ -450,6 +478,7 @@
     "startSync": "Iniciar sincronización",
     "syncCompleted": "Sincronización del catálogo completada con éxito.",
     "syncAlreadyInProgress": "Sincronización ya en curso",
+    "syncEncounteredError": "La sincronización encontró un error",
     "failedToStartSync": "Error al iniciar la sincronización",
     "syncFailed": "Sincronización fallida",
     "failedToLoad": "Error al cargar el estado de sincronización",

@@ -79,6 +79,9 @@ The developer's prompt should be:
 > - Backend: thin routes, services for logic, Pydantic models.
 > - Frontend: functional components, TanStack Query, Tailwind, strict TypeScript, i18n in en.json + es.json.
 > - Tests: pytest functions in `tests/`, mock external deps, use `dependency_overrides` with setUp/tearDown per class (NOT module-level).
+> - **Test isolation**: All pytest fixtures with mocked repos/services MUST use `scope="function"` (NOT `scope="module"`). Module-scoped mocks cause cross-test pollution.
+> - **Temp dir assertions**: All file-existence assertions MUST be inside the `with tempfile.TemporaryDirectory()` block — the directory is deleted when the block exits.
+> - **HTTP status codes**: This project's `validation_exception_handler` converts Pydantic `RequestValidationError` to HTTP 400 (NOT 422). Always expect 400 for validation errors.
 > - Use `openspec` CLI commands throughout.
 
 Wait for the developer to complete.

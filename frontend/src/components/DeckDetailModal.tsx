@@ -1,4 +1,4 @@
-import { useState, useCallback, useMemo, useEffect } from 'react';
+import { useState, useCallback, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { BarChart, Bar, XAxis, YAxis, ResponsiveContainer, Cell } from 'recharts';
@@ -245,17 +245,6 @@ export function DeckDetailModal({ deckId, onClose, onDeleted }: DeckDetailModalP
     refetch();
   }, [refetch]);
 
-  useEffect(() => {
-    if (!imageLightboxOpen) return;
-    const onKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') {
-        e.stopPropagation();
-        setImageLightboxOpen(false);
-      }
-    };
-    window.addEventListener('keydown', onKeyDown);
-    return () => window.removeEventListener('keydown', onKeyDown);
-  }, [imageLightboxOpen]);
 
   if (error) {
     return (
@@ -493,21 +482,30 @@ export function DeckDetailModal({ deckId, onClose, onDeleted }: DeckDetailModalP
 
       {/* Lightbox: image large, click or Escape to close */}
       {imageLightboxOpen && bigImageUrl && (
-        <div
-          className="fixed inset-0 z-[60] flex items-center justify-center bg-black/70 cursor-zoom-out p-4"
-          onClick={() => setImageLightboxOpen(false)}
-          role="button"
-          tabIndex={0}
-          aria-label={t('deckDetail.close')}
-          onKeyDown={(e) => e.key === 'Enter' && setImageLightboxOpen(false)}
+        <AccessibleModal
+          isOpen={true}
+          onClose={() => setImageLightboxOpen(false)}
+          titleId="deck-detail-lightbox-title"
+          className="z-[60] cursor-zoom-out"
         >
-          <img
-            src={bigImageUrl}
-            alt="Card"
-            className="max-w-[90vw] max-h-[90vh] w-auto h-auto object-contain rounded-lg shadow-2xl pointer-events-none"
-            aria-hidden
-          />
-        </div>
+          <div
+            tabIndex={0}
+            role="button"
+            aria-label={t('common.close')}
+            onClick={() => setImageLightboxOpen(false)}
+            onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') setImageLightboxOpen(false); }}
+            className="outline-none p-4"
+          >
+            <span id="deck-detail-lightbox-title" className="sr-only">
+              {t('deckDetail.lightboxTitle', { name: previewCard?.name ?? '' })}
+            </span>
+            <img
+              src={bigImageUrl}
+              alt={previewCard?.name ?? t('deckDetail.hoverCard')}
+              className="max-w-[90vw] max-h-[90vh] w-auto h-auto object-contain rounded-lg shadow-2xl pointer-events-none"
+            />
+          </div>
+        </AccessibleModal>
       )}
 
       {pickerOpen && (

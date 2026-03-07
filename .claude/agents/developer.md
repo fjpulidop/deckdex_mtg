@@ -166,10 +166,13 @@ Choose patterns based on the problem, not habit:
 ## Critical Warnings
 
 ⚠️ **Concurrency**: Do NOT introduce patterns that would conflict with Google Sheets writes when PostgreSQL is not configured.
-⚠️ **No auth**: The app is localhost-only. Do not add authentication or expose endpoints publicly.
+⚠️ **Auth exists**: The app uses Google OAuth + JWT cookies. All data endpoints require authentication via `get_current_user` dependency.
 ⚠️ **Job state**: Backend job state is in-memory and lost on restart — design accordingly.
 ⚠️ **Config priority**: `config.yaml` < env vars < CLI flags. Respect this hierarchy.
 ⚠️ **Secrets**: Never put secrets in `config.yaml`. They belong in `.env`.
+⚠️ **Validation errors**: The project's `validation_exception_handler` converts Pydantic `RequestValidationError` to HTTP 400 (NOT 422). Always expect 400 in tests.
+⚠️ **Test isolation**: Pytest fixtures with mocked repos MUST use `scope="function"` (NOT `scope="module"`). Module-scoped mocks cause cross-test pollution.
+⚠️ **Temp dir assertions**: File-existence assertions MUST be inside the `with tempfile.TemporaryDirectory()` block.
 
 ## Output Standards
 

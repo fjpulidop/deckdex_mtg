@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next';
 import { InsightComparisonData } from '../../api/client';
 import { useTheme } from '../../contexts/ThemeContext';
 
@@ -7,6 +8,7 @@ interface Props {
 }
 
 export function InsightComparisonRenderer({ data, answerText }: Props) {
+  const { t } = useTranslation();
   const { theme } = useTheme();
   const isDark = theme === 'dark';
 
@@ -49,7 +51,7 @@ export function InsightComparisonRenderer({ data, answerText }: Props) {
               <span
                 className="text-lg font-bold"
                 style={{ color: item.present ? '#16a34a' : '#dc2626' }}
-                aria-label={item.present ? 'Present' : 'Missing'}
+                aria-label={item.present ? t('insights.comparison.present') : t('insights.comparison.missing')}
               >
                 {item.present ? '✓' : '✗'}
               </span>

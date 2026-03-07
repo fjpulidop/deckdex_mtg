@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next';
 import { InsightListData } from '../../api/client';
 import { Card } from '../../api/client';
 import { useCardImage } from '../../hooks/useCardImage';
@@ -21,12 +22,13 @@ function CardThumbnail({ cardId }: { cardId: number }) {
 }
 
 export function InsightListRenderer({ data, answerText, onCardClick }: Props) {
+  const { t } = useTranslation();
   return (
     <div className="space-y-3">
       <p className="text-sm text-gray-600 dark:text-gray-400">{answerText}</p>
 
       {data.items.length === 0 ? (
-        <p className="text-sm text-gray-400 dark:text-gray-500 italic">No items to display</p>
+        <p className="text-sm text-gray-400 dark:text-gray-500 italic">{t('insights.list.noItems')}</p>
       ) : (
         <ol className="space-y-1.5">
           {data.items.map((item, i) => {

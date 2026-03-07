@@ -48,7 +48,14 @@ export function DeckImportModal({ deckId, onClose, onImported }: DeckImportModal
         <div className="px-6 py-4 flex flex-col gap-4">
           {result === null ? (
             <>
+              <label
+                htmlFor="deck-import-textarea"
+                className="block text-sm font-medium text-gray-700 dark:text-gray-300"
+              >
+                {t('deckImport.textareaLabel')}
+              </label>
               <textarea
+                id="deck-import-textarea"
                 className="w-full h-48 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm px-3 py-2 resize-none focus:outline-none focus:ring-2 focus:ring-indigo-500 font-mono placeholder:text-gray-400 dark:placeholder:text-gray-500"
                 placeholder={t('deckImport.placeholder')}
                 value={text}
@@ -60,7 +67,7 @@ export function DeckImportModal({ deckId, onClose, onImported }: DeckImportModal
                 <p role="alert" className="text-sm text-red-600 dark:text-red-400">
                   {mutation.error instanceof Error
                     ? mutation.error.message
-                    : 'Import failed'}
+                    : t('deckImport.importFailed')}
                 </p>
               )}
             </>
