@@ -14,6 +14,11 @@
 
 ### Test Isolation
 - **Module-level `app.dependency_overrides`**: Setting auth overrides at module scope (outside any test class/function) causes cross-test pollution — another test's `tearDown` calling `.pop()` or `.clear()` will remove it, causing 401s in subsequent tests even when run in isolation they pass. Always use `setUp`/`tearDown` per test class. Tests pass in isolation but fail in full `pytest tests/` run.
+- **`scope="module"` pytest fixtures with `MagicMock`**: The mock accumulates call history across all tests in the module. `assert_not_called()` / `assert_called_once()` on a shared mock will fail on later tests even if the individual test doesn't call the method. Fix: use `scope="function"` for fixtures that yield `MagicMock` repos.
+
+### Test Bugs
+- **`tempfile.TemporaryDirectory()` with context manager**: Assertions that check file existence MUST be inside the `with` block. If placed outside (after the `with` ends), the directory is already deleted and all `exists()` checks return `False`.
+- **Validation error status codes**: This project's `validation_exception_handler` converts ALL Pydantic `RequestValidationError` to HTTP 400 (not the FastAPI default of 422). Tests asserting on Pydantic validation failures must expect 400, not 422.
 
 ### Cross-Feature Merge Issues
 - Parallel developers may both modify `en.json`/`es.json` — check for merge conflicts in i18n files

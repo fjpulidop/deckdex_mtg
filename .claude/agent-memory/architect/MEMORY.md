@@ -18,6 +18,7 @@
 - All backend calls in frontend flow through `api/client.ts` (apiFetch wrapper with auth + retry) + hooks in `useApi.ts` (TanStack Query).
 - `recharts ^3.7.0` is already installed in frontend/package.json — no install needed for charting.
 - `FileResponse` (zero-copy serving) is the established pattern in `auth.py` for avatar images (lines 560, 588, 622). Use it for any filesystem-backed image endpoint.
+- `ANY(:ids)` Postgres array binding is used in `DeckRepository.find_card_ids_by_names` — reuse this pattern for bulk ID validation in other repository methods.
 
 ## Frontend Key Facts
 
@@ -30,6 +31,18 @@
 - Dashboard page size: 50 for table. Gallery should use 24.
 - Dashboard filter state lives in URL params (`useSearchParams`). Pagination/sort live in local state.
 - i18n keys for CardTable: `cardTable.*`. Dashboard: `dashboard.*`. Reuse `cardTable.showing` and `cardTable.page` for gallery pagination.
+- Shared `formatCurrency(value: number): string` is exported from `frontend/src/components/analytics/constants.ts` — use it instead of private duplicates.
+- There is NO user-configurable price_currency setting in the app — currency is hardcoded EUR throughout (settings API only exposes `scryfall_enabled`).
+
+## Deck System Key Facts
+
+- `DeckRepository` lives in `deckdex/storage/deck_repository.py` — not under the CollectionRepository ABC (its own standalone class).
+- `require_deck_repo()` in `backend/api/routes/decks.py` returns 501 when no Postgres — all deck endpoints use this dependency.
+- Tests in `tests/test_decks.py` use `deck_client` fixture (module-scoped): mocks `require_deck_repo` + `get_current_user_id`. All 19 tests use the same mock_repo.
+- Tests in `tests/test_deck_repository.py` test `DeckRepository.find_card_ids_by_names` with `MagicMock` engine injection.
+- `POST /api/decks/{id}/import` had zero test coverage prior to the batch-card-add-deck change.
+- `DeckCardPickerModal.tsx` had N+1 sequential request pattern (one POST per selected card) — fixed in batch-card-add-deck change.
+- `DeckDetailModal.tsx` `formatDeckCurrency` was a duplicate of `analytics/constants.ts` `formatCurrency` — consolidated in batch-card-add-deck change.
 
 ## Job System Architecture (confirmed from codebase)
 
@@ -50,6 +63,12 @@
 - WebSocket: `backend/api/websockets/progress.py`
 - DI: `backend/api/dependencies.py`
 - Frontend job state: `frontend/src/contexts/ActiveJobsContext.tsx`
+- Deck routes: `backend/api/routes/decks.py`
+- Deck repository: `deckdex/storage/deck_repository.py`
+- Deck builder page: `frontend/src/pages/DeckBuilder.tsx`
+- Deck detail modal: `frontend/src/components/DeckDetailModal.tsx`
+- Deck card picker modal: `frontend/src/components/DeckCardPickerModal.tsx`
+- Shared currency formatter: `frontend/src/components/analytics/constants.ts` → `formatCurrency`
 
 ## Data Model Notes
 
@@ -57,6 +76,7 @@
 - No `user_id` on `price_history`: history belongs to cards, cards carry `user_id`.
 - `jobs` table: UUID PK, `user_id` nullable FK, `type VARCHAR(64)`, `status VARCHAR(32)`, `result JSONB`, timestamps.
 - History is Postgres-only. Google Sheets mode gracefully no-ops via abstract base class defaults.
+- `deck_cards` table: PK `(deck_id, card_id)`, `quantity INT`, `is_commander BOOL`. ON CONFLICT DO UPDATE is the standard upsert pattern.
 
 ## ImageStore Pattern
 
@@ -71,3 +91,4 @@
 - FastAPI route ordering is a recurring issue — always define static routes before parameterized ones.
 - `on_event("startup")` may be deprecated in newer FastAPI — check if project uses `lifespan` instead.
 - `Response(content=data)` for images loads full bytes into Python heap — prefer `FileResponse` for filesystem-backed stores.
+- Do not assume `api.getSettings()` or a `price_currency` user setting exists — the settings API only covers `scryfall_enabled` and Scryfall credentials.

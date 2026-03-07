@@ -1,14 +1,16 @@
 # Product Ideation Explorer - Memory
 
-## Deck Builder Current State (explored 2026-03-05)
-- See `deck-builder-exploration.md` for full analysis
-- Grid of deck tiles with commander backgrounds, DeckDetailModal, DeckCardPickerModal
-- Backend: full CRUD, PostgreSQL-only, deck_cards with (deck_id, card_id, quantity, is_commander)
-- No format field on decks table, no description/notes field
-- catalog_cards table has `legalities JSONB` -- key for format validation
-- cards table has color_identity -- key for Commander color restrictions
-- Card picker only pulls from user's collection (cards table), limit 200
-- No import/export, no deck copy, no statistics beyond mana curve + total price
+## Decks Full Exploration (2026-03-07, replaces 2026-03-05)
+- See `decks-exploration.md` for full analysis (spec vs reality, gaps, ideas, priorities)
+- ALL 9 backend endpoints + ALL 4 frontend components implemented per spec
+- Import/Export now implemented (text parser + modal + clipboard export)
+- 19 route tests exist; POST /api/decks/{id}/import has ZERO tests (biggest gap)
+- N+1 bug: DeckCardPickerModal adds cards sequentially (needs batch endpoint)
+- BUG: hardcoded EUR in DeckDetailModal (should use settings currency)
+- Missing vs competitors: description, format, sideboard, deck copy, tags, quantity adjust UI
+- Key differentiator: decks reference YOUR collection (unique among all MTG platforms)
+- Top opportunity: cross-deck card overlap detection
+- Top priorities: (1) test import, (2) batch card add, (3) description+format, (4) quantity adjust, (5) overlap detection
 
 ## Analytics State (explored 2026-03-05)
 - See `analytics-exploration.md` for full findings
