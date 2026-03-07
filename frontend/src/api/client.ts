@@ -289,6 +289,8 @@ export const api = {
     set_name?: string;
     price_min?: string;
     price_max?: string;
+    sort_by?: string;
+    sort_dir?: string;
   }): Promise<CardPage> => {
     const cleanParams: Record<string, string> = {};
     if (params) {

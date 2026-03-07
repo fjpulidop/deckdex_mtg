@@ -150,6 +150,8 @@ class CollectionRepository(ABC):
         filters: Optional[Dict[str, Any]] = None,
         limit: int = 100,
         offset: int = 0,
+        sort_by: str = "created_at",
+        sort_dir: str = "desc",
     ) -> Tuple[List[Dict[str, Any]], int]:
         """Return paginated, filtered cards and the total count of matching rows.
 
@@ -161,6 +163,8 @@ class CollectionRepository(ABC):
             filters: Dict of filter params (search, rarity, type_, set_name, price_min, price_max, cmc, color_identity).
             limit: Max rows to return.
             offset: Row offset for pagination.
+            sort_by: Column to sort by. Must be a whitelisted column name.
+            sort_dir: Sort direction — 'asc' or 'desc'.
 
         Returns:
             (cards, total) where total is the count before LIMIT/OFFSET.
@@ -583,16 +587,31 @@ class PostgresCollectionRepository(CollectionRepository):
         where = ("WHERE " + " AND ".join(conditions)) if conditions else ""
         return where, params
 
+    # Whitelist of allowed sort columns mapping API name → DB column name.
+    # Only these columns may appear in ORDER BY to prevent SQL injection.
+    _SORT_COLUMN_MAP: Dict[str, str] = {
+        "name": "name",
+        "created_at": "created_at",
+        "price_eur": "price_eur",
+        "quantity": "quantity",
+        "set_name": "set_name",
+        "rarity": "rarity",
+        "cmc": "cmc",
+    }
+
     def get_cards_filtered(
         self,
         user_id: Optional[int],
         filters: Optional[Dict[str, Any]] = None,
         limit: int = 100,
         offset: int = 0,
+        sort_by: str = "created_at",
+        sort_dir: str = "desc",
     ) -> Tuple[List[Dict[str, Any]], int]:
         """Return paginated, SQL-filtered cards and total matching count.
 
         Uses COUNT(*) OVER() window function so total and rows come from a single query.
+        Sort column is whitelisted to prevent SQL injection; unknown columns fall back to created_at.
         """
         from sqlalchemy import text
 
@@ -600,11 +619,19 @@ class PostgresCollectionRepository(CollectionRepository):
         where, params = self._build_filter_clauses(filters, user_id)
         params["limit"] = limit
         params["offset"] = offset
+
+        # Resolve and validate sort column — whitelist prevents SQL injection
+        col = self._SORT_COLUMN_MAP.get(sort_by, "created_at")
+        direction = "ASC" if sort_dir == "asc" else "DESC"
+        # Push NULLs to the end regardless of direction for consistent UX
+        nulls = "NULLS LAST"
+        order_clause = f"ORDER BY {col} {direction} {nulls}, id {direction}"
+
         sql = f"""
             SELECT COUNT(*) OVER() AS total_count, *
             FROM cards
             {where}
-            ORDER BY created_at DESC NULLS LAST, id DESC
+            {order_clause}
             LIMIT :limit OFFSET :offset
         """
         with engine.connect() as conn:

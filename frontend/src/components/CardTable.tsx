@@ -11,10 +11,20 @@ interface CardTableProps {
   updatingPrices?: boolean;
   onRowClick?: (card: Card) => void;
   onQuantityChange?: (id: number, qty: number) => void;
-  /** Server-side total count (before pagination). When provided, displayed in
-   *  the pagination footer so users see the true collection size even when
-   *  fewer items are rendered on the current page. */
+  /** Server-side total count (before pagination). Displayed in the pagination footer. */
   serverTotal?: number;
+  /** Current sort column key (controlled by parent for server-side sorting). */
+  sortBy?: string;
+  /** Current sort direction (controlled by parent for server-side sorting). */
+  sortDir?: 'asc' | 'desc';
+  /** Called when user clicks a sortable column header. Parent updates query and re-fetches. */
+  onSortChange?: (key: string, dir: 'asc' | 'desc') => void;
+  /** Current page number (1-based, controlled by parent). */
+  page?: number;
+  /** Total number of pages derived from serverTotal. */
+  totalPages?: number;
+  /** Called when user navigates to a different page. */
+  onPageChange?: (page: number) => void;
 }
 
 function QuantityCell({ card, onQuantityChange }: { card: Card; onQuantityChange?: (id: number, qty: number) => void }) {
@@ -79,12 +89,24 @@ function QuantityCell({ card, onQuantityChange }: { card: Card; onQuantityChange
   );
 }
 
-export function CardTable({ cards, isLoading, onAdd, onImport, onUpdatePrices, updatingPrices, onRowClick, onQuantityChange, serverTotal }: CardTableProps) {
+export function CardTable({
+  cards,
+  isLoading,
+  onAdd,
+  onImport,
+  onUpdatePrices,
+  updatingPrices,
+  onRowClick,
+  onQuantityChange,
+  serverTotal,
+  sortBy = 'created_at',
+  sortDir = 'desc',
+  onSortChange,
+  page = 1,
+  totalPages = 1,
+  onPageChange,
+}: CardTableProps) {
   const { t } = useTranslation();
-  const [sortKey, setSortKey] = useState<string>('created_at');
-  const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc');
-  const [currentPage, setCurrentPage] = useState(1);
-  const itemsPerPage = 50;
 
   // Scroll-to-top on page change
   const containerRef = useRef<HTMLDivElement>(null);
@@ -96,17 +118,17 @@ export function CardTable({ cards, isLoading, onAdd, onImport, onUpdatePrices, u
   const pendingFocus = useRef<'first' | 'last' | null>(null);
 
   const handleSort = (key: string) => {
-    if (sortKey === key) {
-      setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc');
+    if (!onSortChange) return;
+    if (sortBy === key) {
+      onSortChange(key, sortDir === 'asc' ? 'desc' : 'asc');
     } else {
-      setSortKey(key);
-      setSortDirection('asc');
+      onSortChange(key, 'asc');
     }
   };
 
   const getAriaSortValue = (key: string): 'ascending' | 'descending' | 'none' => {
-    if (sortKey !== key) return 'none';
-    return sortDirection === 'asc' ? 'ascending' : 'descending';
+    if (sortBy !== key) return 'none';
+    return sortDir === 'asc' ? 'ascending' : 'descending';
   };
 
   const handleSortKeyDown = (key: string) => (e: React.KeyboardEvent) => {
@@ -116,51 +138,10 @@ export function CardTable({ cards, isLoading, onAdd, onImport, onUpdatePrices, u
     }
   };
 
-  // Sort full list first so order is consistent across all pages
-  const sortedCards = [...cards].sort((a, b) => {
-    if (sortKey === 'quantity') {
-      const aq = a.quantity ?? 1;
-      const bq = b.quantity ?? 1;
-      return sortDirection === 'asc' ? aq - bq : bq - aq;
-    }
-    if (sortKey === 'price') {
-      const parsePrice = (v: unknown): number => {
-        if (v == null || v === '') return NaN;
-        const s = String(v).replace(',', '.');
-        const n = parseFloat(s);
-        return Number.isFinite(n) ? n : NaN;
-      };
-      const aNum = parsePrice(a.price);
-      const bNum = parsePrice(b.price);
-      const aNaN = Number.isNaN(aNum);
-      const bNaN = Number.isNaN(bNum);
-      if (aNaN && bNaN) return 0;
-      if (aNaN) return 1;
-      if (bNaN) return -1;
-      if (sortDirection === 'asc') return aNum < bNum ? -1 : aNum > bNum ? 1 : 0;
-      return bNum < aNum ? -1 : bNum > aNum ? 1 : 0;
-    }
-    if (sortKey === 'created_at') {
-      const aVal = (a.created_at ?? '') as string;
-      const bVal = (b.created_at ?? '') as string;
-      // ISO strings compare lexicographically for chronological order
-      if (sortDirection === 'asc') return aVal > bVal ? 1 : aVal < bVal ? -1 : 0;
-      return bVal > aVal ? 1 : bVal < aVal ? -1 : 0;
-    }
-    const aVal = (a[sortKey] ?? '') as string;
-    const bVal = (b[sortKey] ?? '') as string;
-    if (sortDirection === 'asc') return aVal > bVal ? 1 : aVal < bVal ? -1 : 0;
-    return bVal > aVal ? 1 : bVal < aVal ? -1 : 0;
-  });
-
-  const totalPages = Math.ceil(sortedCards.length / itemsPerPage);
-  const startIndex = (currentPage - 1) * itemsPerPage;
-  const paginatedCards = sortedCards.slice(startIndex, startIndex + itemsPerPage);
-
   // Scroll-to-top when page changes
   useEffect(() => {
     containerRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-  }, [currentPage]);
+  }, [page]);
 
   // Resolve pending focus after a keyboard-triggered page change
   useEffect(() => {
@@ -168,14 +149,14 @@ export function CardTable({ cards, isLoading, onAdd, onImport, onUpdatePrices, u
       rowRefs.current[0]?.focus();
       setFocusedIndex(0);
     } else if (pendingFocus.current === 'last') {
-      const last = paginatedCards.length - 1;
+      const last = cards.length - 1;
       rowRefs.current[last]?.focus();
       setFocusedIndex(last);
     }
     pendingFocus.current = null;
-  // paginatedCards.length and currentPage are the right triggers; exhaustive-deps would add more
+  // cards.length and page are the right triggers
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [currentPage]);
+  }, [page]);
 
   if (isLoading) {
     return (
@@ -194,13 +175,13 @@ export function CardTable({ cards, isLoading, onAdd, onImport, onUpdatePrices, u
   const handleTbodyKeyDown = (e: React.KeyboardEvent<HTMLTableSectionElement>) => {
     if (e.key === 'ArrowDown') {
       e.preventDefault();
-      if (focusedIndex < paginatedCards.length - 1) {
+      if (focusedIndex < cards.length - 1) {
         const next = focusedIndex + 1;
         rowRefs.current[next]?.focus();
         setFocusedIndex(next);
-      } else if (currentPage < totalPages) {
+      } else if (page < totalPages) {
         pendingFocus.current = 'first';
-        setCurrentPage(p => p + 1);
+        onPageChange?.(page + 1);
       }
     } else if (e.key === 'ArrowUp') {
       e.preventDefault();
@@ -208,14 +189,22 @@ export function CardTable({ cards, isLoading, onAdd, onImport, onUpdatePrices, u
         const prev = focusedIndex - 1;
         rowRefs.current[prev]?.focus();
         setFocusedIndex(prev);
-      } else if (currentPage > 1) {
+      } else if (page > 1) {
         pendingFocus.current = 'last';
-        setCurrentPage(p => p - 1);
+        onPageChange?.(page - 1);
       }
     } else if (e.key === 'Enter' && focusedIndex >= 0) {
-      onRowClick?.(paginatedCards[focusedIndex]);
+      onRowClick?.(cards[focusedIndex]);
     }
   };
+
+  // For pagination footer: use serverTotal if available, else length of current page
+  const displayTotal = serverTotal ?? cards.length;
+  // Compute range shown on this page (requires serverTotal or approximation)
+  const pageSize = cards.length;
+  const startIndex = serverTotal !== undefined
+    ? (page - 1) * pageSize
+    : 0;
 
   return (
     <div ref={containerRef} className="bg-white dark:bg-gray-800 rounded-lg shadow overflow-hidden scroll-mt-20">
@@ -265,7 +254,7 @@ export function CardTable({ cards, isLoading, onAdd, onImport, onUpdatePrices, u
                 onKeyDown={handleSortKeyDown('quantity')}
                 title={t('cardTable.clickToEditQty')}
               >
-                {t('cardTable.columns.qty')} {sortKey === 'quantity' && (sortDirection === 'asc' ? '↑' : '↓')}
+                {t('cardTable.columns.qty')} {sortBy === 'quantity' && (sortDir === 'asc' ? '↑' : '↓')}
               </th>
               <th
                 scope="col"
@@ -276,7 +265,7 @@ export function CardTable({ cards, isLoading, onAdd, onImport, onUpdatePrices, u
                 onClick={() => handleSort('created_at')}
                 onKeyDown={handleSortKeyDown('created_at')}
               >
-                {t('cardTable.columns.added')} {sortKey === 'created_at' && (sortDirection === 'asc' ? '↑' : '↓')}
+                {t('cardTable.columns.added')} {sortBy === 'created_at' && (sortDir === 'asc' ? '↑' : '↓')}
               </th>
               <th
                 scope="col"
@@ -287,7 +276,7 @@ export function CardTable({ cards, isLoading, onAdd, onImport, onUpdatePrices, u
                 onClick={() => handleSort('name')}
                 onKeyDown={handleSortKeyDown('name')}
               >
-                {t('cardTable.columns.name')} {sortKey === 'name' && (sortDirection === 'asc' ? '↑' : '↓')}
+                {t('cardTable.columns.name')} {sortBy === 'name' && (sortDir === 'asc' ? '↑' : '↓')}
               </th>
               <th
                 scope="col"
@@ -298,7 +287,7 @@ export function CardTable({ cards, isLoading, onAdd, onImport, onUpdatePrices, u
                 onClick={() => handleSort('type')}
                 onKeyDown={handleSortKeyDown('type')}
               >
-                {t('cardTable.columns.type')} {sortKey === 'type' && (sortDirection === 'asc' ? '↑' : '↓')}
+                {t('cardTable.columns.type')} {sortBy === 'type' && (sortDir === 'asc' ? '↑' : '↓')}
               </th>
               <th
                 scope="col"
@@ -309,7 +298,7 @@ export function CardTable({ cards, isLoading, onAdd, onImport, onUpdatePrices, u
                 onClick={() => handleSort('rarity')}
                 onKeyDown={handleSortKeyDown('rarity')}
               >
-                {t('cardTable.columns.rarity')} {sortKey === 'rarity' && (sortDirection === 'asc' ? '↑' : '↓')}
+                {t('cardTable.columns.rarity')} {sortBy === 'rarity' && (sortDir === 'asc' ? '↑' : '↓')}
               </th>
               <th
                 scope="col"
@@ -320,7 +309,7 @@ export function CardTable({ cards, isLoading, onAdd, onImport, onUpdatePrices, u
                 onClick={() => handleSort('price')}
                 onKeyDown={handleSortKeyDown('price')}
               >
-                {t('cardTable.columns.price')} {sortKey === 'price' && (sortDirection === 'asc' ? '↑' : '↓')}
+                {t('cardTable.columns.price')} {sortBy === 'price' && (sortDir === 'asc' ? '↑' : '↓')}
               </th>
               <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
                 {t('cardTable.columns.set')}
@@ -331,7 +320,7 @@ export function CardTable({ cards, isLoading, onAdd, onImport, onUpdatePrices, u
             className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-600"
             onKeyDown={handleTbodyKeyDown}
           >
-            {paginatedCards.map((card, index) => (
+            {cards.map((card, index) => (
               <tr
                 key={card.id ?? index}
                 ref={el => { rowRefs.current[index] = el; }}
@@ -380,27 +369,26 @@ export function CardTable({ cards, isLoading, onAdd, onImport, onUpdatePrices, u
       {totalPages > 1 && (
         <div className="bg-gray-50 dark:bg-gray-700/50 px-6 py-4 flex items-center justify-between border-t border-gray-200 dark:border-gray-600">
           <div className="text-sm text-gray-700 dark:text-gray-300">
-            {t('cardTable.showing', { from: startIndex + 1, to: Math.min(startIndex + itemsPerPage, sortedCards.length), total: sortedCards.length })}
-            {serverTotal !== undefined && serverTotal !== sortedCards.length && (
-              <span className="ml-2 text-gray-500 dark:text-gray-400">
-                ({serverTotal.toLocaleString()} {t('cardTable.totalInCollection', { defaultValue: 'total in collection' })})
-              </span>
-            )}
+            {t('cardTable.showing', {
+              from: startIndex + 1,
+              to: Math.min(startIndex + pageSize, displayTotal),
+              total: displayTotal,
+            })}
           </div>
           <div className="flex gap-2">
             <button
-              onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
-              disabled={currentPage === 1}
+              onClick={() => onPageChange?.(Math.max(1, page - 1))}
+              disabled={page === 1}
               className="px-3 py-1 rounded bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 text-sm text-gray-900 dark:text-white disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50 dark:hover:bg-gray-600"
             >
               {t('common.previous')}
             </button>
             <span className="px-3 py-1 text-sm text-gray-700 dark:text-gray-300">
-              {t('cardTable.page', { current: currentPage, total: totalPages })}
+              {t('cardTable.page', { current: page, total: totalPages })}
             </span>
             <button
-              onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
-              disabled={currentPage === totalPages}
+              onClick={() => onPageChange?.(Math.min(totalPages, page + 1))}
+              disabled={page === totalPages}
               className="px-3 py-1 rounded bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 text-sm text-gray-900 dark:text-white disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50 dark:hover:bg-gray-600"
             >
               {t('common.next')}

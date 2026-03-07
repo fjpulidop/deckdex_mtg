@@ -5,10 +5,16 @@ Provides 17 predefined insight queries that run server-side as pure computation.
 Covers 5 categories: summary, distribution, ranking, patterns, activity.
 """
 
-import re
 from collections import Counter, defaultdict
 from datetime import datetime, timedelta
 from typing import Any, Dict, List, Optional
+
+from ..utils.color import (
+    COLOR_DISPLAY as _COLOR_DISPLAY,
+    VALID_COLORS as _VALID_COLORS,
+    WUBRG_ORDER as _WUBRG_ORDER,
+    normalize_color_identity as _normalize_color_identity,
+)
 
 # ---------------------------------------------------------------------------
 # Insight catalog (single source of truth)
@@ -204,69 +210,6 @@ INSIGHTS_CATALOG: List[Dict[str, Any]] = [
 
 # Quick lookup by ID
 _CATALOG_BY_ID: Dict[str, Dict[str, Any]] = {entry["id"]: entry for entry in INSIGHTS_CATALOG}
-
-# WUBRG normalization helpers (mirrors analytics.py)
-_VALID_COLORS = {"W", "U", "B", "R", "G"}
-_COLOR_NAME_MAP = {
-    "white": "W",
-    "blue": "U",
-    "black": "B",
-    "red": "R",
-    "green": "G",
-}
-_WUBRG_ORDER = "WUBRG"
-_COLOR_DISPLAY = {
-    "W": "White",
-    "U": "Blue",
-    "B": "Black",
-    "R": "Red",
-    "G": "Green",
-    "C": "Colorless",
-}
-
-
-def _normalize_color_identity(raw: Any) -> str:
-    """Normalize color_identity to WUBRG letters. Returns 'C' for colorless/unknown."""
-    if raw is None:
-        return "C"
-    if isinstance(raw, list):
-        letters = [_COLOR_NAME_MAP.get(c.strip().lower(), c.strip().upper()) for c in raw if c]
-    elif isinstance(raw, str):
-        s = raw.strip()
-        if not s or s == "[]":
-            return "C"
-        if s.startswith("["):
-            tokens = re.findall(r"'([^']*)'", s)
-            if not tokens:
-                tokens = [t.strip() for t in s.strip("[]").split(",") if t.strip()]
-            letters = []
-            for t in tokens:
-                t_lower = t.strip().lower()
-                if t_lower in _COLOR_NAME_MAP:
-                    letters.append(_COLOR_NAME_MAP[t_lower])
-                elif t.strip().upper() in _VALID_COLORS:
-                    letters.append(t.strip().upper())
-        elif "," in s:
-            letters = []
-            for part in s.split(","):
-                p = part.strip()
-                if p.lower() in _COLOR_NAME_MAP:
-                    letters.append(_COLOR_NAME_MAP[p.lower()])
-                elif p.upper() in _VALID_COLORS:
-                    letters.append(p.upper())
-        else:
-            s_lower = s.lower()
-            if s_lower in _COLOR_NAME_MAP:
-                letters = [_COLOR_NAME_MAP[s_lower]]
-            elif s.upper() in _VALID_COLORS:
-                letters = [s.upper()]
-            else:
-                letters = [ch for ch in s.upper() if ch in _VALID_COLORS]
-    else:
-        return "C"
-
-    unique = sorted(set(letters), key=lambda c: _WUBRG_ORDER.index(c) if c in _WUBRG_ORDER else 99)
-    return "".join(unique) if unique else "C"
 
 
 def _parse_price(raw: Any) -> Optional[float]:

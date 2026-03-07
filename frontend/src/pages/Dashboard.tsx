@@ -1,4 +1,4 @@
-import { useCallback } from 'react';
+import { useCallback, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useSearchParams } from 'react-router-dom';
 import { useQueryClient } from '@tanstack/react-query';
@@ -11,7 +11,6 @@ import { ImportListModal } from '../components/ImportListModal';
 import { CardDetailModal } from '../components/CardDetailModal';
 import { CollectionInsights } from '../components/CollectionInsights';
 import { api, Card } from '../api/client';
-import { useState } from 'react';
 
 export function Dashboard() {
   const { t } = useTranslation();
@@ -30,10 +29,21 @@ export function Dashboard() {
   // Color identity filter (local state — not in URL for simplicity)
   const [colors, setColors] = useState<string[]>([]);
 
-  // Fetch all filtered cards for client-side pagination in CardTable.
-  // TODO: implement server-side pagination with prev/next controls for large collections.
+  // Server-side pagination and sorting state
+  const PAGE_SIZE = 50;
+  const [page, setPage] = useState(1);
+  const [sortBy, setSortBy] = useState<string>('created_at');
+  const [sortDir, setSortDir] = useState<'asc' | 'desc'>('desc');
+
+  // Map frontend column keys to API sort_by values (price → price_eur for DB column name)
+  const API_SORT_COLUMN: Record<string, string> = {
+    price: 'price_eur',
+  };
+  const apiSortBy = API_SORT_COLUMN[sortBy] ?? sortBy;
+
   const { data: cardPage, isLoading, error } = useCards({
-    limit: 10000,
+    limit: PAGE_SIZE,
+    offset: (page - 1) * PAGE_SIZE,
     search: search || undefined,
     rarity: rarity === 'all' ? undefined : rarity,
     type: type === 'all' ? undefined : type,
@@ -41,7 +51,21 @@ export function Dashboard() {
     priceMin: priceMin.trim() || undefined,
     priceMax: priceMax.trim() || undefined,
     colorIdentity: colors.length ? colors.join(',') : undefined,
+    sortBy: apiSortBy,
+    sortDir,
   });
+
+  const totalPages = cardPage ? Math.max(1, Math.ceil(cardPage.total / PAGE_SIZE)) : 1;
+
+  const handleSortChange = useCallback((key: string, dir: 'asc' | 'desc') => {
+    setSortBy(key);
+    setSortDir(dir);
+    setPage(1);
+  }, []);
+
+  const handlePageChange = useCallback((newPage: number) => {
+    setPage(newPage);
+  }, []);
 
   // Fetch distinct type and set values for filter dropdowns (avoids loading full collection)
   const { data: filterOptions } = useFilterOptions();
@@ -91,8 +115,9 @@ export function Dashboard() {
     await queryClient.refetchQueries({ queryKey: ['stats'] });
   }, [cardModal, invalidateCards, queryClient]);
 
-  // Filter handlers — write to URL, replace history entry
+  // Filter handlers — write to URL, replace history entry, reset pagination
   const handleSearchChange = useCallback((value: string) => {
+    setPage(1);
     setSearchParams(prev => {
       const next = new URLSearchParams(prev);
       if (value) next.set('q', value); else next.delete('q');
@@ -101,6 +126,7 @@ export function Dashboard() {
   }, [setSearchParams]);
 
   const handleRarityChange = useCallback((value: string) => {
+    setPage(1);
     setSearchParams(prev => {
       const next = new URLSearchParams(prev);
       if (value !== 'all') next.set('rarity', value); else next.delete('rarity');
@@ -109,6 +135,7 @@ export function Dashboard() {
   }, [setSearchParams]);
 
   const handleTypeChange = useCallback((value: string) => {
+    setPage(1);
     setSearchParams(prev => {
       const next = new URLSearchParams(prev);
       if (value !== 'all') next.set('type', value); else next.delete('type');
@@ -117,6 +144,7 @@ export function Dashboard() {
   }, [setSearchParams]);
 
   const handleSetChange = useCallback((value: string) => {
+    setPage(1);
     setSearchParams(prev => {
       const next = new URLSearchParams(prev);
       if (value !== 'all') next.set('set', value); else next.delete('set');
@@ -125,6 +153,7 @@ export function Dashboard() {
   }, [setSearchParams]);
 
   const handlePriceRangeChange = useCallback((min: string, max: string) => {
+    setPage(1);
     setSearchParams(prev => {
       const next = new URLSearchParams(prev);
       if (min.trim()) next.set('priceMin', min); else next.delete('priceMin');
@@ -134,6 +163,7 @@ export function Dashboard() {
   }, [setSearchParams]);
 
   const handleClearFilters = useCallback(() => {
+    setPage(1);
     setSearchParams({}, { replace: true });
     setColors([]);
   }, [setSearchParams, setColors]);
@@ -257,6 +287,12 @@ uvicorn api.main:app --reload --port 8000
           updatingPrices={triggerPriceUpdate.isPending}
           onRowClick={handleRowClick}
           serverTotal={serverTotal}
+          sortBy={sortBy}
+          sortDir={sortDir}
+          onSortChange={handleSortChange}
+          page={page}
+          totalPages={totalPages}
+          onPageChange={handlePageChange}
         />
       </div>
 

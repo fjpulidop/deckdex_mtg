@@ -3,7 +3,6 @@ Analytics API routes
 Endpoints for collection aggregations used by the Analytics dashboard.
 """
 
-import re
 from collections import Counter
 from datetime import datetime
 from typing import Any, Optional
@@ -14,6 +13,7 @@ from pydantic import BaseModel
 
 from ..dependencies import get_cached_collection, get_collection_repo, get_current_user_id
 from ..filters import filter_collection
+from ..utils.color import normalize_color_identity as _normalize_color_identity
 
 router = APIRouter(prefix="/api/analytics", tags=["analytics"])
 
@@ -97,87 +97,6 @@ def _filtered_collection(
         price_max=price_max,
         cmc=cmc,
     )
-
-
-# ---------------------------------------------------------------------------
-# Color identity normalization
-# ---------------------------------------------------------------------------
-# Valid WUBRG single-letter codes
-_VALID_COLORS = {"W", "U", "B", "R", "G"}
-
-# Full-name → letter mapping (case-insensitive lookup)
-_COLOR_NAME_MAP = {
-    "white": "W",
-    "blue": "U",
-    "black": "B",
-    "red": "R",
-    "green": "G",
-}
-
-
-def _normalize_color_identity(raw: Any) -> str:
-    """
-    Normalize color_identity from various DB formats to a canonical WUBRG string.
-
-    Handles:
-      - Python list: ["W", "U"]
-      - str repr of Python list: "['W', 'U']"
-      - Comma-separated: "W,U" or "W, U"
-      - Full names: "Blue" or "['Blue', 'Red']"
-      - Single letter: "W"
-      - Empty / None → "C" (colorless)
-    """
-    if raw is None:
-        return "C"
-
-    if isinstance(raw, list):
-        letters = [_COLOR_NAME_MAP.get(c.strip().lower(), c.strip().upper()) for c in raw if c]
-    elif isinstance(raw, str):
-        s = raw.strip()
-        if not s or s == "[]":
-            return "C"
-        # Strip Python list-repr brackets/quotes: "['W', 'U']" → "W, U"
-        if s.startswith("["):
-            # Extract quoted tokens from the repr
-            tokens = re.findall(r"'([^']*)'", s)
-            if not tokens:
-                # Fallback: just strip brackets
-                tokens = [t.strip() for t in s.strip("[]").split(",") if t.strip()]
-            letters = []
-            for t in tokens:
-                t_lower = t.strip().lower()
-                if t_lower in _COLOR_NAME_MAP:
-                    letters.append(_COLOR_NAME_MAP[t_lower])
-                elif t.strip().upper() in _VALID_COLORS:
-                    letters.append(t.strip().upper())
-                # else skip unknown tokens
-        elif "," in s:
-            # Comma-separated: "W,U" or "White,Blue"
-            letters = []
-            for part in s.split(","):
-                p = part.strip()
-                p_lower = p.lower()
-                if p_lower in _COLOR_NAME_MAP:
-                    letters.append(_COLOR_NAME_MAP[p_lower])
-                elif p.upper() in _VALID_COLORS:
-                    letters.append(p.upper())
-        else:
-            # Single value: "W" or "Blue"
-            s_lower = s.lower()
-            if s_lower in _COLOR_NAME_MAP:
-                letters = [_COLOR_NAME_MAP[s_lower]]
-            elif s.upper() in _VALID_COLORS:
-                letters = [s.upper()]
-            else:
-                # Try each character (e.g. "WU" stored without separator)
-                letters = [ch for ch in s.upper() if ch in _VALID_COLORS]
-    else:
-        return "C"
-
-    # Deduplicate and sort in WUBRG order
-    wubrg_order = "WUBRG"
-    unique = sorted(set(letters), key=lambda c: wubrg_order.index(c) if c in wubrg_order else 99)
-    return "".join(unique) if unique else "C"
 
 
 # ---------------------------------------------------------------------------

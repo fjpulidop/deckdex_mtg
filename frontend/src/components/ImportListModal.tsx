@@ -50,7 +50,7 @@ export function ImportListModal({ onClose }: ImportListModalProps) {
   };
 
   return (
-    <AccessibleModal isOpen titleId="import-list-modal-title" onClose={onClose}>
+    <AccessibleModal isOpen titleId="import-list-modal-title" onClose={onClose} showCloseButton>
       <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl max-w-md w-full mx-4 p-6">
         <h2 id="import-list-modal-title" className="text-lg font-semibold mb-4 text-gray-900 dark:text-white">{t('importListModal.title')}</h2>
 

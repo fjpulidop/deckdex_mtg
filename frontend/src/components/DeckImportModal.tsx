@@ -33,7 +33,7 @@ export function DeckImportModal({ deckId, onClose, onImported }: DeckImportModal
   }, [onClose]);
 
   return (
-    <AccessibleModal isOpen titleId="deck-import-modal-title" onClose={onClose} className="z-[70]">
+    <AccessibleModal isOpen titleId="deck-import-modal-title" onClose={onClose} className="z-[70]" showCloseButton>
       <div
         className="bg-white dark:bg-gray-800 rounded-xl shadow-2xl w-full max-w-lg flex flex-col overflow-hidden"
       >

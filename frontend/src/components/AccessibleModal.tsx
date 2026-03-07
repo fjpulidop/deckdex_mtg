@@ -1,4 +1,6 @@
 import { useEffect, useRef, type ReactNode } from 'react';
+import { useTranslation } from 'react-i18next';
+import { X } from 'lucide-react';
 
 interface AccessibleModalProps {
   isOpen: boolean;
@@ -7,6 +9,11 @@ interface AccessibleModalProps {
   titleId: string;
   children: ReactNode;
   className?: string;
+  /**
+   * When true, renders a consistent X close button in the top-right corner of
+   * the modal panel with aria-label={t('common.close')}.
+   */
+  showCloseButton?: boolean;
 }
 
 const FOCUSABLE_SELECTORS = [
@@ -36,7 +43,9 @@ export function AccessibleModal({
   titleId,
   children,
   className,
+  showCloseButton = false,
 }: AccessibleModalProps) {
+  const { t } = useTranslation();
   const panelRef = useRef<HTMLDivElement>(null);
   // Capture the element that had focus before the modal opened
   const previousFocusRef = useRef<Element | null>(null);
@@ -136,8 +145,19 @@ export function AccessibleModal({
     >
       <div
         ref={panelRef}
+        className="relative"
         onClick={e => e.stopPropagation()}
       >
+        {showCloseButton && (
+          <button
+            type="button"
+            onClick={onClose}
+            aria-label={t('common.close')}
+            className="absolute top-3 right-3 z-10 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 transition-colors"
+          >
+            <X className="w-5 h-5" />
+          </button>
+        )}
         {children}
       </div>
     </div>
