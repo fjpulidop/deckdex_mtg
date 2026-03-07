@@ -84,3 +84,19 @@ def test_parse_whitespace_trimmed():
     result = parse_deck_text("  2   Counterspell  ")
     assert result[0]["name"] == "Counterspell"
     assert result[0]["quantity"] == 2
+
+
+def test_parse_commander_header_trailing_whitespace():
+    """//Commander with trailing spaces is still recognized as commander section."""
+    text = "//Commander   \n1 Atraxa, Praetors' Voice"
+    result = parse_deck_text(text)
+    assert len(result) == 1
+    assert result[0]["is_commander"] is True
+
+
+def test_parse_commander_header_internal_space():
+    """// Commander (space after //) is recognized as commander section."""
+    text = "// Commander\n1 Sol Ring"
+    result = parse_deck_text(text)
+    assert len(result) == 1
+    assert result[0]["is_commander"] is True

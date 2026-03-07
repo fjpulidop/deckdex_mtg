@@ -366,6 +366,41 @@ def test_import_deck_not_found_returns_404(deck_client):
 # ---------------------------------------------------------------------------
 
 
+def test_import_deck_commander_section(deck_client):
+    """Cards under //Commander are passed to the repository with is_commander=True."""
+    client, mock_repo = deck_client
+    mock_repo.get_by_id.return_value = SAMPLE_DECK
+    mock_repo.find_card_ids_by_names.return_value = {
+        "atraxa, praetors' voice": 42,
+        "lightning bolt": 10,
+    }
+    mock_repo.add_card.return_value = True
+    mock_repo.get_deck_with_cards.return_value = SAMPLE_DECK_WITH_CARDS
+
+    response = client.post(
+        "/api/decks/1/import",
+        json={"text": "//Commander\n1 Atraxa, Praetors' Voice\n//Mainboard\n4 Lightning Bolt"},
+    )
+
+    assert response.status_code == 200
+    data = response.json()
+    assert data["imported_count"] == 2
+    assert data["skipped_count"] == 0
+
+    # Capture the add_card calls and verify commander status.
+    # Route signature: repo.add_card(deck_id, card_id, quantity=..., is_commander=..., user_id=...)
+    calls = mock_repo.add_card.call_args_list
+    assert len(calls) == 2
+
+    # Find the call for Atraxa (card_id=42) — must have is_commander=True
+    atraxa_call = next(c for c in calls if c.args[1] == 42)
+    assert atraxa_call.kwargs["is_commander"] is True
+
+    # Find the call for Lightning Bolt (card_id=10) — must have is_commander=False
+    bolt_call = next(c for c in calls if c.args[1] == 10)
+    assert bolt_call.kwargs["is_commander"] is False
+
+
 def test_501_when_no_postgres():
     """When require_deck_repo raises 501, all deck endpoints return 501."""
     # Temporarily replace the require_deck_repo override with one that raises 501,

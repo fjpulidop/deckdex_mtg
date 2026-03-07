@@ -6,7 +6,7 @@ import { useCardImage } from '../hooks/useCardImage';
 import { DeckDetailModal } from '../components/DeckDetailModal';
 import { ConfirmModal } from '../components/ConfirmModal';
 
-function DeckCardButton({ deck, onClick }: { deck: DeckListItem; onClick: () => void }) {
+export function DeckCardButton({ deck, onClick }: { deck: DeckListItem; onClick: () => void }) {
   const { t } = useTranslation();
   const { src: commanderImageUrl } = useCardImage(deck.commander_card_id ?? null);
   return (
