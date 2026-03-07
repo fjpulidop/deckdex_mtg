@@ -2,13 +2,55 @@
 
 Explore multiple areas, pick the best improvement for each, and implement them all in parallel using the full OpenSpec lifecycle with specialized agents (architect designs, developer implements, reviewer validates).
 
-**Input:** $ARGUMENTS (comma-separated areas, e.g. "Analytics, Deck Builder, Testing")
+**Input:** $ARGUMENTS — accepts two modes:
+
+1. **Issue numbers** (recommended): `#85, #71, #63` — implement these specific GitHub Issues directly. Skips exploration and selection.
+2. **Area names** (fallback): `Analytics, Deck Builder, Testing` — explores areas and picks the best items. Only use if no backlog issues exist.
+
+**Typical workflow:**
+```
+/spec-backlog          →  see top 3 spec items
+/product-backlog       →  see top 3 product ideas
+/parallel-implement #85, #71, #63   →  implement those 3
+```
 
 **IMPORTANT:** Before running, ensure Read/Write/Bash/Glob/Grep permissions are set to "allow" — background agents cannot request permissions interactively. Worktree-isolated agents especially need Bash for CI verification and git operations.
 
 ---
 
+## Phase 0: Parse input and fetch issue data
+
+**If the user passed issue numbers** (e.g. `#85, #71, #63`):
+- Fetch each issue:
+  ```bash
+  gh issue view {number} --json number,title,labels,body
+  ```
+- Extract from each issue body: area (from `area:*` label), value, effort, and feature details.
+- For `spec-driven-backlog` issues: use "Missing deliverables" for the idea description, "Evidence of existing work" for context.
+- For `product-driven-backlog` issues: use "Feature Description" for the idea description, "Implementation Notes" for context.
+- **Skip Phase 1 and Phase 2** — go directly to confirmation table below.
+- Present the issues to the user in a table:
+
+  | # | Issue | Area | Value | Effort | Description |
+  |---|-------|------|-------|--------|-------------|
+  | 1 | #85 Price Trend Charts | Analytics | High | Low | ... |
+
+  Wait for user confirmation. This is the **only interaction point**.
+
+**If the user passed area names** (or nothing):
+- Check both backlog types for open issues:
+  ```bash
+  gh issue list --label "spec-driven-backlog" --state open --limit 100 --json number,title,labels,body
+  gh issue list --label "product-driven-backlog" --state open --limit 100 --json number,title,labels,body
+  ```
+- If backlog issues exist: filter by input areas, pick top 3 by value/effort ratio, present for confirmation.
+- If no backlog issues exist: tell user to run `/update-spec-driven-backlog` or `/update-product-driven-backlog` first, then proceed to Phase 1.
+
+---
+
 ## Phase 1: Explore (parallel)
+
+**Only runs if Phase 0 found no backlog issues AND user passed area names.**
 
 For each area, launch an **explorer** agent (`subagent_type: explorer`, `run_in_background: true`):
 - Read relevant code, specs, and OpenSpec artifacts
@@ -21,7 +63,9 @@ Wait for all explorers to complete. Read their output to extract findings.
 
 ## Phase 2: Select
 
-From each exploration, **pick the single idea with the best impact/effort ratio**.
+**Only runs if Phase 1 ran (no backlog, area-based input).**
+
+From each exploration, pick the single idea with the best impact/effort ratio.
 
 Present the chosen ideas to the user in a table:
 
@@ -191,7 +235,28 @@ Wait for the reviewer to complete. Read its report.
 3. Create **one commit per feature** with descriptive messages following existing commit style (e.g., `fix:`, `feat:`, `test:`, `refactor:`). End each message with `Co-Authored-By: Claude <noreply@anthropic.com>`.
 4. If the reviewer modified files, create an additional commit: `fix: resolve CI issues (reviewer)`.
 5. Push the branch: `git push -u origin <branch-name>`
-6. Create a PR with `gh pr create` summarizing all features, linking each commit.
+6. **Link backlog issues to the PR** — If any implemented features originated from backlog issues (Phase 0/2), include `Closes #XX` in the PR body for each resolved issue. This ensures GitHub automatically closes the issues when the PR is merged.
+   ```
+   gh pr create --title "feat: ..." --body "$(cat <<'EOF'
+   ## Summary
+   - ...
+
+   ## Closes
+   Closes #85, Closes #71, Closes #63
+
+   ## Test plan
+   - ...
+   EOF
+   )"
+   ```
+   **Rules for linking issues:**
+   - Only link issues that are **fully resolved** by this PR (all missing deliverables implemented).
+   - If a feature only partially addresses an issue, do NOT close it — instead add a comment on the issue noting progress:
+     ```bash
+     gh issue comment {number} --body "Partial progress in PR #{pr_number}: {what was done}. Remaining: {what's left}."
+     ```
+   - For `spec-driven-backlog` issues: check that ALL missing deliverables listed in the issue are now implemented.
+   - For `product-driven-backlog` issues: the feature described in the issue should be fully functional.
 
 ### 4d. Monitor CI
 After pushing:

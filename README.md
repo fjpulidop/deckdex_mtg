@@ -1,383 +1,288 @@
 # DeckDex MTG
 
-DeckDex MTG can use **PostgreSQL** as the primary store for your card collection (recommended) or **Google Sheets**. When using Postgres, you can import from a CSV or JSON file via the web Settings page and use full CRUD (create, edit, delete cards) in the dashboard.
-
 ![Logo](images/Deckdex.png)
 
-A comprehensive tool for managing your Magic: The Gathering card collection with both CLI and Web interfaces. Fetches card data from Scryfall, tracks prices, and syncs everything to Google Sheets.
+A full-stack Magic: The Gathering collection manager with CLI and web dashboard. Track your cards, build decks, monitor prices, and explore collection insights.
+
+**This project is built and maintained with AI** — designed, implemented, and reviewed by [Claude Code](https://claude.com/claude-code) agents orchestrated through a custom pipeline. See [AI-Driven Development](#ai-driven-development) for details.
 
 ## Features
 
-- 📊 **Collection Management**: Track cards, prices, and metadata
-- 🌐 **Web Dashboard**: Modern UI with real-time updates
-- ⚡ **CLI Tools**: Powerful command-line interface for automation
-- 🔄 **Price Tracking**: Automated price updates with change detection
-- 🤖 **AI Integration**: Optional OpenAI enrichment for strategies and tiers
-- 📈 **Real-time Progress**: WebSocket-powered live updates
+- **Collection Management** — Browse, search, filter, and edit cards with gallery/table views
+- **Deck Builder** — Create Commander decks with card picker, mana curve stats, and animated commander backgrounds
+- **Analytics Dashboard** — Interactive charts for color distribution, mana curves, rarity breakdown, and collection value
+- **Collection Insights** — AI-powered analysis catalog with actionable recommendations
+- **Price Tracking** — Automated Scryfall price updates with incremental writes and resume support
+- **Real-time Progress** — WebSocket-powered live updates for long-running operations
+- **Import** — CSV, JSON, and text list import with duplicate detection and resolution UI
+- **Internationalization** — English and Spanish (i18n)
+- **Auth** — Google OAuth with JWT session cookies and admin roles
+- **Demo Mode** — Unauthenticated preview with sample data
+- **CLI** — Full command-line interface for automation and batch processing
+
+## Stack
+
+| Layer    | Tech                                                  |
+|----------|-------------------------------------------------------|
+| Frontend | React 19, TypeScript, Vite 7, Tailwind CSS, TanStack Query |
+| Backend  | FastAPI, Uvicorn, WebSockets, Pydantic               |
+| Core     | Python 3.11+, `deckdex/` package                     |
+| Storage  | PostgreSQL (recommended) or Google Sheets             |
+| External | Scryfall (card data/prices), OpenAI (optional enrichment) |
+
+## Architecture
+
+```mermaid
+graph TB
+    Browser["Browser"]
+
+    subgraph Frontend["Frontend (:5173)"]
+        React["React 19 + Vite 7"]
+        TQ["TanStack Query"]
+        Tailwind["Tailwind CSS"]
+        i18n["i18n (EN/ES)"]
+    end
+
+    subgraph Backend["Backend (:8000)"]
+        FastAPI["FastAPI"]
+        WS["WebSocket Server"]
+        Auth["Google OAuth + JWT"]
+        Routes["REST API Routes"]
+        Services["Services Layer"]
+    end
+
+    subgraph Core["Core (deckdex/)"]
+        Fetcher["Card Fetcher"]
+        Processor["Card Processor"]
+        Storage["Storage Adapters"]
+    end
+
+    subgraph External["External Services"]
+        Scryfall["Scryfall API"]
+        OpenAI["OpenAI (optional)"]
+        Google["Google OAuth"]
+    end
+
+    DB[("PostgreSQL")]
+    Sheets[("Google Sheets")]
+
+    Browser -->|HTTP| React
+    React --> TQ
+    TQ -->|REST| Routes
+    React -->|WebSocket| WS
+    Auth --> Google
+    Routes --> Services
+    Services --> Core
+    Fetcher --> Scryfall
+    Processor --> OpenAI
+    Storage --> DB
+    Storage -.->|alternative| Sheets
+```
 
 ## Quick Start
 
-### Web Interface (Recommended)
+### Prerequisites
+
+- Python 3.11+
+- Node.js 20+
+- PostgreSQL 15+ (recommended) or Google Sheets API credentials
+
+### Setup
 
 ```bash
-# Start backend (Terminal 1)
-cd backend && uvicorn api.main:app --reload
+git clone <repo-url>
+cd deckdex_mtg
 
-# Start frontend (Terminal 2)
-cd frontend && npm run dev
-
-# Open http://localhost:5173
-```
-
-**First time?** Install dependencies:
-```bash
+# Backend
+python3 -m venv venv
+source venv/bin/activate
 pip install -r requirements.txt -r backend/requirements-api.txt
-cd frontend && npm install
+
+# Frontend
+cd frontend && npm install && cd ..
+
+# Environment
+cp .env.example .env  # Edit with your credentials
 ```
 
-### CLI
+Create a `.env` file:
+```env
+DATABASE_URL=postgresql://user:pass@localhost:5432/deckdex
+GOOGLE_CLIENT_ID=your-google-oauth-client-id
+GOOGLE_CLIENT_SECRET=your-google-oauth-secret
+JWT_SECRET_KEY=your-secret-key
+
+# Optional
+OPENAI_API_KEY=sk-...
+GOOGLE_API_CREDENTIALS=/path/to/credentials.json  # Only for Google Sheets storage
+```
+
+If using PostgreSQL, run migrations:
+```bash
+./scripts/setup_db.sh       # Docker
+# or
+python scripts/setup_db.py  # Direct
+```
+
+### Run
+
+```bash
+# Backend (Terminal 1)
+uvicorn backend.api.main:app --reload   # http://localhost:8000
+
+# Frontend (Terminal 2)
+cd frontend && npm run dev              # http://localhost:5173
+```
+
+### Docker
+
+```bash
+./scripts/setup_db.sh        # First time only
+docker compose up --build    # Frontend :5173, Backend :8000
+```
+
+## CLI
 
 ```bash
 # Update prices
 python main.py --update_prices
 
-# Process new cards with OpenAI enrichment
+# Process cards with AI enrichment
 python main.py --use_openai
 
-# Use production profile for performance
-python main.py --profile production --update_prices
-```
-
-## Requirements
-
-- Python 3.8+
-- Node.js 18+ (for web interface)
-- Google Sheets API credentials ([setup guide](https://developers.google.com/sheets/api/quickstart/python))
-- OpenAI API key (optional)
-
-**Google Sheet columns:**
-```
-Name, English name, Type, Description, Keywords, Mana Cost, Cmc, Color, Identity, 
-Colors, Strength, Resistance, Rarity, Price, Release, Date, Set ID, Set Name, 
-Number in Set, Edhrec, Rank, Game Strategy, Tier
-```
-
-## Setup
-
-1. Clone and create virtual environment:
-```bash
-git clone <repo-url>
-cd deckdex_mtg
-python3 -m venv venv
-source venv/bin/activate  # On Windows: venv\Scripts\activate
-```
-
-2. Install dependencies:
-```bash
-pip install -r requirements.txt
-```
-
-3. Configure environment (create `.env`):
-```env
-GOOGLE_API_CREDENTIALS=/path/to/credentials.json
-OPENAI_API_KEY=your_key_here
-OPENAI_MODEL=gpt-3.5-turbo
-```
-
-**Optional – PostgreSQL (recommended):** Use Postgres as the collection store and enable CRUD and file import from Settings:
-```env
-DATABASE_URL=postgresql://user:password@localhost:5432/deckdex
-```
-Run migrations with `./scripts/setup_db.sh` (Docker) or `python scripts/setup_db.py`. See `migrations/README.md`.
-
-4. If using only Google Sheets: share your Google Sheet with the service account email from your credentials.
-
-## Web Interface
-
-### Architecture
-
-```
-Browser (localhost:5173)
-    ↓
-React Frontend (Vite + Tailwind + TanStack Query)
-    ↓ REST + WebSocket
-FastAPI Backend (port 8000)
-    ↓
-Core Logic (CardFetcher, Processor, SpreadsheetClient)
-    ↓
-Google Sheets (source of truth)
-```
-
-### Features
-
-- **Dashboard**: Collection stats, total value, card count
-- **Card Browser**: Search, filter, sort with pagination
-- **Real-time Progress**: WebSocket updates for long operations
-- **Job Management**: Background job tracking with cancel support
-- **Elapsed Timers**: Live duration display for all operations
-
-### API Endpoints
-
-- `GET /api/health` - Service status
-- `GET /api/cards` - List cards with pagination/search
-- `GET /api/stats` - Collection statistics
-- `POST /api/process` - Trigger card processing
-- `POST /api/prices/update` - Update prices
-- `GET /api/jobs` - List all jobs
-- `GET /api/jobs/{id}` - Job status
-- `POST /api/jobs/{id}/cancel` - Cancel running job
-- `WebSocket /ws/progress/{id}` - Real-time updates
-
-### Troubleshooting
-
-**Blank page:** Restart frontend after `npm install`
-
-**Backend errors:** Ensure both dependency files are installed:
-```bash
-pip install -r requirements.txt -r backend/requirements-api.txt
-```
-
-**Connection refused:** Start backend first on port 8000
-
-**Job cancellation:** Click Stop button or use REST API:
-```bash
-# List jobs
-curl http://localhost:8000/api/jobs/
-
-# Cancel specific job
-curl -X POST http://localhost:8000/api/jobs/<job_id>/cancel/
-```
-
-## CLI Reference
-
-### Profiles
-
-Choose pre-configured settings optimized for different scenarios:
-
-```bash
-# Balanced (default)
-python main.py
-
-# Development (conservative, easier debugging)
-python main.py --profile development
-
-# Production (optimized for thousands of cards)
-python main.py --profile production
-
-# Show configuration
-python main.py --show-config
-```
-
-### Common Commands
-
-```bash
-# Update prices with progress tracking
-python main.py --update_prices
-
-# Process cards with OpenAI enrichment
-python main.py --use_openai
-
-# Test with limited cards
+# Test run
 python main.py --limit 10 --dry-run --verbose
 
 # Resume after interruption
 python main.py --update_prices --resume-from 450
 
-# Custom performance settings
-python main.py --batch-size 50 --workers 8 --api-delay 0.05
+# Use production profile
+python main.py --profile production --update_prices
+
+# Show config
+python main.py --show-config
 ```
-
-### Configuration Options
-
-| Option | Default | Description |
-|--------|---------|-------------|
-| `--profile` | default | Configuration profile (default/development/production) |
-| `--batch-size` | 20 | Cards per batch |
-| `--workers` | 4 | Parallel workers (1-10) |
-| `--api-delay` | 0.1s | Delay between API calls |
-| `--limit` | - | Process only N cards |
-| `--resume-from` | - | Resume from row N |
-| `--dry-run` | false | Simulate without writing |
-| `--verbose` | false | DEBUG-level logging |
 
 Full options: `python main.py --help`
 
-### Environment Overrides
+## Testing
 
 ```bash
-# Override via environment variables
-export DECKDEX_PROCESSING_BATCH_SIZE=30
-export DECKDEX_PROCESSING_MAX_WORKERS=6
-export DECKDEX_OPENAI_ENABLED=true
+# All tests
+pytest tests/
 
-python main.py
+# With coverage
+pytest tests/ -q --tb=short --cov=backend --cov=deckdex
+
+# Frontend
+cd frontend && npm run test
 ```
 
-Priority: YAML < Environment Variables < CLI Flags
-
-## Performance Features
-
-1. **Parallel Processing**: ThreadPoolExecutor for concurrent API calls
-2. **Smart Caching**: LRU cache for repeated queries
-3. **Batch Operations**: Reduced Google Sheets API calls
-4. **Incremental Writes**: Price updates written every 60 cards
-5. **Change Detection**: Only updates modified prices
-6. **Retry Logic**: Exponential backoff for failures
-7. **HTTP Sessions**: Persistent connections
-8. **Real-time Cancellation**: Stop jobs via stream injection
-
-**Results:**
-- 1000 cards in ~130 seconds (with incremental writes)
-- Max 60 cards data loss on interruption (vs. all cards previously)
-- Resume capability with `--resume-from`
-
-## Configuration
-
-Managed via `config.yaml` with three profiles:
-
-```yaml
-profiles:
-  default:
-    processing:
-      batch_size: 20
-      max_workers: 4
-      api_delay: 0.1
-      write_buffer_batches: 3
-    # ... more settings
-
-  development:
-    # Conservative settings for debugging
-    
-  production:
-    # Aggressive settings for large collections
-```
-
-**Security:** Store secrets in `.env`, not `config.yaml`:
-```env
-GOOGLE_API_CREDENTIALS=/path/to/credentials.json
-OPENAI_API_KEY=sk-...
-```
+CI runs automatically on PRs via GitHub Actions (lint, type check, tests for both layers).
 
 ## Project Structure
 
 ```
 deckdex_mtg/
-├── backend/              # FastAPI REST + WebSocket API
-│   ├── api/
-│   │   ├── main.py
-│   │   ├── routes/       # API endpoints
-│   │   ├── services/     # ProcessorService wrapper
-│   │   └── websockets/   # Real-time progress
-│   └── requirements-api.txt
-├── frontend/             # React + Vite + Tailwind UI
-│   ├── src/
-│   │   ├── components/   # Dashboard, modals, tables
-│   │   ├── pages/        # Main views
-│   │   └── api/          # API client
-│   └── package.json
-├── deckdex/              # Core logic (unchanged)
-│   ├── card_fetcher.py
-│   ├── magic_card_processor.py
-│   └── spreadsheet_client.py
+├── backend/              # FastAPI API
+│   └── api/
+│       ├── routes/       # REST endpoints (cards, decks, analytics, insights, auth, admin, ...)
+│       ├── services/     # Business logic wrappers
+│       └── websockets/   # Real-time progress
+├── frontend/             # React dashboard
+│   └── src/
+│       ├── components/   # 30+ React components
+│       ├── pages/        # Dashboard, DeckBuilder, Analytics, Admin, Import, ...
+│       ├── api/          # Typed API client
+│       └── locales/      # i18n (en, es)
+├── deckdex/              # Core package (card fetching, processing, storage)
+├── tests/                # pytest test suite
+├── migrations/           # Database migrations
+├── openspec/             # Specs and change tracking
 ├── main.py               # CLI entry point
 ├── config.yaml           # Configuration profiles
-├── docker-compose.yml    # Optional containerization
-└── README.md             # This file
+└── docker-compose.yml
 ```
 
-## Docker
+## Notes
 
-Levantar todo el proyecto (Postgres, backend y frontend):
+- **Concurrency**: Do not run CLI and web simultaneously when using Google Sheets only — writes conflict. PostgreSQL allows both.
+- **Auth**: All data endpoints require authentication. Admin routes require admin role.
+- **Job state**: In-memory, lost on backend restart.
+- **API docs**: Available at `http://localhost:8000/docs` when backend is running.
 
-```bash
-# 1. Crear la base de datos y aplicar migraciones (solo la primera vez o tras borrar el volumen)
-./scripts/setup_db.sh
+## AI-Driven Development
 
-# 2. Levantar los tres servicios
-docker compose up --build
+This project is built and maintained using [Claude Code](https://claude.com/claude-code) with a custom multi-agent pipeline. A human operator defines priorities and approves plans — agents handle design, implementation, and review.
 
-# Acceso
-# Frontend: http://localhost:5173
-# Backend:  http://localhost:8000
+### Workflow
+
+The development cycle follows three stages:
+
+1. **Backlog** — Automated commands scan specs vs. code to find gaps, or generate new feature ideas through product discovery. Results are published as GitHub Issues with labels, priority, and effort estimates.
+
+2. **Prioritization** — The operator reviews the backlog and selects items for implementation (typically 3 per sprint).
+
+3. **Parallel Implementation** — Selected items are implemented concurrently by specialized agents.
+
+### Agent Pipeline
+
+```mermaid
+graph LR
+    subgraph Backlog["1. Backlog"]
+        SB["/spec-backlog"]
+        PB["/product-backlog"]
+    end
+
+    Operator["Operator picks top 3"]
+
+    subgraph Pipeline["2. Parallel Implementation"]
+        direction TB
+
+        subgraph Architects["Phase 1: Design (parallel)"]
+            A1["Architect 1"]
+            A2["Architect 2"]
+            A3["Architect 3"]
+        end
+
+        subgraph Developers["Phase 2: Implement (parallel, isolated worktrees)"]
+            D1["Developer 1"]
+            D2["Developer 2"]
+            D3["Developer 3"]
+        end
+
+        subgraph Review["Phase 3: Merge & Review"]
+            Merge["Orchestrator merges worktrees"]
+            R["Reviewer runs full CI"]
+        end
+
+        Architects --> Developers --> Review
+    end
+
+    PR["PR + auto-close issues"]
+
+    SB --> Operator
+    PB --> Operator
+    Operator --> Pipeline
+    Review --> PR
 ```
 
-O en segundo plano: `docker compose up -d --build`. Para parar: `docker compose down`.
+**How it works:**
 
-Opcional: crea un `.env` en la raíz con variables que necesite el backend (p. ej. `OPENAI_API_KEY`, `GOOGLE_API_CREDENTIALS` para OAuth). El compose ya define `DATABASE_URL` para el backend.
+| Agent | Role | Scope |
+|-------|------|-------|
+| **Explorer** | Scans code and specs to assess what's built vs. what's missing | Read-only, parallel |
+| **Architect** | Creates design artifacts (proposal, design, delta-spec, tasks) using [OpenSpec](openspec/) | Writes to `openspec/changes/`, parallel |
+| **Developer** | Implements tasks from architect's blueprint, runs CI locally | Isolated git worktree per feature, parallel |
+| **Reviewer** | Validates all merged changes, fixes cross-feature conflicts | Main repo, sequential |
+| **Orchestrator** | Coordinates the pipeline, merges worktrees, creates PR | Main repo, manages all phases |
 
-## Important Notes
+Each feature gets its own architect + developer pair running in parallel. The orchestrator merges all results, the reviewer validates, and a single PR is opened linking the resolved GitHub Issues.
 
-⚠️ **Concurrency:** When using **Google Sheets** as the only source, do not run CLI and web simultaneously (writes conflict). When using **PostgreSQL** (`DATABASE_URL` set), CLI and web may run at the same time.
+### Specs as Source of Truth
 
-⚠️ **MVP Limitations:**
-- No authentication (localhost only)
-- Job state lost on backend restart
-- No historical price tracking (planned)
-- Desktop-first UI
-
-✅ **CLI Compatibility:** All existing CLI commands work unchanged
-
-## Testing
-
-```bash
-# Unit tests
-python -m unittest discover -s tests
-
-# Backend health
-curl http://localhost:8000/api/health
-
-# API documentation
-open http://localhost:8000/docs
-
-# Frontend
-open http://localhost:5173
-```
-
-## Troubleshooting Common Issues
-
-### Module Not Found Errors
-```bash
-# Install all dependencies
-pip install -r requirements.txt
-pip install -r backend/requirements-api.txt
-cd frontend && npm install
-```
-
-### Google Sheets Quota Exceeded
-- Wait 60 seconds
-- Backend caches for 30s to reduce calls
-- Use `--api-delay` to slow requests
-
-### WebSocket Connection Lost
-- Progress continues in background
-- Reopen modal from ActiveJobs panel
-- Progress state preserved via REST + WebSocket
-
-### Job Won't Cancel
-```bash
-# Find job ID
-curl http://localhost:8000/api/jobs/
-
-# Cancel via API
-curl -X POST http://localhost:8000/api/jobs/<job_id>/cancel/
-
-# Or restart backend
-lsof -i :8000  # Find PID
-kill <PID>
-```
-
-## Contributing
-
-Contributions welcome! Please open an issue first to discuss changes.
+All features are specified in `openspec/specs/` before implementation. Changes go through a structured artifact workflow (`proposal` > `design` > `delta-spec` > `tasks`) that ensures agents have clear, grounded blueprints — not vague instructions.
 
 ## License
 
 [MIT](https://choosealicense.com/licenses/mit/)
-
----
-
-**Documentation:**
-- [Backend API Reference](backend/README.md)
-- [Frontend Components](frontend/README.md)
-- [Design Document](openspec/changes/web-mvp/design.md)
-- [Task List](openspec/changes/web-mvp/tasks.md)

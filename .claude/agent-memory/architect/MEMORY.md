@@ -85,6 +85,27 @@
 - `_validate_key` must reject `/` anywhere in key (not just at start) to prevent path traversal via subdirectory creation.
 - 10 unit tests in `tests/test_image_store.py`. All must pass on any change to this module.
 
+## Accessibility (a11y) State — Confirmed as of 2026-03-07
+
+The previous a11y pass (`fix-accessibility-modal-aria`) completed these — do NOT re-spec:
+- All modals use `AccessibleModal` as outermost wrapper.
+- `CardTable.tsx` has `aria-sort` on all sortable headers and full keyboard row navigation.
+- `QuantityCell` in `CardTable.tsx` has `role="button"`, `tabIndex={0}`, `aria-label`, keyboard activation.
+- `JobsBottomBar.tsx` has `aria-live="polite"` + `aria-atomic="true"` + `sr-only` span.
+- `ConfirmModal` uses `AccessibleModal`, has `htmlFor`/`id` on prompt label/input.
+- `deckCardPicker.searchLabel` i18n key exists in both locale files.
+
+Remaining gaps addressed in `a11y-modals-tables-pass`:
+- `DeckCardPickerModal` search `<input>` still missing `aria-label` despite key existing.
+- `ProfileModal` crop sub-modal is raw `<div role="dialog">` — no focus trap.
+- `CardDetailModal` and `DeckDetailModal` image lightboxes use `role="button"` — should be dialogs.
+- `DeckImportModal` textarea has no label (placeholder only).
+- `SettingsModal` has two unlabelled `<input type="file">` elements.
+
+Pattern for nested `AccessibleModal` + ESC propagation prevention: use `document.addEventListener`
+in capture phase (`true`) with `e.stopPropagation()` before the outer `AccessibleModal`'s
+bubble-phase handler. See `ProfileModal` crop sub-modal design.
+
 ## Common Pitfalls
 
 - Non-numeric price values (`"N/A"`, `""`) come from Scryfall — always wrap price float conversion in try/except.
