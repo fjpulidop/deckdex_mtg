@@ -162,6 +162,9 @@ async def resolve_card(
 # ---------------------------------------------------------------------------
 
 
+_ALLOWED_SORT_COLUMNS = {"name", "created_at", "price_eur", "quantity", "set_name", "rarity", "cmc"}
+
+
 @router.get("/", response_model=CardListResponse)
 @limiter.limit("60/minute")
 async def list_cards(
@@ -175,34 +178,44 @@ async def list_cards(
     set_name: Optional[str] = Query(default=None),
     price_min: Optional[str] = Query(default=None),
     price_max: Optional[str] = Query(default=None),
+    sort_by: Optional[str] = Query(default="created_at"),
+    sort_dir: Optional[str] = Query(default="desc"),
     user_id: int = Depends(get_current_user_id),
 ):
     """
-    List cards from collection with pagination and filters.
+    List cards from collection with pagination, filters, and server-side sorting.
     Returns paginated wrapper: { items, total, limit, offset }.
 
     Same filter semantics as GET /api/stats so list and stats stay in sync.
     type: substring match on type line (e.g. "Creature" matches "Creature — Elf").
     color_identity: comma-separated WUBRG (e.g. "W,U"); card must contain all listed colors.
+    sort_by: one of name, created_at, price_eur, quantity, set_name, rarity, cmc (default: created_at).
+    sort_dir: asc or desc (default: desc).
 
-    Postgres path: SQL-level filtering and pagination (no full collection load).
-    Sheets path: cached collection + Python filtering.
+    Postgres path: SQL-level filtering, sorting, and pagination (no full collection load).
+    Sheets path: cached collection + Python filtering (no server-side sorting).
     """
+    # Validate and sanitize sort params — unknown values fall back to defaults
+    resolved_sort_by = sort_by if sort_by in _ALLOWED_SORT_COLUMNS else "created_at"
+    resolved_sort_dir = sort_dir if sort_dir in ("asc", "desc") else "desc"
+
     logger.info(
-        "GET /api/cards - limit=%s, offset=%s, search=%s, type=%s, color_identity=%s, set_name=%s, user=%s",
+        "GET /api/cards - limit=%s, offset=%s, search=%s, type=%s, color_identity=%s, set_name=%s, sort_by=%s, sort_dir=%s, user=%s",
         limit,
         offset,
         search,
         type_filter,
         color_identity,
         set_name,
+        resolved_sort_by,
+        resolved_sort_dir,
         user_id,
     )
     try:
         search_param = search if search and search != "undefined" else None
         repo = get_collection_repo()
         if repo is not None:
-            # Postgres path: SQL-level filtering and pagination
+            # Postgres path: SQL-level filtering, sorting, and pagination
             filters = {
                 "search": search_param,
                 "rarity": rarity,
@@ -212,7 +225,14 @@ async def list_cards(
                 "price_min": price_min,
                 "price_max": price_max,
             }
-            items, total = repo.get_cards_filtered(user_id=user_id, filters=filters, limit=limit, offset=offset)
+            items, total = repo.get_cards_filtered(
+                user_id=user_id,
+                filters=filters,
+                limit=limit,
+                offset=offset,
+                sort_by=resolved_sort_by,
+                sort_dir=resolved_sort_dir,
+            )
         else:
             # Sheets path: load all, filter in Python, slice
             collection = get_cached_collection(user_id=user_id)

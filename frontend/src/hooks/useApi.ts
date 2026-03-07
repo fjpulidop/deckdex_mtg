@@ -15,6 +15,8 @@ export interface CardsParams {
   priceMin?: string;
   priceMax?: string;
   colorIdentity?: string;
+  sortBy?: string;
+  sortDir?: string;
 }
 
 // Hook for fetching cards; pass current dashboard filters so list and stats match.
@@ -34,6 +36,8 @@ export function useCards(params?: CardsParams) {
           price_min: params.priceMin,
           price_max: params.priceMax,
           color_identity: params.colorIdentity,
+          sort_by: params.sortBy,
+          sort_dir: params.sortDir,
         }
       : undefined;
   const query = useQuery<CardPage>({
