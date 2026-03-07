@@ -95,7 +95,7 @@ export function DeckCardPickerModal({ deckId, onClose, onAdded }: DeckCardPicker
   }, [deckId, selected, onAdded]);
 
   return (
-    <AccessibleModal isOpen titleId="deck-card-picker-title" onClose={onClose} className="z-[60]">
+    <AccessibleModal isOpen titleId="deck-card-picker-title" onClose={onClose} className="z-[60]" showCloseButton>
       <div
         className="bg-white dark:bg-gray-800 rounded-xl shadow-xl max-w-2xl w-full max-h-[80vh] flex flex-col overflow-hidden"
       >

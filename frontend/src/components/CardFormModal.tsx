@@ -210,7 +210,7 @@ export function CardFormModal({ title, mode, initial, onSubmit, onClose }: CardF
   }, []);
 
   return (
-    <AccessibleModal isOpen titleId="card-form-modal-title" onClose={onClose}>
+    <AccessibleModal isOpen titleId="card-form-modal-title" onClose={onClose} showCloseButton>
       <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl max-w-md w-full mx-4 p-6">
         <h2 id="card-form-modal-title" className="text-lg font-semibold mb-4 text-gray-900 dark:text-white">{title}</h2>
         {error && <div role="alert" className="mb-4 text-red-600 dark:text-red-400 text-sm">{error}</div>}
