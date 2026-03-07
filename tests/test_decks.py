@@ -42,7 +42,7 @@ SAMPLE_DECK_WITH_CARDS = {
 # ---------------------------------------------------------------------------
 
 
-@pytest.fixture(scope="module")
+@pytest.fixture(scope="function")
 def deck_client():
     """TestClient with mocked DeckRepository and auth.
 
@@ -242,6 +242,121 @@ def test_remove_card_not_found_returns_404(deck_client):
     mock_repo.remove_card.return_value = False
 
     response = client.delete("/api/decks/1/cards/999")
+
+    assert response.status_code == 404
+
+
+# ---------------------------------------------------------------------------
+# Batch card add
+# ---------------------------------------------------------------------------
+
+
+def test_batch_add_cards_returns_200(deck_client):
+    client, mock_repo = deck_client
+    mock_repo.get_by_id.return_value = SAMPLE_DECK
+    mock_repo.add_cards_batch.return_value = {"added": [10, 20], "not_found": []}
+    mock_repo.get_deck_with_cards.return_value = SAMPLE_DECK_WITH_CARDS
+
+    response = client.post("/api/decks/1/cards/batch", json={"card_ids": [10, 20]})
+
+    assert response.status_code == 200
+    data = response.json()
+    assert data["added"] == [10, 20]
+    assert data["not_found"] == []
+    assert "cards" in data["deck"]
+
+
+def test_batch_add_partial_not_found_returns_200(deck_client):
+    """When some card_ids are not in the collection, returns 200 with not_found populated."""
+    client, mock_repo = deck_client
+    mock_repo.get_by_id.return_value = SAMPLE_DECK
+    mock_repo.add_cards_batch.return_value = {"added": [10], "not_found": [999]}
+    mock_repo.get_deck_with_cards.return_value = SAMPLE_DECK_WITH_CARDS
+
+    response = client.post("/api/decks/1/cards/batch", json={"card_ids": [10, 999]})
+
+    assert response.status_code == 200
+    data = response.json()
+    assert data["added"] == [10]
+    assert data["not_found"] == [999]
+
+
+def test_batch_add_deck_not_found_returns_404(deck_client):
+    client, mock_repo = deck_client
+    mock_repo.get_by_id.return_value = None
+
+    response = client.post("/api/decks/999/cards/batch", json={"card_ids": [10]})
+
+    assert response.status_code == 404
+
+
+def test_batch_add_empty_card_ids_returns_current_deck(deck_client):
+    client, mock_repo = deck_client
+    mock_repo.get_deck_with_cards.return_value = SAMPLE_DECK_WITH_CARDS
+
+    response = client.post("/api/decks/1/cards/batch", json={"card_ids": []})
+
+    assert response.status_code == 200
+    data = response.json()
+    assert data["added"] == []
+    assert data["not_found"] == []
+    assert "cards" in data["deck"]
+    mock_repo.add_cards_batch.assert_not_called()
+
+
+# ---------------------------------------------------------------------------
+# Import deck text
+# ---------------------------------------------------------------------------
+
+
+def test_import_deck_matched_cards(deck_client):
+    client, mock_repo = deck_client
+    mock_repo.get_by_id.return_value = SAMPLE_DECK
+    mock_repo.find_card_ids_by_names.return_value = {"lightning bolt": 10}
+    mock_repo.add_card.return_value = True
+    mock_repo.get_deck_with_cards.return_value = SAMPLE_DECK_WITH_CARDS
+
+    response = client.post(
+        "/api/decks/1/import",
+        json={"text": "1 Lightning Bolt"},
+    )
+
+    assert response.status_code == 200
+    data = response.json()
+    assert data["imported_count"] == 1
+    assert data["skipped_count"] == 0
+    assert data["skipped"] == []
+    assert "cards" in data["deck"]
+
+
+def test_import_deck_unmatched_cards_skipped(deck_client):
+    client, mock_repo = deck_client
+    mock_repo.get_by_id.return_value = SAMPLE_DECK
+    # No matching card found
+    mock_repo.find_card_ids_by_names.return_value = {}
+    mock_repo.get_deck_with_cards.return_value = SAMPLE_DECK_WITH_CARDS
+
+    response = client.post(
+        "/api/decks/1/import",
+        json={"text": "1 Nonexistent Card"},
+    )
+
+    assert response.status_code == 200
+    data = response.json()
+    assert data["imported_count"] == 0
+    assert data["skipped_count"] == 1
+    assert data["skipped"][0]["name"] == "Nonexistent Card"
+    assert data["skipped"][0]["reason"] == "not_in_collection"
+
+
+def test_import_deck_not_found_returns_404(deck_client):
+    client, mock_repo = deck_client
+    mock_repo.get_by_id.return_value = None
+
+    response = client.post(
+        "/api/decks/999/import",
+        json={"text": "1 Lightning Bolt"},
+    )
 
     assert response.status_code == 404
 

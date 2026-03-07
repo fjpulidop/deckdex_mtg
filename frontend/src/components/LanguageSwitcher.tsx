@@ -16,12 +16,12 @@ export const LanguageSwitcher = () => {
     <button
       onClick={toggle}
       title={i18n.t('navbar.switchLanguage')}
-      className="flex items-center gap-1 text-sm font-medium text-slate-300 hover:text-white transition-colors"
+      className="flex items-center gap-1 text-sm font-medium text-gray-600 dark:text-slate-300 hover:text-gray-900 dark:hover:text-white transition-colors"
     >
       {LANGUAGES.map((lang, idx) => (
         <span key={lang}>
-          {idx > 0 && <span className="text-slate-500 mx-0.5">|</span>}
-          <span className={lang === current ? 'text-white font-semibold' : 'text-slate-400'}>
+          {idx > 0 && <span className="text-gray-400 dark:text-slate-500 mx-0.5">|</span>}
+          <span className={lang === current ? 'text-gray-900 dark:text-white font-semibold' : 'text-gray-400 dark:text-slate-400'}>
             {lang.toUpperCase()}
           </span>
         </span>

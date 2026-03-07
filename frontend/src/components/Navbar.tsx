@@ -66,7 +66,7 @@ export function Navbar() {
       <Link
         to={path}
         onClick={() => setMobileMenuOpen(false)}
-        className={`flex items-center gap-1.5 pb-1 px-1 transition-all duration-200 ${
+        className={`flex items-center gap-1.5 pb-1 px-1 transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-2 dark:focus-visible:ring-indigo-400 rounded ${
           active
             ? 'text-indigo-600 dark:text-indigo-400 font-semibold border-b-2 border-indigo-600 dark:border-indigo-400'
             : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white'
@@ -95,7 +95,7 @@ export function Navbar() {
             {/* Logo */}
             <Link
               to="/dashboard"
-              className="flex items-baseline gap-1.5 hover:opacity-80 transition-opacity"
+              className="flex items-baseline gap-1.5 hover:opacity-80 transition-opacity focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-2 dark:focus-visible:ring-indigo-400 rounded"
             >
               <span className="text-2xl font-bold text-indigo-600 dark:text-indigo-400">
                 DeckDex
@@ -114,7 +114,9 @@ export function Navbar() {
 
             {/* Right side: Theme toggle, language switcher, user menu and mobile menu button */}
             <div className="flex items-center gap-4">
-              <LanguageSwitcher />
+              <div className="hidden md:block">
+                <LanguageSwitcher />
+              </div>
               <ThemeToggle />
 
               {/* User Menu (Desktop) */}
@@ -128,8 +130,8 @@ export function Navbar() {
                   <div className="relative" ref={userMenuRef}>
                     <button
                       onClick={() => setUserMenuOpen(!userMenuOpen)}
-                      className="flex items-center justify-center w-10 h-10 rounded-full overflow-hidden bg-indigo-100 dark:bg-indigo-900 border border-indigo-300 dark:border-indigo-700 hover:border-indigo-500 dark:hover:border-indigo-400 transition-colors"
-                      aria-label="User menu"
+                      className="flex items-center justify-center w-10 h-10 rounded-full overflow-hidden bg-indigo-100 dark:bg-indigo-900 border border-indigo-300 dark:border-indigo-700 hover:border-indigo-500 dark:hover:border-indigo-400 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-2 dark:focus-visible:ring-indigo-400"
+                      aria-label={t('navbar.userMenu')}
                     >
                       {user.avatar_url ? (
                         <img src={user.avatar_url} alt={user.display_name || 'User'} className="w-full h-full object-cover" />
@@ -141,14 +143,14 @@ export function Navbar() {
                       <div className="absolute right-0 mt-2 w-48 bg-white dark:bg-gray-700 rounded-lg shadow-lg border border-gray-200 dark:border-gray-600 py-1 z-50">
                         <button
                           onClick={() => { setUserMenuOpen(false); setProfileOpen(true); }}
-                          className="w-full text-left px-4 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-600 flex items-center gap-2"
+                          className="w-full text-left px-4 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-600 flex items-center gap-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-2 dark:focus-visible:ring-indigo-400"
                         >
                           <User className="w-4 h-4" />
                           {t('navbar.profile')}
                         </button>
                         <button
                           onClick={() => { setUserMenuOpen(false); setSettingsOpen(true); }}
-                          className="w-full text-left px-4 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-600 flex items-center gap-2"
+                          className="w-full text-left px-4 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-600 flex items-center gap-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-2 dark:focus-visible:ring-indigo-400"
                         >
                           <Settings className="w-4 h-4" />
                           {t('navbar.settings')}
@@ -156,7 +158,7 @@ export function Navbar() {
                         <div className="my-1 border-t border-gray-200 dark:border-gray-600" />
                         <button
                           onClick={logout}
-                          className="w-full text-left px-4 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-600 flex items-center gap-2"
+                          className="w-full text-left px-4 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-600 flex items-center gap-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-2 dark:focus-visible:ring-indigo-400"
                         >
                           <LogOut className="w-4 h-4" />
                           {t('navbar.logout')}
@@ -170,8 +172,8 @@ export function Navbar() {
               {/* Mobile Menu Button */}
               <button
                 onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-                className="md:hidden p-2 text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white transition-colors"
-                aria-label="Toggle mobile menu"
+                className="md:hidden p-2 text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-2 dark:focus-visible:ring-indigo-400 rounded"
+                aria-label={t('navbar.toggleMobileMenu')}
                 aria-expanded={mobileMenuOpen}
               >
                 {mobileMenuOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
@@ -207,21 +209,21 @@ export function Navbar() {
                     </div>
                     <button
                       onClick={() => { setMobileMenuOpen(false); setProfileOpen(true); }}
-                      className="w-full text-left px-1 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-600 rounded flex items-center gap-2"
+                      className="w-full text-left px-1 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-600 rounded flex items-center gap-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-2 dark:focus-visible:ring-indigo-400"
                     >
                       <User className="w-4 h-4" />
                       {t('navbar.profile')}
                     </button>
                     <button
                       onClick={() => { setMobileMenuOpen(false); setSettingsOpen(true); }}
-                      className="w-full text-left px-1 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-600 rounded flex items-center gap-2"
+                      className="w-full text-left px-1 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-600 rounded flex items-center gap-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-2 dark:focus-visible:ring-indigo-400"
                     >
                       <Settings className="w-4 h-4" />
                       {t('navbar.settings')}
                     </button>
                     <button
                       onClick={() => { logout(); setMobileMenuOpen(false); }}
-                      className="w-full text-left px-1 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-600 rounded flex items-center gap-2"
+                      className="w-full text-left px-1 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-600 rounded flex items-center gap-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-2 dark:focus-visible:ring-indigo-400"
                     >
                       <LogOut className="w-4 h-4" />
                       {t('navbar.logout')}
@@ -240,7 +242,7 @@ export function Navbar() {
       {/* Mobile menu overlay backdrop */}
       {mobileMenuOpen && (
         <div
-          className="md:hidden fixed inset-0 bg-black/20 z-30 top-[calc(100%+4rem)]"
+          className="md:hidden fixed inset-0 bg-black/20 z-30"
           onClick={() => setMobileMenuOpen(false)}
         />
       )}

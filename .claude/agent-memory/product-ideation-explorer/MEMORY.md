@@ -1,14 +1,16 @@
 # Product Ideation Explorer - Memory
 
-## Deck Builder Current State (explored 2026-03-05)
-- See `deck-builder-exploration.md` for full analysis
-- Grid of deck tiles with commander backgrounds, DeckDetailModal, DeckCardPickerModal
-- Backend: full CRUD, PostgreSQL-only, deck_cards with (deck_id, card_id, quantity, is_commander)
-- No format field on decks table, no description/notes field
-- catalog_cards table has `legalities JSONB` -- key for format validation
-- cards table has color_identity -- key for Commander color restrictions
-- Card picker only pulls from user's collection (cards table), limit 200
-- No import/export, no deck copy, no statistics beyond mana curve + total price
+## Decks Full Exploration (2026-03-07, replaces 2026-03-05)
+- See `decks-exploration.md` for full analysis (spec vs reality, gaps, ideas, priorities)
+- ALL 9 backend endpoints + ALL 4 frontend components implemented per spec
+- Import/Export now implemented (text parser + modal + clipboard export)
+- 19 route tests exist; POST /api/decks/{id}/import has ZERO tests (biggest gap)
+- N+1 bug: DeckCardPickerModal adds cards sequentially (needs batch endpoint)
+- BUG: hardcoded EUR in DeckDetailModal (should use settings currency)
+- Missing vs competitors: description, format, sideboard, deck copy, tags, quantity adjust UI
+- Key differentiator: decks reference YOUR collection (unique among all MTG platforms)
+- Top opportunity: cross-deck card overlap detection
+- Top priorities: (1) test import, (2) batch card add, (3) description+format, (4) quantity adjust, (5) overlap detection
 
 ## Analytics State (explored 2026-03-05)
 - See `analytics-exploration.md` for full findings
@@ -60,15 +62,31 @@
 - Top 5 actions: (1) create CI workflow, (2) add ruff, (3) pin Python 3.11, (4) set coverage threshold, (5) branch protection
 - DB migrations are raw SQL files, not Alembic -- CI needs Postgres service container
 
-## Card Gallery View Exploration (2026-03-07)
-- See `card-gallery-view-exploration.md` for full analysis
-- ZERO gallery/grid view exists -- only CardTable (table layout)
-- Image infra: per-card API endpoint, filesystem ImageStore (scryfall_id key), useCardImage hook (Blob URLs, no client cache)
-- Key bottleneck: 50 cards/page = 50 individual image API calls with no caching between mounts
-- Top priority: client-side blob cache -> view toggle -> CardGallery component -> lazy loading -> skeletons
-- Architecture recommendation: Dashboard owns toggle, renders CardTable OR CardGallery (Option B -- shared props interface)
-- Competitive gap: Moxfield/Archidekt both default to gallery; DeckDex table-only is a significant UX gap
-- Auth consideration: images served via cookie auth; Blob URL approach needed (plain img src won't send cookies)
+## Card Gallery View Exploration (2026-03-07, initial)
+- See `card-gallery-view-exploration.md` for pre-implementation analysis
+
+## Card Gallery Refinement Exploration (2026-03-07, post-implementation)
+- See `card-gallery-refinement-exploration.md` for full analysis
+- MVP gallery fully delivered: CardGallery.tsx, useImageCache.ts, Dashboard toggle, tests
+- useImageCache well-architected (useSyncExternalStore, dedup, module-level Map, no blob revocation)
+- CRITICAL: No keyboard nav in gallery grid (table has full arrow key support)
+- CRITICAL: No role="list"/role="listitem" on grid container
+- MAJOR: Gallery ignores sortBy/sortDir/onSortChange props -- no way to sort in gallery mode
+- MAJOR: Gallery ignores onQuantityChange -- no quantity badge on tiles, no inline edit
+- MODERATE: ~60 lines toolbar+pagination JSX duplicated between CardTable and CardGallery
+- Top pick: sort controls for gallery (highest value, uses existing props, zero API changes)
+- Quick wins: semantic roles (XS), image error fallback (XS), sort pills (S), quantity badge (S)
+
+## Accessibility Modals Exploration (2026-03-07)
+- See `accessibility-modals-exploration.md` for full analysis
+- AccessibleModal wrapper fully implemented with focus trap, ESC, ARIA, scroll-lock, focus restore
+- All 9 spec-listed modals now use AccessibleModal
+- REMAINING: ConfirmModal still rolls its own dialog (no focus trap, no focus restore, no scroll-lock)
+- REMAINING: ProfileModal crop sub-modal also custom (missing focus trap/restore)
+- ZERO aria-live regions in entire codebase (dynamic updates invisible to screen readers)
+- Missing labels: DeckCardPickerModal search input, SettingsModal file inputs, ImportListModal textarea
+- Zero AccessibleModal unit tests exist
+- Top pick: refactor ConfirmModal to AccessibleModal (small effort, high impact, last holdout modal)
 
 ## Key Architectural Insights
 - Decks only reference cards in collection (cards table) -- cannot add cards user doesn't own
@@ -87,3 +105,14 @@
 - WebSocket endpoint only validates in-memory -- fails after restart for valid DB jobs
 - 13 improvement ideas ranked; top 4 are trivial fixes (< 1hr each, high impact)
 - Key insight: hybrid approach is fine for localhost single-server; gaps are in restart recovery and data consistency
+
+## i18n Coverage Audit (2026-03-07)
+- See `i18n-coverage-exploration.md` for full analysis
+- Infrastructure solid: i18next, en.json + es.json (565 lines each, 1:1 key parity)
+- 35/45 non-test TSX files use useTranslation (78%)
+- 10 files with ~25 hardcoded user-visible strings
+- NOTABLE: ActionButtons.tsx has translation keys in JSON but never imports useTranslation (trivial fix)
+- BUG: InsightValueRenderer + InsightDistributionRenderer hardcode 'es-ES' locale in toLocaleString()
+- ErrorBoundary is a class component -- needs wrapper pattern or direct i18next.t import
+- PriceChart.tsx (new feature) has 3+ hardcoded strings with zero i18n keys defined
+- ~8 strings already have keys (just need t() calls), ~17 need new keys in both locale files

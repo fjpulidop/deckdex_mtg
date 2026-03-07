@@ -8,9 +8,6 @@ from fastapi.testclient import TestClient
 from backend.api.dependencies import get_current_user_id
 from backend.api.main import app
 
-# Override auth for all tests
-app.dependency_overrides[get_current_user_id] = lambda: 1
-
 client = TestClient(app)
 
 
@@ -22,6 +19,12 @@ SAMPLE_CARDS = [
 
 class TestCatalogSearch(unittest.TestCase):
     """Test GET /api/catalog/search."""
+
+    def setUp(self):
+        app.dependency_overrides[get_current_user_id] = lambda: 1
+
+    def tearDown(self):
+        app.dependency_overrides.pop(get_current_user_id, None)
 
     @patch("backend.api.routes.catalog_routes._get_catalog_repo")
     def test_search_returns_200_with_results(self, mock_get_repo):
@@ -58,6 +61,12 @@ class TestCatalogSearch(unittest.TestCase):
 class TestCatalogAutocomplete(unittest.TestCase):
     """Test GET /api/catalog/autocomplete."""
 
+    def setUp(self):
+        app.dependency_overrides[get_current_user_id] = lambda: 1
+
+    def tearDown(self):
+        app.dependency_overrides.pop(get_current_user_id, None)
+
     @patch("backend.api.routes.catalog_routes._get_catalog_repo")
     def test_autocomplete_returns_names(self, mock_get_repo):
         mock_repo = MagicMock()
@@ -76,6 +85,12 @@ class TestCatalogAutocomplete(unittest.TestCase):
 
 class TestCatalogGetCard(unittest.TestCase):
     """Test GET /api/catalog/cards/{scryfall_id}."""
+
+    def setUp(self):
+        app.dependency_overrides[get_current_user_id] = lambda: 1
+
+    def tearDown(self):
+        app.dependency_overrides.pop(get_current_user_id, None)
 
     @patch("backend.api.routes.catalog_routes._get_catalog_repo")
     def test_get_card_found(self, mock_get_repo):
@@ -100,6 +115,12 @@ class TestCatalogGetCard(unittest.TestCase):
 
 class TestCatalogSync(unittest.TestCase):
     """Test POST /api/catalog/sync."""
+
+    def setUp(self):
+        app.dependency_overrides[get_current_user_id] = lambda: 1
+
+    def tearDown(self):
+        app.dependency_overrides.pop(get_current_user_id, None)
 
     @patch("backend.api.routes.catalog_routes.catalog_service")
     def test_trigger_sync_returns_job_id(self, mock_svc):
@@ -131,6 +152,12 @@ class TestCatalogSync(unittest.TestCase):
 
 class TestCatalogSyncStatus(unittest.TestCase):
     """Test GET /api/catalog/sync/status."""
+
+    def setUp(self):
+        app.dependency_overrides[get_current_user_id] = lambda: 1
+
+    def tearDown(self):
+        app.dependency_overrides.pop(get_current_user_id, None)
 
     @patch("backend.api.routes.catalog_routes._get_catalog_repo")
     def test_sync_status_returns_state(self, mock_get_repo):

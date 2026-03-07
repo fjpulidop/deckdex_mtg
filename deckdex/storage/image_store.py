@@ -37,6 +37,13 @@ class ImageStore(ABC):
     def delete(self, key: str) -> None:
         """Remove image for the given key (no-op if missing)."""
 
+    @abstractmethod
+    def get_path(self, key: str) -> Optional[Path]:
+        """Return the filesystem path for the stored image, or None if not found.
+
+        Validates key. Returns None for non-filesystem-backed implementations.
+        """
+
 
 class FilesystemImageStore(ImageStore):
     """Store images as files on disk with JSON metadata sidecars.
@@ -53,7 +60,7 @@ class FilesystemImageStore(ImageStore):
     @staticmethod
     def _validate_key(key: str) -> None:
         """Reject keys that could escape the base directory."""
-        if not key or ".." in key or key.startswith("/") or "\x00" in key:
+        if not key or ".." in key or "/" in key or "\x00" in key:
             raise ValueError(f"Invalid image store key: {key!r}")
 
     def _ext_for(self, content_type: str) -> str:
@@ -129,3 +136,26 @@ class FilesystemImageStore(ImageStore):
             img.unlink(missing_ok=True)
         meta = self._meta_path(key)
         meta.unlink(missing_ok=True)
+
+    def get_path(self, key: str) -> Optional[Path]:
+        """Return the filesystem path for the stored image, or None if not found."""
+        self._validate_key(key)
+        return self._find_image_path(key)
+
+    def get_content_type(self, key: str) -> Optional[str]:
+        """Return content_type for key without loading image bytes.
+
+        Reads .meta sidecar if present; falls back to extension inference.
+        Returns None if no image exists for the key.
+        """
+        self._validate_key(key)
+        img = self._find_image_path(key)
+        if img is None:
+            return None
+        meta = self._meta_path(key)
+        if meta.exists():
+            try:
+                return json.loads(meta.read_text()).get("content_type", "image/jpeg")
+            except Exception:
+                pass
+        return _EXT_TO_CONTENT_TYPE.get(img.suffix, "image/jpeg")

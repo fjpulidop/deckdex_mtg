@@ -1,4 +1,5 @@
 import { InsightComparisonData } from '../../api/client';
+import { useTheme } from '../../contexts/ThemeContext';
 
 interface Props {
   data: InsightComparisonData;
@@ -6,6 +7,9 @@ interface Props {
 }
 
 export function InsightComparisonRenderer({ data, answerText }: Props) {
+  const { theme } = useTheme();
+  const isDark = theme === 'dark';
+
   return (
     <div className="space-y-3">
       <p className="text-sm text-gray-600 dark:text-gray-400">{answerText}</p>
@@ -24,7 +28,9 @@ export function InsightComparisonRenderer({ data, answerText }: Props) {
               className="flex flex-col items-center gap-1.5 p-3 rounded-xl border-2 min-w-[80px]"
               style={{
                 borderColor: item.present ? '#22c55e' : '#ef4444',
-                backgroundColor: item.present ? 'rgb(240 253 244 / 0.5)' : 'rgb(254 242 242 / 0.5)',
+                backgroundColor: item.present
+                  ? (isDark ? 'rgb(20 83 45 / 0.3)' : 'rgb(240 253 244 / 0.5)')
+                  : (isDark ? 'rgb(127 29 29 / 0.3)' : 'rgb(254 242 242 / 0.5)'),
                 opacity: 0,
                 animation: `scaleBounce 300ms cubic-bezier(0.34, 1.56, 0.64, 1) forwards`,
                 animationDelay: `${i * 80}ms`,
@@ -62,11 +68,6 @@ export function InsightComparisonRenderer({ data, answerText }: Props) {
         @keyframes scaleBounce {
           from { opacity: 0; transform: scale(0.7); }
           to { opacity: 1; transform: scale(1); }
-        }
-        /* Dark mode background overrides */
-        @media (prefers-color-scheme: dark) {
-          .dark .comparison-item-present { background-color: rgb(20 83 45 / 0.3); }
-          .dark .comparison-item-absent { background-color: rgb(127 29 29 / 0.3); }
         }
       `}</style>
     </div>

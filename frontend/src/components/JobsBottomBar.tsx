@@ -82,6 +82,14 @@ function ActiveJobEntry({ jobId, type, startedAt, onComplete, onFinished }: Acti
           className="text-xs text-red-500 hover:text-red-700 dark:text-red-400"
         >{t('jobsBar.stop')}</button>
       )}
+      {/* Screen reader announcement for job terminal state */}
+      <span
+        className="sr-only"
+        aria-live="polite"
+        aria-atomic="true"
+      >
+        {isFinished ? statusText : ''}
+      </span>
     </div>
   );
 }

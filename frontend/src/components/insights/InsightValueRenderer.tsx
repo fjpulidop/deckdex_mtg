@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { InsightValueData } from '../../api/client';
 
 interface Props {
@@ -26,6 +27,7 @@ function useCountUp(target: number, duration = 800): number {
 }
 
 export function InsightValueRenderer({ data, answerText }: Props) {
+  const { i18n } = useTranslation();
   // Extract numeric value for count-up animation
   const numericStr = data.primary_value.replace(/[^0-9.,]/g, '').replace(',', '.');
   const numericTarget = parseFloat(numericStr) || 0;
@@ -34,8 +36,8 @@ export function InsightValueRenderer({ data, answerText }: Props) {
   // Reconstruct the animated display string
   const isEuro = data.primary_value.startsWith('€');
   const displayValue = isEuro
-    ? `€${animated.toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
-    : Math.round(animated).toLocaleString('es-ES');
+    ? `€${animated.toLocaleString(i18n.language, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+    : Math.round(animated).toLocaleString(i18n.language);
 
   return (
     <div className="space-y-4">

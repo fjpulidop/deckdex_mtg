@@ -30,16 +30,62 @@ function createDrop(x: number, height: number, randomY?: boolean): SymbolDrop {
   };
 }
 
+/**
+ * Returns a cached off-screen canvas with the given symbol pre-rendered with a glow effect.
+ * Cache key is "hex:fontSize" — avoids shadowBlur on the main canvas context every frame.
+ */
+function getGlowCanvas(
+  cache: Map<string, HTMLCanvasElement>,
+  hex: string,
+  fontSize: number,
+  symbol: string
+): HTMLCanvasElement {
+  const key = `${hex}:${fontSize}`;
+  const cached = cache.get(key);
+  if (cached) return cached;
+
+  const size = fontSize * 4;
+  const offscreen = document.createElement('canvas');
+  offscreen.width = size;
+  offscreen.height = size;
+  const offCtx = offscreen.getContext('2d');
+  if (offCtx) {
+    offCtx.globalAlpha = 1;
+    offCtx.font = `${fontSize}px monospace`;
+    offCtx.textAlign = 'center';
+    offCtx.textBaseline = 'middle';
+    offCtx.fillStyle = hex;
+    offCtx.shadowColor = hex;
+    offCtx.shadowBlur = 8;
+    offCtx.fillText(symbol, size / 2, size / 2);
+  }
+  cache.set(key, offscreen);
+  return offscreen;
+}
+
 export function CardMatrix() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const dropsRef = useRef<SymbolDrop[]>([]);
   const animFrameRef = useRef<number>(0);
   const lastFrameRef = useRef<number>(0);
+  const pausedRef = useRef<boolean>(false);
+  const glowCacheRef = useRef<Map<string, HTMLCanvasElement>>(new Map());
   const { theme } = useTheme();
   const reducedMotion = useReducedMotion();
   const isDark = theme === 'dark';
 
   const opacityMax = isDark ? 0.2 : 0.1;
+
+  // Refs to hold current theme values so animation callbacks stay stable across theme changes
+  const isDarkRef = useRef<boolean>(isDark);
+  const opacityMaxRef = useRef<number>(opacityMax);
+
+  // Sync theme values into refs and clear the glow cache when theme changes
+  useEffect(() => {
+    isDarkRef.current = isDark;
+    opacityMaxRef.current = opacityMax;
+    glowCacheRef.current.clear(); // invalidate stale glow canvases keyed by old hex values
+  }, [isDark, opacityMax]);
 
   const initDrops = useCallback((width: number, height: number) => {
     const drops: SymbolDrop[] = [];
@@ -65,26 +111,28 @@ export function CardMatrix() {
 
       for (const d of dropsRef.current) {
         const color = MANA_COLORS[d.colorKey];
-        const hex = isDark ? color.dark : color.light;
-        const alpha = Math.min(d.opacity, opacityMax);
+        const hex = isDarkRef.current ? color.dark : color.light;
+        const alpha = Math.min(d.opacity, opacityMaxRef.current);
 
         ctx.globalAlpha = alpha;
         ctx.font = `${d.fontSize}px monospace`;
         ctx.fillStyle = hex;
         ctx.fillText(d.symbol, d.x, d.y);
 
-        // Subtle glow
-        if (isDark) {
+        // Glow via pre-rendered off-screen canvas — avoids shadowBlur on every frame
+        if (isDarkRef.current) {
+          const glowCanvas = getGlowCanvas(glowCacheRef.current, hex, d.fontSize, d.symbol);
           ctx.globalAlpha = alpha * 0.4;
-          ctx.shadowColor = hex;
-          ctx.shadowBlur = 8;
-          ctx.fillText(d.symbol, d.x, d.y);
-          ctx.shadowBlur = 0;
+          ctx.drawImage(
+            glowCanvas,
+            d.x - glowCanvas.width / 2,
+            d.y - glowCanvas.height / 2
+          );
         }
       }
       ctx.globalAlpha = 1;
     },
-    [isDark, opacityMax]
+    [] // stable: reads theme state and glow cache via refs
   );
 
   /* eslint-disable react-hooks/immutability -- mutating ref contents (drop positions) is intentional for canvas animation */
@@ -152,14 +200,32 @@ export function CardMatrix() {
       }
       animFrameRef.current = requestAnimationFrame(animate);
     };
-    animFrameRef.current = requestAnimationFrame(animate);
+
+    // Pause immediately if document is already hidden at mount time
+    if (document.hidden) {
+      pausedRef.current = true;
+    } else {
+      animFrameRef.current = requestAnimationFrame(animate);
+    }
+
+    const handleVisibility = () => {
+      if (document.hidden) {
+        pausedRef.current = true;
+        cancelAnimationFrame(animFrameRef.current);
+      } else {
+        pausedRef.current = false;
+        animFrameRef.current = requestAnimationFrame(animate);
+      }
+    };
+    document.addEventListener('visibilitychange', handleVisibility);
 
     return () => {
       cancelAnimationFrame(animFrameRef.current);
       window.removeEventListener('resize', onResize);
+      document.removeEventListener('visibilitychange', handleVisibility);
       clearTimeout(resizeTimer);
     };
-  }, [draw, update, initDrops, reducedMotion]);
+  }, [reducedMotion, initDrops, draw, update]);
 
   return (
     <canvas

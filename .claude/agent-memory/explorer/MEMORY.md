@@ -1,10 +1,12 @@
 # Explorer Agent - Memory
 
-## Deck Builder Exploration (2026-03-05)
-- Full exploration completed, see product-ideation-explorer/deck-builder-exploration.md
-- Key finding: catalog_cards.legalities JSONB enables format validation without Scryfall API calls
-- Key finding: deck_cards references collection cards only; wishlist needs separate approach
-- Card picker has N+1 API call pattern (adds cards one at a time in loop)
+## Decks Exploration (2026-03-07, replaces 2026-03-05)
+- Full exploration: product-ideation-explorer/decks-exploration.md
+- ALL 9 endpoints + ALL frontend components implemented per spec
+- 19 route tests; import endpoint has ZERO tests (biggest gap)
+- N+1 bug in card picker; hardcoded EUR currency
+- Key differentiator: decks reference YOUR collection
+- Top opportunity: cross-deck card overlap detection
 
 ## Testing Exploration (2026-03-05, updated)
 - Full exploration completed, see product-ideation-explorer/testing-exploration.md
@@ -64,23 +66,22 @@
 - Quick wins (Tier 1): dialog roles, role="alert", aria-labels, label associations, aria-sort (~2hrs)
 - ActionButtons.tsx has hardcoded English strings (bypasses i18n)
 
-## Card Gallery View Exploration (2026-03-07)
-- Full exploration completed, see product-ideation-explorer/card-gallery-view-exploration.md
-- ZERO gallery/grid view exists -- table-only display
-- Image infra: per-card endpoint, filesystem ImageStore, useCardImage hook (Blob URLs, no cross-component cache)
-- 50 cards/page = 50 individual image fetches; client-side blob cache is prerequisite for gallery
-- Architecture: Dashboard owns toggle, renders CardTable OR CardGallery (shared props interface)
-- Moxfield/Archidekt both default to gallery -- significant competitive gap
+## Card Gallery View Exploration (2026-03-07, initial)
+- See product-ideation-explorer/card-gallery-view-exploration.md (pre-implementation)
 
-## Price History Exploration (2026-03-07)
+## Card Gallery Refinement Exploration (2026-03-07, post-implementation)
+- See product-ideation-explorer/card-gallery-refinement-exploration.md
+- MVP delivered: CardGallery.tsx, useImageCache.ts (useSyncExternalStore), Dashboard toggle, 10 tests
+- CRITICAL gaps: no keyboard grid nav, no role="list" on container
+- MAJOR gaps: gallery ignores sort props (no sort UI), ignores quantity props (no badge)
+- MODERATE: ~60 lines toolbar+pagination duplicated between CardTable/CardGallery
+- Top pick: sort controls (pill bar above grid, uses existing onSortChange prop)
+
+## Price History Exploration (2026-03-07, updated)
 - Full exploration completed, see product-ideation-explorer/price-history-exploration.md
-- PriceHistory entity defined in data-model spec but NEVER implemented (zero migrations, zero code)
-- Price updates overwrite price_eur in-place -- all previous prices permanently lost
-- PriceChart.tsx exists but is dead code (mock data, "Coming Soon", never imported anywhere)
-- No charting library in frontend dependencies
-- price_eur stored as TEXT throughout -- price_history table should use NUMERIC(10,2)
-- Phase 1 (highest priority, lowest effort): create price_history table + INSERT on update + collection_value_snapshots
-- Key insight: every day without Phase 1 is permanently lost price history data
+- NOW IMPLEMENTED: migration 014_price_history.sql, repository methods, processor INSERT, PriceChart.tsx (real LineChart)
+- PriceChart rendered inside CardDetailModal (per-card view)
+- STILL MISSING: collection_value_snapshots (daily aggregate), value-over-time chart on Analytics page
 - Differentiation: personal portfolio value tracking (none of Moxfield/Archidekt/EDHREC do this)
 
 ## Job Persistence Exploration (2026-03-07)
@@ -95,3 +96,68 @@
 - No progress or error log persistence -- in-memory only
 - WebSocket validates against in-memory only -- rejects valid DB jobs after restart
 - Top fixes: (1) orphaned job cleanup on startup, (2) route ordering, (3) normalize statuses, (4) DB fallback
+
+## Theme Persistence & Consistency Exploration (2026-03-07)
+- Full exploration completed, see product-ideation-explorer/theme-persistence-exploration.md
+- BUG: Login.tsx has ZERO dark mode support (all hardcoded light classes)
+- BUG: InsightComparisonRenderer uses @media (prefers-color-scheme: dark) instead of .dark class
+- MISSING: No cross-tab sync (no StorageEvent listener in ThemeContext)
+- Flash prevention in main.tsx (synchronous JS) works but not in index.html <head>
+- 40 files use dark: variants -- good coverage overall, Login.tsx is the outlier
+- Top pick: fix Login.tsx + InsightComparisonRenderer + add cross-tab sync (~2hrs total)
+
+## Animated Backgrounds Performance Exploration (2026-03-07)
+- Full exploration completed, see product-ideation-explorer/animated-backgrounds-exploration.md
+- Two canvas components: AetherParticles (app pages, 50 particles) and CardMatrix (landing, ~40 drops)
+- Well-built foundation: 30fps cap, DPR-aware, debounced resize, reduced-motion, proper cleanup
+- CRITICAL: No Page Visibility API -- animation loops burn CPU in background tabs
+- MAJOR: CardMatrix uses ctx.shadowBlur=8 in dark mode -- expensive Gaussian blur every frame per drop
+- MAJOR: Theme toggle causes full effect re-run (flash); could use ref for isDark
+- MINOR: No DPR change detection for multi-monitor; no user toggle to disable backgrounds
+- Top pick: Page Visibility API pause (highest impact, smallest effort, ~30 min)
+
+## Navigation UI Polish Exploration (2026-03-07)
+- Full exploration completed, see product-ideation-explorer/navigation-ui-exploration.md
+- BUG: LanguageSwitcher uses hardcoded slate colors (text-slate-300/text-white) -- invisible in light mode on main Navbar
+- BUG: Mobile backdrop uses broken `top-[calc(100%+4rem)]` positioning
+- MISSING: No mobile menu animation (instant show/hide)
+- MISSING: No focus-visible rings; user dropdown missing role="menu"/aria-haspopup
+- MISSING: No shared PageLayout wrapper (each page reinvents container classes)
+- Import page has no navbar link (only reachable via Dashboard buttons)
+- JobsBottomBar w-96 exceeds phone widths; not responsive
+- Top pick: fix LanguageSwitcher colors (critical bug, ~15min)
+- Best bundle: LanguageSwitcher fix + backdrop fix + hide lang switcher on mobile + focus-visible rings (~2hrs total)
+
+## Analytics & Prices Exploration (2026-03-07, updated)
+- Full exploration completed, see product-ideation-explorer/analytics-exploration.md
+- 5 analytics endpoints (rarity, color-identity, cmc, sets, type) + stats + price-history -- ALL implemented
+- 7 frontend chart components (modular, reusable) + KpiCards with animated count-up -- ALL implemented
+- Drill-down system fully working: 5 dimensions, removable chips, cross-filtering
+- BUG: /api/analytics/type accesses repo private methods (_build_filter_clauses, _get_engine) from route layer
+- GAPS: 3/5 analytics endpoints have zero tests; all tests only exercise Sheets path, never Postgres SQL
+- MISSING: no value-weighted charts (value by color/rarity), no collection value over time, no deck analytics
+- MISSING: no format legality breakdown (catalog_cards.legalities exists but unused in analytics)
+- OVERLAP: Insights by_color/by_rarity/by_set duplicate Analytics charts with no cross-linking
+- Top picks: (1) fix type endpoint repo violation, (2) add missing tests, (3) value distribution chart
+- Competitive advantage: interactive collection-level drill-down analytics is genuinely novel vs Moxfield/EDHREC/Archidekt
+
+## Card Image Storage Optimization Exploration (2026-03-07)
+- Full exploration completed, see product-ideation-explorer/card-image-storage-exploration.md
+- SECURITY: key validation rejects startswith("/") but NOT embedded "/" (spec says reject any "/")
+- PERFORMANCE: zero HTTP cache headers on image responses (no Cache-Control, no ETag)
+- PERFORMANCE: full file read_bytes() into Python memory per request; should use FileResponse (already used in auth.py)
+- PERFORMANCE: no batch image endpoint; gallery triggers N individual HTTP requests
+- PERFORMANCE: frontend cache keyed by card.id not scryfall_id (same image fetched multiple times across views)
+- BUG: put() error handler has potential fd leak (os.get_inheritable on closed fd)
+- MISSING: no disk space management, no LRU eviction, no multi-size image support
+- Top pick: Cache-Control immutable + FileResponse + fix "/" key validation (~1hr combined, highest impact/effort)
+
+## User Profile & Avatar Crop Exploration (2026-03-07)
+- Full exploration completed, see product-ideation-explorer/user-profile-exploration.md
+- CRITICAL BUG: avatar upload completely broken -- _validate_avatar_url() rejects data: URIs but ProfileModal sends base64
+- MODERATE BUG: ProfileModal uses raw fetch() instead of api/client.ts (zero profile methods in client)
+- Auth system well-implemented: OAuth, JWT blacklist, avatar proxy, admin bootstrap, 40+ tests
+- ProfileModal has react-easy-crop (installed, working UI) but backend blocks the crop result
+- No avatar cache invalidation after profile update
+- No display name length validation
+- Top fix: allow data: URIs in _validate_avatar_url (~30min, unblocks entire feature)

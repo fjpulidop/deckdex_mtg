@@ -158,3 +158,30 @@
 ### openspec archive
 - Run from main repo root, not worktree
 - Use `--skip-specs -y` when spec format doesn't use exact ADDED/MODIFIED/REMOVED/RENAMED sections
+
+## Image Cache and FileResponse (card-image-cache-and-security, 2026-03-07)
+
+### FileResponse for zero-copy image serving
+- `FileResponse(path, media_type=ct, headers={...})` — OS-level file transfer, avoids heap allocation
+- ETag formula: `f'"{s.st_mtime_ns:x}-{s.st_size:x}"'` from `path.stat()` — fast, no file read
+- Cache-Control: `"public, max-age=31536000, immutable"` for scryfall-keyed immutable images
+- Remove `Response(content=data)` pattern and unused `Response` import when switching to FileResponse
+
+### ImageStore path and content_type access
+- `image_store.get_path(scryfall_id)` → `Optional[Path]` — returns None if not cached
+- `image_store.get_content_type(scryfall_id)` → `Optional[str]` — reads .meta sidecar, no byte read
+- Both raise `ValueError` for invalid keys (slashes, .., null bytes)
+
+### Security: key validation
+- `"/" in key` (not `key.startswith("/")`) — rejects embedded slash path traversal
+- Scryfall UUIDs never contain `/` — safe to reject any key with slash
+
+### Testing FileResponse
+- Must create a real temp file (FileResponse actually reads disk)
+- For `cards` endpoint: `patch("backend.api.routes.cards.get_card_image_path", return_value=(path, ct, etag))`
+- For `catalog` endpoint: `patch("backend.api.routes.catalog_routes._get_stores", return_value=(MagicMock(), mock_store))`
+
+### Pre-existing test failures (test_catalog_routes.py)
+- `test_catalog_routes.py` uses module-level `app.dependency_overrides[get_current_user_id]`
+- Other test classes with setUp/tearDown pop this override, causing 401 in subsequent tests
+- These 9 failures are pre-existing and NOT caused by the card-image-cache change

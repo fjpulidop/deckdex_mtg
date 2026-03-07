@@ -5,6 +5,7 @@ import type { Area } from 'react-easy-crop';
 import { User, Camera, X } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { AccessibleModal } from './AccessibleModal';
+import { api } from '../api/client';
 
 interface ProfileModalProps {
   onClose: () => void;
@@ -104,6 +105,10 @@ export function ProfileModal({ onClose }: ProfileModalProps) {
       setNameError(t('profile.nameRequired'));
       return;
     }
+    if (displayName.trim().length > 100) {
+      setNameError(t('profile.nameTooLong'));
+      return;
+    }
     setNameError(null);
     setError(null);
     setSaving(true);
@@ -115,16 +120,7 @@ export function ProfileModal({ onClose }: ProfileModalProps) {
       if (pendingCropDataUrl) {
         body.avatar_url = pendingCropDataUrl;
       }
-      const res = await fetch('/api/auth/profile', {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
-        body: JSON.stringify(body),
-      });
-      if (!res.ok) {
-        const data = await res.json().catch(() => ({}));
-        throw new Error(data.detail || `Error ${res.status}`);
-      }
+      await api.updateProfile(body);
       await refreshUser();
       onClose();
     } catch (err) {

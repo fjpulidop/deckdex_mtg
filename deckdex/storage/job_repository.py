@@ -32,7 +32,7 @@ class JobRepository:
                 result = conn.execute(
                     text("""
                         INSERT INTO jobs (id, user_id, type, status)
-                        VALUES (:id::uuid, :user_id, :type, 'running')
+                        VALUES (CAST(:id AS uuid), :user_id, :type, 'running')
                         ON CONFLICT (id) DO NOTHING
                         RETURNING id
                     """),
@@ -65,8 +65,8 @@ class JobRepository:
                         completed_at = CASE WHEN :status IN ('complete', 'error', 'cancelled')
                                             THEN NOW() AT TIME ZONE 'utc'
                                             ELSE completed_at END,
-                        result = COALESCE(:result::jsonb, result)
-                    WHERE id = :id::uuid
+                        result = COALESCE(CAST(:result AS jsonb), result)
+                    WHERE id = CAST(:id AS uuid)
                 """),
                 {
                     "id": job_id,
@@ -88,7 +88,7 @@ class JobRepository:
                     text("""
                         SELECT id, user_id, type, status, created_at, completed_at, result
                         FROM jobs
-                        WHERE id = :id::uuid
+                        WHERE id = CAST(:id AS uuid)
                     """),
                     {"id": job_id},
                 )
@@ -119,7 +119,7 @@ class JobRepository:
                     UPDATE jobs
                     SET status = 'error',
                         completed_at = NOW() AT TIME ZONE 'utc',
-                        result = :result::jsonb
+                        result = CAST(:result AS jsonb)
                     WHERE status = 'running'
                 """),
                 {"result": result_payload},

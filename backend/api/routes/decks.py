@@ -64,6 +64,16 @@ class DeckImportResponse(BaseModel):
     deck: Dict[str, Any]
 
 
+class BatchAddCardsBody(BaseModel):
+    card_ids: List[int]
+
+
+class BatchAddResult(BaseModel):
+    added: List[int]
+    not_found: List[int]
+    deck: Dict[str, Any]
+
+
 # --- Routes ---
 
 
@@ -135,6 +145,33 @@ async def add_card_to_deck(
         )
     deck = repo.get_deck_with_cards(deck_id, user_id=user_id)
     return deck
+
+
+@router.post("/{deck_id}/cards/batch", status_code=200)
+async def add_cards_to_deck_batch(
+    deck_id: int,
+    body: BatchAddCardsBody,
+    repo: DeckRepository = Depends(require_deck_repo),
+    user_id: int = Depends(get_current_user_id),
+):
+    """Add multiple collection cards to a deck in one request.
+
+    Returns added/not_found id lists and the updated deck.
+    Only returns 404 if the deck itself is missing; individual missing
+    card IDs are reported in not_found (HTTP 200).
+    """
+    if not body.card_ids:
+        deck = repo.get_deck_with_cards(deck_id, user_id=user_id)
+        if deck is None:
+            raise HTTPException(status_code=404, detail="Deck not found")
+        return {"added": [], "not_found": [], "deck": deck}
+
+    if repo.get_by_id(deck_id, user_id=user_id) is None:
+        raise HTTPException(status_code=404, detail="Deck not found")
+
+    result = repo.add_cards_batch(deck_id, body.card_ids, user_id=user_id)
+    deck = repo.get_deck_with_cards(deck_id, user_id=user_id)
+    return {"added": result["added"], "not_found": result["not_found"], "deck": deck}
 
 
 @router.patch("/{deck_id}/cards/{card_id}")

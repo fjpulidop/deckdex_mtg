@@ -83,9 +83,7 @@ export function DeckCardPickerModal({ deckId, onClose, onAdded }: DeckCardPicker
     if (selected.size === 0) return;
     setAddPending(true);
     try {
-      for (const cardId of selected) {
-        await api.addCardToDeck(deckId, cardId);
-      }
+      await api.addCardsToDeckBatch(deckId, Array.from(selected));
       onAdded();
     } catch {
       // could toast

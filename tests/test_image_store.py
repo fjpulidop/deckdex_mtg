@@ -98,6 +98,47 @@ class TestFilesystemImageStore(unittest.TestCase):
         meta = json.loads(open(meta_path).read())
         self.assertEqual(meta["content_type"], "image/webp")
 
+    # ------------------------------------------------------------------
+    # Security: key validation
+    # ------------------------------------------------------------------
+
+    def test_validate_key_rejects_embedded_slash(self):
+        """Embedded slash must be rejected to prevent subdirectory traversal."""
+        with self.assertRaises(ValueError):
+            self.store.get("foo/bar")
+
+    def test_validate_key_rejects_traversal_without_leading_slash(self):
+        """Path traversal without leading slash must be rejected."""
+        with self.assertRaises(ValueError):
+            self.store.get("uuid/../../etc/passwd")
+
+    def test_validate_key_accepts_uuid(self):
+        """Standard Scryfall UUID key must be accepted."""
+        self.store.put("a1b2c3d4-1234-5678-abcd-ef0123456789", b"data", "image/jpeg")
+        self.assertIsNotNone(self.store.get("a1b2c3d4-1234-5678-abcd-ef0123456789"))
+
+    # ------------------------------------------------------------------
+    # get_path and get_content_type
+    # ------------------------------------------------------------------
+
+    def test_get_path_returns_path_after_put(self):
+        self.store.put("card-path-001", b"data", "image/jpeg")
+        p = self.store.get_path("card-path-001")
+        self.assertIsNotNone(p)
+        self.assertTrue(p.exists())
+        self.assertTrue(p.is_file())
+
+    def test_get_path_returns_none_for_missing(self):
+        self.assertIsNone(self.store.get_path("nonexistent-path-key"))
+
+    def test_get_content_type_without_reading_bytes(self):
+        self.store.put("card-ct-001", b"data", "image/webp")
+        ct = self.store.get_content_type("card-ct-001")
+        self.assertEqual(ct, "image/webp")
+
+    def test_get_content_type_returns_none_for_missing(self):
+        self.assertIsNone(self.store.get_content_type("totally-missing"))
+
 
 if __name__ == "__main__":
     unittest.main()

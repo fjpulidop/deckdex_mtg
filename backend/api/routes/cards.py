@@ -6,14 +6,14 @@ Endpoints for accessing card collection data
 from typing import Any, Dict, List, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
-from fastapi.responses import Response
+from fastapi.responses import FileResponse
 from loguru import logger
 from pydantic import BaseModel
 
 from ..dependencies import clear_collection_cache, get_cached_collection, get_collection_repo, get_current_user_id
 from ..filters import filter_collection
 from ..main import limiter
-from ..services.card_image_service import get_card_image as resolve_card_image
+from ..services.card_image_service import get_card_image_path
 from ..services.scryfall_service import CardNotFoundError, resolve_card_by_name, suggest_card_names
 from .stats import clear_stats_cache
 
@@ -285,14 +285,22 @@ async def list_cards(
 
 @router.get("/{id}/image")
 async def get_card_image(id: int, user_id: int = Depends(get_current_user_id)):
-    """
-    Return the card's image by surrogate id. If not cached, fetch from Scryfall and store globally.
+    """Return the card's image by surrogate id.
+
+    Served via FileResponse (zero-copy). Cache-Control: immutable (1 year).
     Any authenticated user may request any card image — ownership is not required.
     Returns 404 if card not found or image unavailable.
     """
     try:
-        data, media_type = resolve_card_image(id, user_id=user_id)
-        return Response(content=data, media_type=media_type)
+        file_path, media_type, etag = get_card_image_path(id, user_id=user_id)
+        return FileResponse(
+            file_path,
+            media_type=media_type,
+            headers={
+                "Cache-Control": "public, max-age=31536000, immutable",
+                "ETag": etag,
+            },
+        )
     except FileNotFoundError:
         raise HTTPException(status_code=404, detail="Card or image not found")
 

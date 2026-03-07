@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useTriggerProcess, useTriggerPriceUpdate } from '../hooks/useApi';
 
 interface ActionButtonsProps {
@@ -8,6 +9,7 @@ interface ActionButtonsProps {
 }
 
 export function ActionButtons({ onJobStarted, inline }: ActionButtonsProps) {
+  const { t } = useTranslation();
   const triggerProcess = useTriggerProcess();
   const triggerPriceUpdate = useTriggerPriceUpdate();
   const [processScopeOpen, setProcessScopeOpen] = useState(false);
@@ -55,7 +57,7 @@ export function ActionButtons({ onJobStarted, inline }: ActionButtonsProps) {
             disabled={isProcessing}
             className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed transition font-medium dark:bg-blue-500 dark:hover:bg-blue-600"
           >
-            {triggerProcess.isPending ? 'Starting...' : 'Process Cards'}
+            {triggerProcess.isPending ? t('actionButtons.starting') : t('actionButtons.processCards')}
           </button>
           {processScopeOpen && (
             <div className="absolute left-0 top-full mt-1 z-10 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 rounded-lg shadow-lg py-1 min-w-[220px]">
@@ -64,14 +66,14 @@ export function ActionButtons({ onJobStarted, inline }: ActionButtonsProps) {
                 onClick={() => handleProcess('new_only')}
                 className="block w-full text-left px-4 py-2 text-gray-800 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700"
               >
-                New added cards (with only the name)
+                {t('actionButtons.newCards')}
               </button>
               <button
                 type="button"
                 onClick={() => handleProcess('all')}
                 className="block w-full text-left px-4 py-2 text-gray-800 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700"
               >
-                All cards
+                {t('actionButtons.allCards')}
               </button>
             </div>
           )}
@@ -82,7 +84,7 @@ export function ActionButtons({ onJobStarted, inline }: ActionButtonsProps) {
           disabled={isProcessing}
           className="px-6 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:bg-gray-400 disabled:cursor-not-allowed transition font-medium dark:bg-green-500 dark:hover:bg-green-600"
         >
-          {triggerPriceUpdate.isPending ? 'Starting...' : 'Update Prices'}
+          {triggerPriceUpdate.isPending ? t('actionButtons.starting') : t('actionButtons.updatePrices')}
         </button>
       </div>
   );
@@ -90,7 +92,7 @@ export function ActionButtons({ onJobStarted, inline }: ActionButtonsProps) {
   if (inline) return buttons;
   return (
     <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6 mb-8">
-      <h2 className="text-xl font-semibold text-gray-900 dark:text-white mb-4">Actions</h2>
+      <h2 className="text-xl font-semibold text-gray-900 dark:text-white mb-4">{t('actionButtons.actions')}</h2>
       {buttons}
     </div>
   );

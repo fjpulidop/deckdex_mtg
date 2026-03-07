@@ -373,7 +373,7 @@ uvicorn api.main:app --reload --port 8000
       {cardModal === 'add' && (
         <CardFormModal
           mode="add"
-          title="Add card"
+          title={t('dashboard.addCard')}
           initial={undefined}
           onSubmit={handleCardSubmit}
           onClose={() => setCardModal(null)}
