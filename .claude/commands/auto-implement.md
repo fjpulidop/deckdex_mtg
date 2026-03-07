@@ -1,6 +1,6 @@
 # Auto-Implement: Full OpenSpec Lifecycle
 
-Take a feature description and execute the complete OpenSpec lifecycle autonomously, from spec creation to implementation to archival. No user interaction required.
+Take a feature description and execute the complete OpenSpec lifecycle autonomously, using the architect agent for design and the developer agent for implementation. No user interaction required.
 
 **Input:** $ARGUMENTS (a natural language description of what to build, e.g. "add a price history chart to analytics")
 
@@ -14,89 +14,76 @@ Derive a kebab-case change name from the description (e.g. "add a price history 
 
 If a change with that name already exists, append `-v2`, `-v3`, etc.
 
-## Phase 2: Fast-Forward (create all artifacts)
+## Phase 2: Architect (design & artifacts)
 
-Use the **Skill tool** to invoke `openspec-ff-change` with the derived change name:
+Launch an **architect** agent (`subagent_type: architect`) to create all OpenSpec artifacts.
 
-```
-Skill: openspec-ff-change
-Arguments: <change-name>
-```
+The architect's prompt should be:
 
-This runs the full OpenSpec fast-forward workflow:
-- Creates the change via `openspec new change`
-- Loops through artifacts in dependency order using `openspec status --json` and `openspec instructions --json`
-- Creates proposal, design, delta-spec, tasks (or whatever the schema requires)
+> You are designing a feature autonomously. Create high-quality OpenSpec artifacts.
+>
+> **Description:** "<the input description>"
+>
+> Execute the OpenSpec design phase without any user interaction:
+>
+> 1. **Setup**: Change name is `<name>`.
+> 2. **Create change**: Run `openspec new change "<name>"`.
+> 3. **Read codebase**: Before writing any artifact, read the actual code files involved. Read relevant specs from `openspec/specs/`. Read layer-specific CLAUDE.md files and `.claude/rules/`. Understand existing patterns.
+> 4. **Create artifacts** using `openspec status --json` and `openspec instructions --json`:
+>    - **proposal.md**: What and why. Product motivation, scope, success criteria.
+>    - **design.md**: Detailed technical design. Reference actual file paths, existing patterns, real code structures. Include impact analysis, architectural decisions with rationale, and risks/edge cases.
+>    - **delta-spec**: Only sections that change from existing specs.
+>    - **tasks.md**: Atomic, ordered tasks with clear acceptance criteria. Each task specifies files involved and what "done" looks like. Group by layer (Core → Backend → Frontend → Tests). Include test tasks.
+>
+> **Quality standards:**
+> - Every artifact must reference real file paths and existing code patterns
+> - Design decisions must be justified
+> - Tasks must be self-contained and implementable without extra context
+> - Include edge cases, error handling, and migration needs
+>
+> **Rules:**
+> - Never ask for clarification. Make reasonable decisions and document your choices.
+> - Read code before writing artifacts — ground everything in the actual codebase.
+> - Use `openspec` CLI commands throughout.
 
-**Override for autonomy:** When the skill would normally use AskUserQuestion, instead make a reasonable decision based on the input description and codebase context. The input description IS the user's intent — no further clarification needed.
-
-**Artifact quality guidelines:**
-- Proposal: concise, focused on the "what" and "why"
-- Design: reference actual file paths, existing patterns, and real code structures — read code first
-- Delta-spec: only include sections that change
-- Tasks: atomic, ordered, each with clear acceptance criteria. Include test tasks.
+Wait for the architect to complete. Verify artifacts exist in `openspec/changes/<name>/`.
 
 ## Phase 3: Implement (apply all tasks)
 
-Use the **Skill tool** to invoke `openspec-apply-change` with the change name:
+Launch a **developer** agent (`subagent_type: developer`) to implement from the architect's artifacts.
 
-```
-Skill: openspec-apply-change
-Arguments: <change-name>
-```
+The developer's prompt should be:
 
-This runs the full OpenSpec apply workflow:
-- Gets apply instructions via `openspec instructions apply --json`
-- Reads all context files
-- Implements each task sequentially, marking `- [ ]` -> `- [x]`
+> You are implementing a feature that has already been designed by an architect. The OpenSpec change artifacts are ready.
+>
+> **Change name:** "<name>"
+>
+> Execute the implementation phase without any user interaction:
+>
+> 1. **Read the architect's artifacts**: Read all files in `openspec/changes/<name>/`. These are your blueprint.
+> 2. **Read context files**: Read every file referenced in the design and tasks.
+> 3. **Implement**: Follow tasks.md in order. For each task, implement and mark done: `- [ ]` -> `- [x]`.
+> 4. **Verify**: Run `cd frontend && npx tsc --noEmit` and `./venv/bin/pytest tests/ -q`. Fix failures (up to 3 attempts).
+> 5. **Archive**: Run `openspec sync-specs` then `openspec archive change "<name>"`.
+>
+> **Rules:**
+> - Never ask for clarification. The architect's artifacts have your answers.
+> - Follow existing codebase patterns (check similar files before writing new ones).
+> - Backend: thin routes, services for logic, Pydantic models.
+> - Frontend: functional components, TanStack Query, Tailwind, strict TypeScript, i18n in en.json + es.json.
+> - Tests: pytest functions in `tests/`, mock external deps, use `dependency_overrides` with setUp/tearDown per class (NOT module-level).
+> - Use `openspec` CLI commands throughout.
 
-**Override for autonomy:** When the skill would normally pause to ask for clarification on a task, instead make a reasonable decision and add a brief comment in the code explaining the choice. Never stop.
+Wait for the developer to complete.
 
-**Implementation guidelines (apply these during task execution):**
-- Follow existing codebase patterns exactly (check similar files first)
-- Backend: thin routes, services for logic, Pydantic models for responses
-- Frontend: functional components, TanStack Query, Tailwind, strict TypeScript, i18n keys in both en.json and es.json
-- Tests: pytest functions in `tests/`, mock external deps, use `dependency_overrides` for FastAPI (with setUp/tearDown per test class, NOT module-level overrides)
-- Core: no framework imports, config via config_loader, DB via repository
-
-## Phase 4: Verify
-
-Run verification checks:
-
-```bash
-# TypeScript
-cd /Users/javi/repos/deckdex_mtg/frontend && npx tsc --noEmit
-
-# Backend tests
-cd /Users/javi/repos/deckdex_mtg && ./venv/bin/pytest tests/ -q
-```
-
-If tests fail, fix the issues and re-run (up to 3 attempts). Do not proceed to archive with failing tests.
-
-## Phase 5: Archive
-
-Use the **Skill tool** to invoke `openspec-archive-change` with the change name:
-
-```
-Skill: openspec-archive-change
-Arguments: <change-name>
-```
-
-This runs the full OpenSpec archive workflow:
-- Checks artifact and task completion via `openspec status --json`
-- Syncs delta specs to main specs if they exist
-- Moves the change to `openspec/changes/archive/YYYY-MM-DD-<name>/`
-
-**Override for autonomy:** When the skill would normally prompt for confirmation (incomplete tasks, sync choice), auto-confirm and sync. Always sync delta specs before archiving.
-
-## Phase 6: Report
+## Phase 4: Report
 
 Print a summary table:
 
 | Step | Status |
 |------|--------|
 | Change created | `<name>` |
-| Artifacts | list of created artifacts |
+| Architect artifacts | list of created artifacts |
 | Tasks implemented | N/N |
 | TypeScript | pass/fail |
 | Tests | pass/fail (count) |
@@ -109,7 +96,7 @@ List any files created or modified.
 ## Error Handling
 
 - If `openspec new change` fails (name exists): append `-v2` suffix and retry
-- If artifact creation is unclear: make the simplest reasonable choice, note it
-- If implementation hits an issue: try to fix it, if truly blocked skip the task and note it in the report
+- If architect fails: fall back to developer-only mode (developer creates its own artifacts, like the old behavior)
+- If developer hits an issue: try to fix it, if truly blocked skip the task and note it in the report
 - If tests fail after implementation: fix the failing tests (up to 3 attempts), then report
 - Never stop the pipeline for a non-critical issue. Always produce a final report.
