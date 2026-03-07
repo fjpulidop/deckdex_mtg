@@ -45,6 +45,8 @@ def get_card_image(
     if repo is None:
         raise FileNotFoundError("Card images require PostgreSQL (DATABASE_URL)")
 
+    logger.debug(f"get_card_image: card_id={card_id}, user_id={user_id}")
+
     if image_store is None:
         image_store = get_image_store()
 
@@ -59,11 +61,15 @@ def get_card_image(
 
     scryfall_id = card.get("scryfall_id") or None
 
+    logger.debug(f"get_card_image: resolved card name='{name}', scryfall_id={scryfall_id!r}")
+
     # 2) Cache hit via known scryfall_id (filesystem / catalog-synced images)
+    logger.debug(f"get_card_image: checking ImageStore cache, scryfall_id={scryfall_id!r}")
     if scryfall_id:
         try:
             cached = image_store.get(scryfall_id)
             if cached is not None:
+                logger.debug(f"get_card_image: ImageStore cache hit, returning for scryfall_id={scryfall_id}")
                 return cached
         except Exception as e:
             logger.warning(f"Failed to read image store for scryfall_id={scryfall_id}: {e}")
@@ -76,6 +82,8 @@ def get_card_image(
             settings = settings_repo.get_external_apis_settings(user_id)
             scryfall_enabled = settings.get("scryfall_enabled", False)
 
+    logger.debug(f"get_card_image: scryfall_enabled={scryfall_enabled} for user_id={user_id}")
+
     if not scryfall_enabled:
         raise FileNotFoundError(
             f"Image not found in local store for card '{name}'. Enable Scryfall in Settings to download images online."
@@ -84,6 +92,8 @@ def get_card_image(
     # 4) Fetch from Scryfall to get scryfall_id + image URL
     config = load_config(profile=os.getenv("DECKDEX_PROFILE", "default"))
     fetcher = CardFetcher(config.scryfall, config.openai)
+
+    logger.debug(f"get_card_image: cache miss — fetching from Scryfall for name='{name}'")
 
     try:
         scryfall_card = fetcher.search_card(name)
@@ -104,6 +114,10 @@ def get_card_image(
     if not image_url:
         raise FileNotFoundError(f"No image URL for card '{name}'")
 
+    logger.debug(
+        f"get_card_image: Scryfall fetch succeeded, fetched_scryfall_id={fetched_scryfall_id!r}, image_url={image_url!r}"
+    )
+
     # 5) Persist scryfall_id to cards row (lazy)
     if fetched_scryfall_id and fetched_scryfall_id != scryfall_id:
         try:
@@ -123,6 +137,7 @@ def get_card_image(
             logger.warning(f"Failed to read image store (second check) for scryfall_id={scryfall_id}: {e}")
 
     # 7) Download and store via ImageStore
+    logger.debug("get_card_image: downloading image from Scryfall URL")
     try:
         resp = requests.get(image_url, timeout=config.scryfall.timeout)
         resp.raise_for_status()
@@ -135,6 +150,7 @@ def get_card_image(
     if scryfall_id:
         try:
             image_store.put(scryfall_id, data, content_type)
+            logger.debug(f"get_card_image: stored image in ImageStore for scryfall_id={scryfall_id}")
         except Exception as e:
             logger.warning(f"Failed to save image to store for scryfall_id={scryfall_id}: {e}")
 

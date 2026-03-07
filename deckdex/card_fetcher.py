@@ -109,7 +109,7 @@ class CardFetcher:
         Returns:
             The card data if found, None otherwise.
         """
-        url = f"{self.BASE_URL}/cards/named?exact={card_name}"
+        url = f"{self.BASE_URL}/cards/named?exact={quote_plus(card_name)}"
         try:
             return self._make_request(url)
         except Exception:
@@ -125,7 +125,7 @@ class CardFetcher:
         Returns:
             The card data if found, None otherwise.
         """
-        url = f"{self.BASE_URL}/cards/named?fuzzy={card_name}"
+        url = f"{self.BASE_URL}/cards/named?fuzzy={quote_plus(card_name)}"
         try:
             return self._make_request(url)
         except Exception:
@@ -141,7 +141,7 @@ class CardFetcher:
         Returns:
             The first card data if found, None otherwise.
         """
-        url = f"{self.BASE_URL}/cards/search?q={query}"
+        url = f"{self.BASE_URL}/cards/search?q={quote_plus(query)}"
         try:
             response = self._make_request(url)
             if response.get("data") and len(response["data"]) > 0:
