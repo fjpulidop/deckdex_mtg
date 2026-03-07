@@ -86,7 +86,7 @@ Each agent's prompt should be:
 >    - Read the acceptance criteria carefully
 >    - Implement the change following the design's architectural decisions
 >    - Mark the task as done: `- [ ]` -> `- [x]`
-> 4. **Verify**: Run `cd frontend && npx tsc --noEmit` and `./venv/bin/pytest tests/ -q`. Fix failures (up to 3 attempts).
+> 4. **Verify**: Run ALL checks — `ruff check .` (fix with `--fix` if needed), `cd frontend && npx tsc --noEmit`, `./venv/bin/pytest tests/ -q`, and `cd frontend && npx vitest run`. Fix failures (up to 3 attempts).
 > 5. **Archive**: Run `openspec sync-specs` then `openspec archive change "<name>"`.
 >
 > **Rules:**
@@ -107,10 +107,12 @@ Wait for all developers to complete.
 ### 4a. Copy worktree changes to main repo
 For each completed worktree, copy modified/new files back to the main repo. Then clean up worktrees with `git worktree remove`.
 
-### 4b. Verify merged result
-1. TypeScript compiles: `cd frontend && npx tsc --noEmit`
-2. All tests pass: `./venv/bin/pytest tests/ -q`
-3. If any verification fails, fix conflicts and re-verify (up to 3 attempts).
+### 4b. Verify merged result (must pass ALL checks)
+1. Linting: `ruff check .` (fix with `ruff check . --fix` if needed)
+2. TypeScript compiles: `cd frontend && npx tsc --noEmit`
+3. Backend tests pass: `./venv/bin/pytest tests/ -q`
+4. Frontend tests pass: `cd frontend && npx vitest run`
+5. If any verification fails, fix and re-verify (up to 3 attempts).
 
 ### 4c. Git commit, push, and PR
 1. Create a **new branch** from `main`: `git checkout main && git pull && git checkout -b feat/<descriptive-name>`

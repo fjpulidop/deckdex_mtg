@@ -63,7 +63,7 @@ The developer's prompt should be:
 > 1. **Read the architect's artifacts**: Read all files in `openspec/changes/<name>/`. These are your blueprint.
 > 2. **Read context files**: Read every file referenced in the design and tasks.
 > 3. **Implement**: Follow tasks.md in order. For each task, implement and mark done: `- [ ]` -> `- [x]`.
-> 4. **Verify**: Run `cd frontend && npx tsc --noEmit` and `./venv/bin/pytest tests/ -q`. Fix failures (up to 3 attempts).
+> 4. **Verify**: Run ALL checks — `ruff check .` (fix with `--fix` if needed), `cd frontend && npx tsc --noEmit`, `./venv/bin/pytest tests/ -q`, and `cd frontend && npx vitest run`. Fix failures (up to 3 attempts).
 > 5. **Archive**: Run `openspec sync-specs` then `openspec archive change "<name>"`.
 >
 > **Rules:**
@@ -80,10 +80,12 @@ Wait for the developer to complete.
 
 **This phase is fully autonomous — do NOT ask the user for confirmation at any step.**
 
-### 4a. Verify
-1. TypeScript compiles: `cd frontend && npx tsc --noEmit`
-2. All tests pass: `./venv/bin/pytest tests/ -q`
-3. If failures, fix and re-verify (up to 3 attempts).
+### 4a. Verify (must pass ALL checks)
+1. Linting: `ruff check .` (fix with `ruff check . --fix` if needed)
+2. TypeScript compiles: `cd frontend && npx tsc --noEmit`
+3. Backend tests pass: `./venv/bin/pytest tests/ -q`
+4. Frontend tests pass: `cd frontend && npx vitest run`
+5. If failures, fix and re-verify (up to 3 attempts).
 
 ### 4b. Git commit and push
 1. If on a shared/main branch, create a new branch: `git checkout -b feat/<change-name>`
