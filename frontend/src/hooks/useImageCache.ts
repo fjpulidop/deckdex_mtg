@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useCallback, useSyncExternalStore } from 'react';
 import { api } from '../api/client';
 
 interface ImageCacheState {
@@ -10,8 +10,54 @@ interface ImageCacheState {
 // Module-level cache — lives for the browser session (keyed by card id)
 const imageCache = new Map<number, string>();
 
+// Tracks cards that errored
+const errorCards = new Set<number>();
+
 // Tracks in-flight requests to avoid duplicate fetches for the same card
 const inflightRequests = new Map<number, Promise<string>>();
+
+// Subscriber management for useSyncExternalStore
+const listeners = new Set<() => void>();
+function emitChange() {
+  listeners.forEach((fn) => fn());
+}
+function subscribe(listener: () => void) {
+  listeners.add(listener);
+  return () => { listeners.delete(listener); };
+}
+
+// Stable snapshot objects — avoids infinite loops in useSyncExternalStore
+const NULL_STATE: ImageCacheState = { src: null, loading: false, error: false };
+const LOADING_STATE: ImageCacheState = { src: null, loading: true, error: false };
+const ERROR_STATE: ImageCacheState = { src: null, loading: false, error: true };
+const srcSnapshots = new Map<string, ImageCacheState>();
+function getSrcSnapshot(url: string): ImageCacheState {
+  let s = srcSnapshots.get(url);
+  if (!s) {
+    s = { src: url, loading: false, error: false };
+    srcSnapshots.set(url, s);
+  }
+  return s;
+}
+
+function ensureFetching(cardId: number) {
+  if (imageCache.has(cardId) || inflightRequests.has(cardId)) return;
+  const promise = api.fetchCardImage(cardId);
+  inflightRequests.set(cardId, promise);
+  promise.then(
+    (url) => {
+      imageCache.set(cardId, url);
+      errorCards.delete(cardId);
+      inflightRequests.delete(cardId);
+      emitChange();
+    },
+    () => {
+      errorCards.add(cardId);
+      inflightRequests.delete(cardId);
+      emitChange();
+    },
+  );
+}
 
 /**
  * Returns a cached blob URL for a card image.
@@ -21,59 +67,18 @@ const inflightRequests = new Map<number, Promise<string>>();
  * - Blob URLs are never revoked — intentional, as revocation defeats the cache.
  */
 export function useImageCache(cardId: number | null): ImageCacheState {
-  const cached = cardId != null ? imageCache.get(cardId) : undefined;
+  // Kick off fetch outside of getSnapshot (side-effect at render time is fine
+  // for fire-and-forget data fetching — React docs explicitly allow this for
+  // subscriptions to external stores).
+  if (cardId != null) ensureFetching(cardId);
 
-  const [state, setState] = useState<ImageCacheState>(() => {
-    if (cardId == null) return { src: null, loading: false, error: false };
-    if (cached !== undefined) return { src: cached, loading: false, error: false };
-    return { src: null, loading: true, error: false };
-  });
-
-  useEffect(() => {
-    if (cardId == null) {
-      setState({ src: null, loading: false, error: false });
-      return;
-    }
-
-    // Return cached value immediately
-    const cachedUrl = imageCache.get(cardId);
-    if (cachedUrl !== undefined) {
-      setState({ src: cachedUrl, loading: false, error: false });
-      return;
-    }
-
-    let cancelled = false;
-    setState({ src: null, loading: true, error: false });
-
-    // Reuse in-flight promise if one exists for this card
-    let fetchPromise = inflightRequests.get(cardId);
-    if (!fetchPromise) {
-      fetchPromise = api.fetchCardImage(cardId);
-      inflightRequests.set(cardId, fetchPromise);
-      fetchPromise.then(
-        (url) => {
-          imageCache.set(cardId, url);
-          inflightRequests.delete(cardId);
-        },
-        () => {
-          inflightRequests.delete(cardId);
-        },
-      );
-    }
-
-    fetchPromise.then(
-      (url) => {
-        if (!cancelled) setState({ src: url, loading: false, error: false });
-      },
-      () => {
-        if (!cancelled) setState({ src: null, loading: false, error: true });
-      },
-    );
-
-    return () => {
-      cancelled = true;
-    };
+  const getSnapshot = useCallback((): ImageCacheState => {
+    if (cardId == null) return NULL_STATE;
+    const url = imageCache.get(cardId);
+    if (url !== undefined) return getSrcSnapshot(url);
+    if (errorCards.has(cardId)) return ERROR_STATE;
+    return LOADING_STATE;
   }, [cardId]);
 
-  return state;
+  return useSyncExternalStore(subscribe, getSnapshot, getSnapshot);
 }

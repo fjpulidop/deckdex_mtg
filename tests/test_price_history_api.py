@@ -172,8 +172,10 @@ class TestGetPriceHistoryEndpoint(unittest.TestCase):
     def test_image_endpoint_still_works(self):
         """GET /api/cards/{id}/image is not captured by price-history route."""
         mock_repo = _make_mock_repo()
-        with patch(_PATCH_TARGET, return_value=mock_repo), \
-             patch("backend.api.routes.cards.resolve_card_image") as mock_img:
+        with (
+            patch(_PATCH_TARGET, return_value=mock_repo),
+            patch("backend.api.routes.cards.resolve_card_image") as mock_img,
+        ):
             mock_img.return_value = (b"fake-image-data", "image/jpeg")
             response = self.client.get("/api/cards/42/image")
 

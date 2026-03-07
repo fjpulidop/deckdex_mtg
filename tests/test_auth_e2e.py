@@ -164,12 +164,14 @@ class TestJwtDecoding(unittest.TestCase):
 
     def test_decode_jwt_raises_on_expired_token(self):
         from jose import JWTError
+
         token = _make_expired_token()
         with self.assertRaises(JWTError):
             auth_module.decode_jwt(token)
 
     def test_decode_jwt_raises_on_malformed_token(self):
         from jose import JWTError
+
         with self.assertRaises((JWTError, Exception)):
             auth_module.decode_jwt("not.a.valid.jwt")
 
@@ -554,9 +556,7 @@ class TestOAuthCallback(unittest.TestCase):
             patch("backend.api.routes.auth.httpx.AsyncClient", return_value=mock_client),
             patch("backend.api.routes.auth.get_collection_repo", return_value=mock_repo),
         ):
-            resp = self.client.get(
-                "/api/auth/callback?code=google-oauth-code", follow_redirects=False
-            )
+            resp = self.client.get("/api/auth/callback?code=google-oauth-code", follow_redirects=False)
 
         self.assertEqual(resp.status_code, 307)
         location = resp.headers["location"]
@@ -584,9 +584,7 @@ class TestOAuthCallback(unittest.TestCase):
             patch("backend.api.routes.auth.httpx.AsyncClient", return_value=mock_client),
             patch("backend.api.routes.auth.get_collection_repo", return_value=mock_repo),
         ):
-            resp = self.client.get(
-                "/api/auth/callback?code=google-oauth-code", follow_redirects=False
-            )
+            resp = self.client.get("/api/auth/callback?code=google-oauth-code", follow_redirects=False)
 
         self.assertEqual(resp.status_code, 307)
         location = resp.headers["location"]
@@ -598,9 +596,7 @@ class TestOAuthCallback(unittest.TestCase):
             patch.object(auth_module, "GOOGLE_OAUTH_CLIENT_ID", ""),
             patch.object(auth_module, "GOOGLE_OAUTH_CLIENT_SECRET", ""),
         ):
-            resp = self.client.get(
-                "/api/auth/callback?code=google-oauth-code", follow_redirects=False
-            )
+            resp = self.client.get("/api/auth/callback?code=google-oauth-code", follow_redirects=False)
         self.assertEqual(resp.status_code, 307)
         self.assertIn("error=auth_failed", resp.headers["location"])
 
@@ -613,9 +609,7 @@ class TestOAuthCallback(unittest.TestCase):
             patch("backend.api.routes.auth.httpx.AsyncClient", return_value=mock_client),
             patch("backend.api.routes.auth.get_collection_repo", return_value=None),
         ):
-            resp = self.client.get(
-                "/api/auth/callback?code=google-oauth-code", follow_redirects=False
-            )
+            resp = self.client.get("/api/auth/callback?code=google-oauth-code", follow_redirects=False)
 
         self.assertEqual(resp.status_code, 307)
         self.assertIn("error=auth_failed", resp.headers["location"])
