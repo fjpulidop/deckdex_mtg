@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { InsightTimelineData } from '../../api/client';
 
 interface Props {
@@ -7,6 +8,7 @@ interface Props {
 }
 
 export function InsightTimelineRenderer({ data, answerText }: Props) {
+  const { t } = useTranslation();
   const [animated, setAnimated] = useState(false);
 
   useEffect(() => {
@@ -21,7 +23,7 @@ export function InsightTimelineRenderer({ data, answerText }: Props) {
       <p className="text-sm text-gray-600 dark:text-gray-400">{answerText}</p>
 
       {data.items.length === 0 ? (
-        <p className="text-sm text-gray-400 dark:text-gray-500 italic">No timeline data available</p>
+        <p className="text-sm text-gray-400 dark:text-gray-500 italic">{t('insights.timeline.noData')}</p>
       ) : (
         <div className="space-y-2">
           {data.items.map((item, i) => {
@@ -50,7 +52,7 @@ export function InsightTimelineRenderer({ data, answerText }: Props) {
                 {/* Count + value */}
                 <div className="flex items-center gap-1.5 w-32 shrink-0">
                   <span className="text-sm font-medium text-gray-800 dark:text-gray-200 tabular-nums">
-                    {item.count} cards
+                    {t('insights.timeline.cardCount', { count: item.count })}
                   </span>
                   {item.value && (
                     <span className="text-xs text-gray-400 dark:text-gray-500 tabular-nums">

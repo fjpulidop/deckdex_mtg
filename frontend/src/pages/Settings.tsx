@@ -43,7 +43,7 @@ export function Settings() {
       setScryfallMessage(r.configured ? t('settings.credentialsSaved') : t('settings.credentialsCleared'));
       if (r.configured) setScryfallJson('');
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Failed to save Scryfall credentials');
+      setError(e instanceof Error ? e.message : t('settings.errors.failedToSave'));
     } finally {
       setScryfallLoading(false);
     }
@@ -73,7 +73,7 @@ export function Settings() {
       const r = await api.importFromFile(file);
       setImportFileResult(t('settings.importedCards', { count: r.imported }));
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Import failed');
+      setError(e instanceof Error ? e.message : t('settings.errors.importFailed'));
     } finally {
       setImportFileLoading(false);
       e.target.value = '';
@@ -136,7 +136,7 @@ export function Settings() {
                         setScryfallConfigured(false);
                         setScryfallMessage(t('settings.credentialsCleared2'));
                       } catch (e) {
-                        setError(e instanceof Error ? e.message : 'Failed to clear credentials');
+                        setError(e instanceof Error ? e.message : t('settings.errors.failedToClear'));
                       }
                     }}
                     className="px-4 py-2 border border-gray-300 dark:border-gray-600 rounded hover:bg-gray-50 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-200"
@@ -177,7 +177,7 @@ export function Settings() {
                     setScryfallEnabled(r.scryfall_enabled);
                   } catch (e) {
                     setScryfallEnabled(!newVal);
-                    setError(e instanceof Error ? e.message : 'Failed to update setting');
+                    setError(e instanceof Error ? e.message : t('settings.errors.failedToUpdate'));
                   } finally {
                     setScryfallToggleLoading(false);
                   }
