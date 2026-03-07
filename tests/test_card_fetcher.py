@@ -80,7 +80,7 @@ class TestCardFetcher(unittest.TestCase):
         self.assertEqual(result, {"name": "Test Card"})
 
         # Verify the URL
-        expected_url = f"{CardFetcher.BASE_URL}/cards/named?exact=Test Card"
+        expected_url = f"{CardFetcher.BASE_URL}/cards/named?exact=Test+Card"
         mock_make_request.assert_called_once_with(expected_url)
 
     @patch.object(CardFetcher, "_make_request")
@@ -92,7 +92,7 @@ class TestCardFetcher(unittest.TestCase):
         self.assertEqual(result, {"name": "Test Card"})
 
         # Verify the URL
-        expected_url = f"{CardFetcher.BASE_URL}/cards/named?fuzzy=Test Crd"
+        expected_url = f"{CardFetcher.BASE_URL}/cards/named?fuzzy=Test+Crd"
         mock_make_request.assert_called_once_with(expected_url)
 
     @patch.object(CardFetcher, "_call_openai")
@@ -295,6 +295,55 @@ class TestCardFetcher(unittest.TestCase):
             self.assertEqual(
                 result, ({"name": "Test Card", "type_line": "Creature", "oracle_text": "Test text"}, None, None)
             )
+
+
+class TestCardFetcherUrlEncoding(unittest.TestCase):
+    def setUp(self):
+        """Set up the test environment."""
+        self.card_fetcher = CardFetcher(
+            scryfall_config=ScryfallConfig(),
+            openai_config=OpenAIConfig(),
+        )
+
+    @patch.object(CardFetcher, "_make_request")
+    def test_exact_match_search_comma_in_name(self, mock_make_request):
+        """Test that card names with commas are URL-encoded in exact match URLs."""
+        mock_make_request.return_value = {"name": "Jace, the Mind Sculptor"}
+
+        self.card_fetcher._exact_match_search("Jace, the Mind Sculptor")
+
+        expected_url = f"{CardFetcher.BASE_URL}/cards/named?exact=Jace%2C+the+Mind+Sculptor"
+        mock_make_request.assert_called_once_with(expected_url)
+
+    @patch.object(CardFetcher, "_make_request")
+    def test_exact_match_search_apostrophe_in_name(self, mock_make_request):
+        """Test that card names with apostrophes are URL-encoded in exact match URLs."""
+        mock_make_request.return_value = {"name": "Urza's Tower"}
+
+        self.card_fetcher._exact_match_search("Urza's Tower")
+
+        expected_url = f"{CardFetcher.BASE_URL}/cards/named?exact=Urza%27s+Tower"
+        mock_make_request.assert_called_once_with(expected_url)
+
+    @patch.object(CardFetcher, "_make_request")
+    def test_fuzzy_match_search_comma_in_name(self, mock_make_request):
+        """Test that card names with commas are URL-encoded in fuzzy match URLs."""
+        mock_make_request.return_value = {"name": "Jace, the Mind Sculptor"}
+
+        self.card_fetcher._fuzzy_match_search("Jace, the Mind Sculptor")
+
+        expected_url = f"{CardFetcher.BASE_URL}/cards/named?fuzzy=Jace%2C+the+Mind+Sculptor"
+        mock_make_request.assert_called_once_with(expected_url)
+
+    @patch.object(CardFetcher, "_make_request")
+    def test_search_query_encodes_full_expression(self, mock_make_request):
+        """Test that full Scryfall query expressions with special chars are URL-encoded."""
+        mock_make_request.return_value = {"data": [{"name": "Jace, the Mind Sculptor"}]}
+
+        self.card_fetcher._search_query('!"Jace, the Mind Sculptor"')
+
+        expected_url = f"{CardFetcher.BASE_URL}/cards/search?q=%21%22Jace%2C+the+Mind+Sculptor%22"
+        mock_make_request.assert_called_once_with(expected_url)
 
 
 if __name__ == "__main__":
