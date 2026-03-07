@@ -2,6 +2,7 @@
 Tests for price update buffered writes, progress notifications, and resume-from-interruption.
 """
 
+import asyncio
 import contextlib
 import io
 import os
@@ -309,3 +310,122 @@ class TestProcessorServiceUpdatePricesAsync(unittest.IsolatedAsyncioTestCase):
         # The inner run_update catches the exception and returns {"status": "error"}
         self.assertEqual(service.status, "error")
         self.assertEqual(result.get("status"), "error")
+
+
+# ---------------------------------------------------------------------------
+# Task 3 (new) — ProgressCapture unit tests
+# ---------------------------------------------------------------------------
+
+
+class TestProgressCaptureCallback(unittest.TestCase):
+    """Unit tests for ProgressCapture write() and callback firing logic."""
+
+    def test_tqdm_pattern_match_fires_callback(self):
+        """A valid tqdm-formatted string triggers the callback with (current, total, percentage)."""
+        from backend.api.services.processor_service import ProgressCapture
+
+        mock_callback = MagicMock()
+        capture = ProgressCapture(io.StringIO(), mock_callback)
+        capture.write("  45%|#####     | 45/100 [00:05<00:06]")
+
+        self.assertEqual(mock_callback.call_count, 1)
+        args = mock_callback.call_args[0]
+        self.assertEqual(args[0], 45)  # current
+        self.assertEqual(args[1], 100)  # total
+        self.assertEqual(args[2], 45.0)  # percentage
+
+    def test_flush_notification_does_not_fire_callback(self):
+        """A flush/write-notification string that does not match the tqdm regex does not fire the callback."""
+        from backend.api.services.processor_service import ProgressCapture
+
+        mock_callback = MagicMock()
+        capture = ProgressCapture(io.StringIO(), mock_callback)
+        capture.write("\nWrite #1 (40 cards): 12 updates")
+
+        self.assertEqual(mock_callback.call_count, 0)
+
+    def test_cancel_event_set_raises_on_write(self):
+        """When the cancel_event is set, write() raises JobCancelledException."""
+        from backend.api.services.processor_service import JobCancelledException, ProgressCapture
+
+        cancel_event = threading.Event()
+        cancel_event.set()
+        mock_callback = MagicMock()
+        capture = ProgressCapture(io.StringIO(), mock_callback, cancel_event=cancel_event)
+
+        with self.assertRaises(JobCancelledException):
+            capture.write("any text")
+
+
+# ---------------------------------------------------------------------------
+# Task 4 (new) — ProcessorService._on_tqdm_progress unit tests
+# ---------------------------------------------------------------------------
+
+
+class TestProcessorServiceProgressEvents(unittest.IsolatedAsyncioTestCase):
+    """Unit tests for ProcessorService._on_tqdm_progress state mutations and scheduling."""
+
+    def _make_service(self):
+        from backend.api.services.processor_service import ProcessorService
+
+        service = ProcessorService.__new__(ProcessorService)
+        service.config = MagicMock()
+        service.progress_callback = AsyncMock()
+        service._job_repo = None
+        service._user_id = 1
+        service.job_id = "test-job"
+        service.start_time = datetime.now()
+        service.status = "running"
+        service.progress_data = {"current": 0, "total": 0, "percentage": 0.0, "errors": []}
+        service._cancel_flag = threading.Event()
+        service._lock = threading.Lock()
+        service._loop = None
+        return service
+
+    def test_on_tqdm_progress_updates_progress_data(self):
+        """_on_tqdm_progress mutates progress_data correctly when not cancelled and no loop set."""
+        service = self._make_service()
+        # No loop set — only state mutation is exercised, no coroutine is scheduled
+        service._loop = None
+        service._on_tqdm_progress(30, 100, 30.0)
+
+        self.assertEqual(service.progress_data["current"], 30)
+        self.assertEqual(service.progress_data["total"], 100)
+        self.assertEqual(service.progress_data["percentage"], 30.0)
+
+    def test_on_tqdm_progress_skipped_when_cancelled(self):
+        """_on_tqdm_progress returns early without updating state when the cancel flag is set."""
+        service = self._make_service()
+        service._cancel_flag.set()
+        service._on_tqdm_progress(50, 100, 50.0)
+
+        # progress_data must remain at initial values (early return before mutation)
+        self.assertEqual(service.progress_data["current"], 0)
+        self.assertEqual(service.progress_data["total"], 0)
+        self.assertEqual(service.progress_data["percentage"], 0.0)
+
+    async def test_on_tqdm_progress_schedules_coroutine_when_loop_set(self):
+        """When _loop is set, _on_tqdm_progress schedules a 'progress' event via the callback."""
+        service = self._make_service()
+        loop = asyncio.get_event_loop()
+        service._loop = loop
+        service.progress_callback = AsyncMock()
+
+        # _on_tqdm_progress uses run_coroutine_threadsafe which is designed for cross-thread use.
+        # Call it from a background thread so the Future is correctly enqueued onto the running loop.
+        done = threading.Event()
+
+        def call_from_thread():
+            service._on_tqdm_progress(50, 100, 50.0)
+            done.set()
+
+        t = threading.Thread(target=call_from_thread)
+        t.start()
+        t.join(timeout=2)
+
+        # Give the event loop a chance to run the scheduled coroutine
+        await asyncio.sleep(0.05)
+
+        self.assertGreaterEqual(service.progress_callback.call_count, 1)
+        first_call_arg = service.progress_callback.call_args_list[0][0][0]
+        self.assertEqual(first_call_arg["type"], "progress")
