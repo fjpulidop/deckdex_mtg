@@ -5,6 +5,7 @@ Handles OAuth callback, JWT issuance, user lookup, and logout
 
 import hashlib
 import os
+import re
 import uuid
 from datetime import datetime, timedelta
 from pathlib import Path
@@ -16,7 +17,7 @@ from fastapi import APIRouter, HTTPException, Request, Response, status
 from fastapi.responses import FileResponse
 from jose import JWTError, jwt
 from loguru import logger
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from ..dependencies import (
     blacklist_token,
@@ -368,7 +369,7 @@ async def get_current_user(request: Request):
 
 
 class ProfileUpdateRequest(BaseModel):
-    display_name: Optional[str] = None
+    display_name: Optional[str] = Field(default=None, max_length=100)
     avatar_url: Optional[str] = None
 
 
@@ -384,11 +385,21 @@ _SAFE_AVATAR_DOMAINS = {
     "avatars.githubusercontent.com",
 }
 
+# Pattern for validating data URIs produced by canvas.toDataURL (image/* only, non-empty base64)
+_DATA_URI_RE = re.compile(r"^data:image/(jpeg|png|gif|webp);base64,[A-Za-z0-9+/]+=*$")
+
 
 def _validate_avatar_url(url: Optional[str]) -> Optional[str]:
-    """Validate that avatar_url is a safe HTTPS URL or None."""
+    """Validate that avatar_url is a safe HTTPS URL, a valid data URI, or None."""
     if not url:
         return None
+    if url.startswith("data:"):
+        if not _DATA_URI_RE.match(url):
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Invalid data URI format for avatar",
+            )
+        return url
     parsed = urlparse(url)
     if parsed.scheme != "https":
         raise HTTPException(
@@ -430,6 +441,14 @@ async def update_profile(request: Request, body: ProfileUpdateRequest):
     )
     if updated is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
+
+    # Invalidate stale cached avatar files for this user when avatar_url changed
+    if body.avatar_url is not None:
+        for cached_file in _AVATAR_CACHE_DIR.glob(f"{user_id}_*"):
+            try:
+                cached_file.unlink(missing_ok=True)
+            except OSError as exc:
+                logger.debug(f"Avatar cache cleanup failed for user {user_id}: {exc}")
 
     return UserPayload(
         id=updated["id"],

@@ -180,6 +180,25 @@ export interface DeckImportResponse {
   deck: DeckWithCards;
 }
 
+export interface BatchAddResult {
+  added: number[];
+  not_found: number[];
+  deck: DeckWithCards;
+}
+
+export interface ProfileUpdateBody {
+  display_name?: string;
+  avatar_url?: string;
+}
+
+export interface ProfileResponse {
+  id: number;
+  email: string;
+  display_name?: string | null;
+  picture?: string | null;
+  is_admin: boolean;
+}
+
 // Insights types
 export interface InsightCatalogEntry {
   id: string;
@@ -757,6 +776,23 @@ export const api = {
     }
     return response.json();
   },
+  addCardsToDeckBatch: async (
+    deckId: number,
+    cardIds: number[]
+  ): Promise<BatchAddResult> => {
+    const response = await apiFetch(`${API_BASE}/decks/${deckId}/cards/batch`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ card_ids: cardIds }),
+    });
+    if (!response.ok) {
+      const err = await response.json().catch(() => ({}));
+      if (response.status === 404) throw new Error('Deck not found');
+      if (response.status === 501) throw new Error((err as { detail?: string }).detail || 'Decks require Postgres');
+      throw new Error((err as { detail?: string }).detail || 'Failed to add cards');
+    }
+    return response.json();
+  },
   removeCardFromDeck: async (deckId: number, cardId: number): Promise<void> => {
     const response = await apiFetch(`${API_BASE}/decks/${deckId}/cards/${cardId}`, {
       method: 'DELETE',
@@ -840,6 +876,19 @@ export const api = {
     if (!response.ok) {
       const err = await response.json().catch(() => ({}));
       throw new Error((err as { detail?: string }).detail || 'Failed to fetch catalog sync status');
+    }
+    return response.json();
+  },
+
+  updateProfile: async (body: ProfileUpdateBody): Promise<ProfileResponse> => {
+    const response = await apiFetch(`${API_BASE}/auth/profile`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    });
+    if (!response.ok) {
+      const err = await response.json().catch(() => ({}));
+      throw new Error((err as { detail?: string }).detail || 'Failed to update profile');
     }
     return response.json();
   },

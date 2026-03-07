@@ -860,3 +860,123 @@ class TestProfileUpdate(unittest.TestCase):
             resp = self.client.patch("/api/auth/profile", json={"display_name": "Ghost"})
 
         self.assertEqual(resp.status_code, 404)
+
+    def test_profile_update_data_uri_avatar_succeeds(self):
+        token = _make_token(user_id=10, email="user10@example.com")
+        data_uri = "data:image/jpeg;base64,/9j/4AAQSkZJRgAB"
+        updated = {
+            "id": 10,
+            "email": "user10@example.com",
+            "display_name": None,
+            "avatar_url": data_uri,
+            "is_admin": False,
+        }
+        mock_repo = self._make_profile_mock_repo(updated)
+        self.client.cookies.set("access_token", token)
+        with patch("backend.api.routes.auth.get_collection_repo", return_value=mock_repo):
+            resp = self.client.patch("/api/auth/profile", json={"avatar_url": data_uri})
+        self.assertEqual(resp.status_code, 200)
+
+    def test_profile_update_data_uri_wrong_mime_rejected(self):
+        token = _make_token(user_id=10, email="user10@example.com")
+        self.client.cookies.set("access_token", token)
+        resp = self.client.patch(
+            "/api/auth/profile",
+            json={"avatar_url": "data:text/html;base64,PHNjcmlwdD4="},
+        )
+        self.assertEqual(resp.status_code, 400)
+
+    def test_profile_update_data_uri_empty_data_rejected(self):
+        token = _make_token(user_id=10, email="user10@example.com")
+        self.client.cookies.set("access_token", token)
+        resp = self.client.patch(
+            "/api/auth/profile",
+            json={"avatar_url": "data:image/jpeg;base64,"},
+        )
+        self.assertEqual(resp.status_code, 400)
+
+    def test_profile_update_display_name_too_long_returns_400(self):
+        token = _make_token(user_id=10, email="user10@example.com")
+        self.client.cookies.set("access_token", token)
+        resp = self.client.patch(
+            "/api/auth/profile",
+            json={"display_name": "A" * 101},
+        )
+        self.assertEqual(resp.status_code, 400)
+
+    def test_profile_update_display_name_at_max_length_succeeds(self):
+        token = _make_token(user_id=10, email="user10@example.com")
+        name_100 = "A" * 100
+        updated = {
+            "id": 10,
+            "email": "user10@example.com",
+            "display_name": name_100,
+            "avatar_url": None,
+            "is_admin": False,
+        }
+        mock_repo = self._make_profile_mock_repo(updated)
+        self.client.cookies.set("access_token", token)
+        with patch("backend.api.routes.auth.get_collection_repo", return_value=mock_repo):
+            resp = self.client.patch("/api/auth/profile", json={"display_name": name_100})
+        self.assertEqual(resp.status_code, 200)
+
+    def test_profile_update_avatar_invalidates_cache(self):
+        import tempfile
+        from pathlib import Path
+
+        token = _make_token(user_id=42, email="user42@example.com")
+        data_uri = "data:image/jpeg;base64,/9j/4AAQSkZJRgAB"
+        updated = {
+            "id": 42,
+            "email": "user42@example.com",
+            "display_name": None,
+            "avatar_url": data_uri,
+            "is_admin": False,
+        }
+        mock_repo = self._make_profile_mock_repo(updated)
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            cache_dir = Path(tmpdir)
+            (cache_dir / "42_abc123.img").write_bytes(b"fake")
+            (cache_dir / "42_abc123.ct").write_text("image/jpeg")
+            (cache_dir / "99_other.img").write_bytes(b"other")  # should NOT be deleted
+
+            self.client.cookies.set("access_token", token)
+            with (
+                patch("backend.api.routes.auth.get_collection_repo", return_value=mock_repo),
+                patch("backend.api.routes.auth._AVATAR_CACHE_DIR", cache_dir),
+            ):
+                resp = self.client.patch("/api/auth/profile", json={"avatar_url": data_uri})
+
+            self.assertEqual(resp.status_code, 200)
+            self.assertFalse((cache_dir / "42_abc123.img").exists())
+            self.assertFalse((cache_dir / "42_abc123.ct").exists())
+            self.assertTrue((cache_dir / "99_other.img").exists())  # unrelated user untouched
+
+    def test_profile_update_display_name_only_does_not_invalidate_cache(self):
+        import tempfile
+        from pathlib import Path
+
+        token = _make_token(user_id=43, email="user43@example.com")
+        updated = {
+            "id": 43,
+            "email": "user43@example.com",
+            "display_name": "New Name",
+            "avatar_url": None,
+            "is_admin": False,
+        }
+        mock_repo = self._make_profile_mock_repo(updated)
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            cache_dir = Path(tmpdir)
+            (cache_dir / "43_xyz.img").write_bytes(b"cached")
+
+            self.client.cookies.set("access_token", token)
+            with (
+                patch("backend.api.routes.auth.get_collection_repo", return_value=mock_repo),
+                patch("backend.api.routes.auth._AVATAR_CACHE_DIR", cache_dir),
+            ):
+                resp = self.client.patch("/api/auth/profile", json={"display_name": "New Name"})
+
+            self.assertEqual(resp.status_code, 200)
+            self.assertTrue((cache_dir / "43_xyz.img").exists())  # cache not touched

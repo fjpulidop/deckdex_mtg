@@ -225,7 +225,8 @@
     "saving": "Guardando…",
     "save": "Guardar",
     "adjustPhoto": "Ajustar foto",
-    "apply": "Aplicar"
+    "apply": "Aplicar",
+    "nameTooLong": "El nombre debe tener 100 caracteres o menos"
   },
   "settings": {
     "title": "Ajustes",
