@@ -34,6 +34,17 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
     applyTheme(theme);
   }, [theme]);
 
+  useEffect(() => {
+    const handleStorage = (event: StorageEvent) => {
+      if (event.key === STORAGE_KEY && (event.newValue === 'dark' || event.newValue === 'light')) {
+        setThemeState(event.newValue);
+        applyTheme(event.newValue);
+      }
+    };
+    window.addEventListener('storage', handleStorage);
+    return () => window.removeEventListener('storage', handleStorage);
+  }, []);
+
   const setTheme = (next: Theme) => {
     setThemeState(next);
     window.localStorage.setItem(STORAGE_KEY, next);
