@@ -40,7 +40,7 @@ function CardTile({ card, onRowClick }: CardTileProps) {
   }, []);
 
   const cardId = isVisible && card.id != null ? card.id : null;
-  const { src, loading } = useImageCache(cardId);
+  const { src, loading, error } = useImageCache(cardId);
 
   return (
     <button
@@ -55,8 +55,42 @@ function CardTile({ card, onRowClick }: CardTileProps) {
         <div className="absolute inset-0 bg-gray-200 dark:bg-gray-700" aria-hidden />
       )}
 
-      {/* Loading skeleton */}
-      {isVisible && (loading || (!src)) && (
+      {/* Quantity badge — shown for multi-copy cards */}
+      {(card.quantity ?? 0) > 1 && (
+        <div
+          className="absolute top-1 right-1 z-10 bg-indigo-600 text-white text-xs font-bold rounded-full w-5 h-5 flex items-center justify-center"
+          aria-label={t('gallery.quantityBadge', { count: card.quantity })}
+        >
+          {card.quantity}
+        </div>
+      )}
+
+      {/* Error placeholder — static, no animation */}
+      {isVisible && error && (
+        <div
+          className="absolute inset-0 flex flex-col items-center justify-center bg-gray-100 dark:bg-gray-800 text-gray-400 dark:text-gray-500 gap-1 p-2"
+          aria-label={t('cardDetail.imageUnavailable')}
+        >
+          <svg
+            className="w-8 h-8 opacity-40"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="1.5"
+            aria-hidden="true"
+          >
+            <rect x="3" y="2" width="18" height="20" rx="2" />
+            <circle cx="12" cy="11" r="4" />
+            <path d="M8 18c0-2.2 1.8-4 4-4s4 1.8 4 4" />
+          </svg>
+          <span className="text-xs text-center leading-tight">
+            {t('cardDetail.imageUnavailable')}
+          </span>
+        </div>
+      )}
+
+      {/* Loading skeleton — only when genuinely loading (not error) */}
+      {isVisible && !error && (loading || !src) && (
         <div className="absolute inset-0 animate-pulse bg-gray-300 dark:bg-gray-600" aria-hidden />
       )}
 
@@ -102,6 +136,9 @@ export function CardGallery({
   page = 1,
   totalPages = 1,
   onPageChange,
+  sortBy,
+  sortDir,
+  onSortChange,
 }: CardCollectionViewProps) {
   const { t } = useTranslation();
   const containerRef = useRef<HTMLDivElement>(null);
@@ -112,8 +149,8 @@ export function CardGallery({
   }, [page]);
 
   // Toolbar
-  const toolbar = (onAdd || onImport || onUpdatePrices) && (
-    <div className="px-6 py-3 border-b border-gray-200 dark:border-gray-600 flex flex-wrap gap-2">
+  const toolbar = (onAdd || onImport || onUpdatePrices || onSortChange) && (
+    <div className="px-6 py-3 border-b border-gray-200 dark:border-gray-600 flex flex-wrap items-center gap-2">
       {onAdd && (
         <button
           type="button"
@@ -141,6 +178,31 @@ export function CardGallery({
         >
           {updatingPrices ? t('cardTable.starting') : t('cardTable.updatePrices')}
         </button>
+      )}
+      {onSortChange && (
+        <div className="ml-auto flex items-center gap-2">
+          <select
+            id="gallery-sort-by"
+            value={sortBy ?? 'created_at'}
+            onChange={(e) => onSortChange(e.target.value, sortDir ?? 'desc')}
+            className="text-sm border border-gray-300 dark:border-gray-600 rounded px-2 py-1 bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-200"
+            aria-label={t('gallery.sortBy')}
+          >
+            <option value="name">{t('cardTable.columns.name')}</option>
+            <option value="type">{t('cardTable.columns.type')}</option>
+            <option value="rarity">{t('cardTable.columns.rarity')}</option>
+            <option value="price">{t('cardTable.columns.price')}</option>
+            <option value="created_at">{t('cardTable.columns.added')}</option>
+          </select>
+          <button
+            type="button"
+            onClick={() => onSortChange(sortBy ?? 'created_at', sortDir === 'asc' ? 'desc' : 'asc')}
+            aria-label={sortDir === 'asc' ? t('gallery.sortDirDesc') : t('gallery.sortDirAsc')}
+            className="p-1 rounded border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-600"
+          >
+            {sortDir === 'asc' ? '\u2191' : '\u2193'}
+          </button>
+        </div>
       )}
     </div>
   );
@@ -178,13 +240,11 @@ export function CardGallery({
       {toolbar}
 
       {/* Grid */}
-      <div className={`p-4 ${GRID_CLASSES}`}>
+      <div role="list" className={`p-4 ${GRID_CLASSES}`}>
         {cards.map((card, index) => (
-          <CardTile
-            key={card.id ?? index}
-            card={card}
-            onRowClick={onRowClick}
-          />
+          <div key={card.id ?? index} role="listitem">
+            <CardTile card={card} onRowClick={onRowClick} />
+          </div>
         ))}
       </div>
 
