@@ -60,7 +60,7 @@ export function ProfileModal({ onClose }: ProfileModalProps) {
   const [error, setError] = useState<string | null>(null);
   const [nameError, setNameError] = useState<string | null>(null);
 
-  // ESC to close crop sub-modal (AccessibleModal handles outer ESC)
+  // ESC to close crop sub-modal only (capture phase stops outer AccessibleModal from also closing)
   useEffect(() => {
     if (!cropOpen) return;
     const handler = (e: KeyboardEvent) => {
@@ -69,8 +69,9 @@ export function ProfileModal({ onClose }: ProfileModalProps) {
         setCropOpen(false);
       }
     };
-    document.addEventListener('keydown', handler);
-    return () => document.removeEventListener('keydown', handler);
+    // Use capture phase (true) to intercept before AccessibleModal's bubble-phase handler
+    document.addEventListener('keydown', handler, true);
+    return () => document.removeEventListener('keydown', handler, true);
   }, [cropOpen]);
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -215,11 +216,11 @@ export function ProfileModal({ onClose }: ProfileModalProps) {
 
       {/* Crop sub-modal */}
       {cropOpen && rawImageSrc && (
-        <div
-          className="fixed inset-0 z-[60] flex items-center justify-center bg-black/70"
-          role="dialog"
-          aria-modal="true"
-          aria-labelledby="crop-modal-title"
+        <AccessibleModal
+          isOpen={true}
+          onClose={() => setCropOpen(false)}
+          titleId="crop-modal-title"
+          className="z-[60]"
         >
           <div className="bg-white dark:bg-gray-800 rounded-xl shadow-2xl w-full max-w-sm mx-4 p-6">
             <div className="flex items-center justify-between mb-4">
@@ -277,7 +278,7 @@ export function ProfileModal({ onClose }: ProfileModalProps) {
               </button>
             </div>
           </div>
-        </div>
+        </AccessibleModal>
       )}
     </>
   );
