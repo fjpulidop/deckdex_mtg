@@ -7,6 +7,7 @@ falling back to Scryfall download (only when the user has enabled Scryfall).
 
 import os
 import sys
+from pathlib import Path
 from typing import Optional, Tuple
 
 # Project root for default data path
@@ -138,3 +139,43 @@ def get_card_image(
             logger.warning(f"Failed to save image to store for scryfall_id={scryfall_id}: {e}")
 
     return data, content_type
+
+
+def get_card_image_path(
+    card_id: int,
+    image_store: ImageStore = None,
+    user_id: Optional[int] = None,
+) -> Tuple[Path, str, str]:
+    """Return (file_path, content_type, etag) for the given card id.
+
+    Same lookup flow as get_card_image, but returns the filesystem path
+    for zero-copy serving via FileResponse instead of loading bytes into memory.
+
+    On first-ever request for a card, calls get_card_image to trigger download/storage
+    if needed. Subsequent requests use only get_path (no byte read).
+
+    Raises FileNotFoundError if card not found or image unavailable.
+    """
+    from ..dependencies import get_collection_repo, get_image_store
+
+    if image_store is None:
+        image_store = get_image_store()
+
+    # Trigger download/storage if not already cached; resolves scryfall_id lazily.
+    # On cache hit this reads bytes once; the FileResponse skips the second read.
+    get_card_image(card_id, image_store=image_store, user_id=user_id)
+
+    # Retrieve scryfall_id to locate the cached file path.
+    repo = get_collection_repo()
+    card = repo.get_card_by_id(card_id) if repo is not None else None
+    scryfall_id = card.get("scryfall_id") if card else None
+
+    if scryfall_id:
+        file_path = image_store.get_path(scryfall_id)
+        if file_path is not None:
+            s = file_path.stat()
+            etag = f'"{s.st_mtime_ns:x}-{s.st_size:x}"'
+            content_type = image_store.get_content_type(scryfall_id) or "image/jpeg"
+            return file_path, content_type, etag
+
+    raise FileNotFoundError(f"Image path not available for card_id={card_id}")

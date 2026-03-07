@@ -171,14 +171,27 @@ class TestGetPriceHistoryEndpoint(unittest.TestCase):
 
     def test_image_endpoint_still_works(self):
         """GET /api/cards/{id}/image is not captured by price-history route."""
-        mock_repo = _make_mock_repo()
-        with (
-            patch(_PATCH_TARGET, return_value=mock_repo),
-            patch("backend.api.routes.cards.resolve_card_image") as mock_img,
-        ):
-            mock_img.return_value = (b"fake-image-data", "image/jpeg")
-            response = self.client.get("/api/cards/42/image")
+        import shutil
+        import tempfile
+        from pathlib import Path
 
-        # Should hit the image endpoint (not the price-history route)
-        self.assertNotEqual(response.status_code, 404)
-        mock_img.assert_called_once()
+        tmpdir = tempfile.mkdtemp()
+        try:
+            img_path = Path(tmpdir) / "card.jpg"
+            img_path.write_bytes(b"\xff\xd8\xff\xe0fake-jpeg-data")
+            s = img_path.stat()
+            etag = f'"{s.st_mtime_ns:x}-{s.st_size:x}"'
+
+            mock_repo = _make_mock_repo()
+            with (
+                patch(_PATCH_TARGET, return_value=mock_repo),
+                patch("backend.api.routes.cards.get_card_image_path") as mock_img_path,
+            ):
+                mock_img_path.return_value = (img_path, "image/jpeg", etag)
+                response = self.client.get("/api/cards/42/image")
+
+            # Should hit the image endpoint (not the price-history route)
+            self.assertNotEqual(response.status_code, 404)
+            mock_img_path.assert_called_once()
+        finally:
+            shutil.rmtree(tmpdir, ignore_errors=True)

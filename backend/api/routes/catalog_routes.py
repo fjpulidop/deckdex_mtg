@@ -2,7 +2,8 @@
 
 import asyncio
 
-from fastapi import APIRouter, Depends, HTTPException, Query, Response
+from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi.responses import FileResponse
 
 from ..dependencies import get_current_user_id
 from ..services import catalog_service
@@ -77,13 +78,22 @@ async def get_card_image(
     scryfall_id: str,
     user_id: int = Depends(get_current_user_id),
 ):
-    """Serve a catalog card image from filesystem."""
+    """Serve a catalog card image from filesystem. Cache-Control: immutable."""
     _, image_store = _get_stores()
-    result = catalog_service.get_image(image_store, scryfall_id)
-    if result is None:
+    file_path = image_store.get_path(scryfall_id)
+    if file_path is None:
         raise HTTPException(status_code=404, detail="Image not found")
-    data, content_type = result
-    return Response(content=data, media_type=content_type)
+    content_type = image_store.get_content_type(scryfall_id) or "image/jpeg"
+    s = file_path.stat()
+    etag = f'"{s.st_mtime_ns:x}-{s.st_size:x}"'
+    return FileResponse(
+        file_path,
+        media_type=content_type,
+        headers={
+            "Cache-Control": "public, max-age=31536000, immutable",
+            "ETag": etag,
+        },
+    )
 
 
 # ------------------------------------------------------------------
