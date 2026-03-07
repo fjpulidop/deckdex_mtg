@@ -1,8 +1,10 @@
 import React, { useEffect, useRef } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import { useAuth } from '../contexts/AuthContext';
 
 const AuthCallback: React.FC = () => {
+  const { t } = useTranslation();
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
   const { refreshUser } = useAuth();
@@ -41,7 +43,7 @@ const AuthCallback: React.FC = () => {
     <div className="flex items-center justify-center min-h-screen bg-gray-900">
       <div className="text-center">
         <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500 mx-auto" />
-        <p className="mt-4 text-gray-400">Signing in…</p>
+        <p className="mt-4 text-gray-400">{t('login.loading')}</p>
       </div>
     </div>
   );

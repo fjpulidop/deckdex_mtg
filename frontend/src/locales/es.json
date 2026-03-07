@@ -45,15 +45,19 @@
     }
   },
   "viewToggle": {
-    "label": "Cambiar vista de la colecci\u00f3n",
+    "label": "Cambiar vista de la colección",
     "table": "Vista de tabla",
-    "gallery": "Vista de galer\u00eda"
+    "gallery": "Vista de galería"
   },
   "gallery": {
     "tileLabel": "Ver detalles de {{name}}",
     "unknownCard": "Carta desconocida",
     "noCards": "No se encontraron cartas. Prueba ajustando los filtros.",
-    "loading": "Cargando cartas\u2026"
+    "loading": "Cargando cartas…",
+    "sortBy": "Ordenar por",
+    "sortDirAsc": "Orden ascendente",
+    "sortDirDesc": "Orden descendente",
+    "quantityBadge": "{{count}} copias"
   },
   "cardTable": {
     "addCard": "Añadir carta",
@@ -296,7 +300,8 @@
       "planeswalker": "Planeswalker",
       "land": "Tierra",
       "battle": "Batalla"
-    }
+    },
+    "searchLabel": "Buscar cartas"
   },
   "import": {
     "backToDashboard": "← Volver al panel",
@@ -540,7 +545,10 @@
     "noCards": "No se encontraron cartas...",
     "results_one": "Resultados: {{count}} carta",
     "results_other": "Resultados: {{count}} cartas",
-    "disclaimer": "Datos de demostración — los precios reales pueden variar"
+    "disclaimer": "Datos de demostración — los precios reales pueden variar",
+    "bannerText": "Estás viendo una demo con datos de muestra.",
+    "bannerSignIn": "Inicia sesión con Google",
+    "bannerDismiss": "Cerrar banner"
   },
   "navbar": {
     "collection": "Colección",
@@ -551,7 +559,9 @@
     "settings": "Ajustes",
     "profile": "Perfil",
     "logout": "Cerrar sesión",
-    "switchLanguage": "Cambiar idioma"
+    "switchLanguage": "Cambiar idioma",
+    "userMenu": "Menú de usuario",
+    "toggleMobileMenu": "Abrir/cerrar menú móvil"
   },
   "actionButtons": {
     "starting": "Iniciando...",
@@ -560,5 +570,14 @@
     "allCards": "Todas las cartas",
     "updatePrices": "Actualizar precios",
     "actions": "Acciones"
+  },
+  "priceChart": {
+    "title": "Historial de precios",
+    "noHistory": "Aún no hay historial de precios — ejecuta una actualización de precios para comenzar.",
+    "tooltipLabel": "Precio"
+  },
+  "themeToggle": {
+    "switchToDark": "Cambiar a modo oscuro",
+    "switchToLight": "Cambiar a modo claro"
   }
 }

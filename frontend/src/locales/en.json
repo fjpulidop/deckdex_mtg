@@ -53,7 +53,11 @@
     "tileLabel": "View details for {{name}}",
     "unknownCard": "Unknown card",
     "noCards": "No cards found. Try adjusting your filters.",
-    "loading": "Loading cards\u2026"
+    "loading": "Loading cards…",
+    "sortBy": "Sort by",
+    "sortDirAsc": "Sort ascending",
+    "sortDirDesc": "Sort descending",
+    "quantityBadge": "{{count}} copies"
   },
   "cardTable": {
     "addCard": "Add card",
@@ -296,7 +300,8 @@
       "planeswalker": "Planeswalker",
       "land": "Land",
       "battle": "Battle"
-    }
+    },
+    "searchLabel": "Search cards"
   },
   "import": {
     "backToDashboard": "← Back to dashboard",
@@ -540,7 +545,10 @@
     "noCards": "No cards found...",
     "results_one": "Results: {{count}} card",
     "results_other": "Results: {{count}} cards",
-    "disclaimer": "Demo data — actual prices vary"
+    "disclaimer": "Demo data — actual prices vary",
+    "bannerText": "You're viewing a demo with sample data.",
+    "bannerSignIn": "Sign in with Google",
+    "bannerDismiss": "Dismiss banner"
   },
   "navbar": {
     "collection": "Collection",
@@ -551,7 +559,9 @@
     "settings": "Settings",
     "profile": "Profile",
     "logout": "Log out",
-    "switchLanguage": "Switch language"
+    "switchLanguage": "Switch language",
+    "userMenu": "User menu",
+    "toggleMobileMenu": "Toggle mobile menu"
   },
   "actionButtons": {
     "starting": "Starting...",
@@ -560,5 +570,14 @@
     "allCards": "All cards",
     "updatePrices": "Update Prices",
     "actions": "Actions"
+  },
+  "priceChart": {
+    "title": "Price History",
+    "noHistory": "No price history yet — run a price update to start tracking.",
+    "tooltipLabel": "Price"
+  },
+  "themeToggle": {
+    "switchToDark": "Switch to dark mode",
+    "switchToLight": "Switch to light mode"
   }
 }

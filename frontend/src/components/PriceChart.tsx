@@ -7,6 +7,7 @@ import {
   Tooltip,
   ResponsiveContainer,
 } from 'recharts';
+import { useTranslation } from 'react-i18next';
 import type { PriceHistoryPoint } from '../api/client';
 
 interface PriceChartProps {
@@ -21,10 +22,12 @@ function formatDate(iso: string): string {
 }
 
 export function PriceChart({ points, currency = 'eur', isLoading = false }: PriceChartProps) {
+  const { t } = useTranslation();
+
   if (isLoading) {
     return (
       <div className="mt-4">
-        <div className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">Price History</div>
+        <div className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">{t('priceChart.title')}</div>
         <div className="h-40 bg-gray-200 dark:bg-gray-700 rounded animate-pulse" />
       </div>
     );
@@ -33,9 +36,9 @@ export function PriceChart({ points, currency = 'eur', isLoading = false }: Pric
   if (points.length === 0) {
     return (
       <div className="mt-4">
-        <div className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">Price History</div>
+        <div className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">{t('priceChart.title')}</div>
         <div className="h-20 flex items-center justify-center text-sm text-gray-500 dark:text-gray-400 bg-gray-50 dark:bg-gray-700/50 rounded border border-dashed border-gray-300 dark:border-gray-600">
-          No price history yet — run a price update to start tracking.
+          {t('priceChart.noHistory')}
         </div>
       </div>
     );
@@ -49,7 +52,7 @@ export function PriceChart({ points, currency = 'eur', isLoading = false }: Pric
 
   return (
     <div className="mt-4">
-      <div className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">Price History</div>
+      <div className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">{t('priceChart.title')}</div>
       <ResponsiveContainer width="100%" height={160}>
         <LineChart data={chartData} margin={{ top: 4, right: 8, left: 0, bottom: 0 }}>
           <CartesianGrid strokeDasharray="3 3" className="stroke-gray-200 dark:stroke-gray-700" />
@@ -67,7 +70,7 @@ export function PriceChart({ points, currency = 'eur', isLoading = false }: Pric
             width={48}
           />
           <Tooltip
-            formatter={(value: number) => [`${currencySymbol}${value.toFixed(2)}`, 'Price']}
+            formatter={(value: number) => [`${currencySymbol}${value.toFixed(2)}`, t('priceChart.tooltipLabel')]}
           />
           <Line
             type="monotone"

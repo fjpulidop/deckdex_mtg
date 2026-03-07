@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { InsightDistributionData } from '../../api/client';
 
 interface Props {
@@ -18,6 +19,7 @@ const COLOR_BAR_CLASSES: Record<string, string> = {
 const DEFAULT_BAR_CLASS = 'bg-indigo-500 dark:bg-indigo-600';
 
 export function InsightDistributionRenderer({ data, answerText }: Props) {
+  const { i18n } = useTranslation();
   const [animated, setAnimated] = useState(false);
 
   useEffect(() => {
@@ -66,7 +68,7 @@ export function InsightDistributionRenderer({ data, answerText }: Props) {
               {/* Stats */}
               <div className="flex items-center gap-2 w-28 shrink-0 text-right justify-end">
                 <span className="text-sm font-medium text-gray-800 dark:text-gray-200 tabular-nums">
-                  {item.value ?? item.count.toLocaleString('es-ES')}
+                  {item.value ?? item.count.toLocaleString(i18n.language)}
                 </span>
                 <span className="text-xs text-gray-400 dark:text-gray-500 tabular-nums">
                   {item.percentage.toFixed(1)}%
