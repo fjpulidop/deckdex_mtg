@@ -464,3 +464,47 @@ class TestProcessorServiceSingleCardPersist(unittest.IsolatedAsyncioTestCase):
         mock_end.assert_called_once()
         end_args = mock_end.call_args[0]
         self.assertEqual(end_args[0], "error")
+
+
+# ---------------------------------------------------------------------------
+# Startup event cleans up both orphaned jobs and orphaned catalog syncs
+# ---------------------------------------------------------------------------
+
+
+class TestStartupOrphanCleanup(unittest.TestCase):
+    """Verify startup_event calls both mark_orphans_as_error and mark_orphan_syncs."""
+
+    def test_startup_calls_both_orphan_cleanups(self):
+        import asyncio
+
+        from backend.api.main import startup_event
+
+        mock_job_repo = MagicMock()
+        mock_job_repo.mark_orphans_as_error.return_value = 0
+        mock_catalog_repo = MagicMock()
+        mock_catalog_repo.mark_orphan_syncs.return_value = 0
+
+        with (
+            patch("backend.api.dependencies.get_job_repo", return_value=mock_job_repo),
+            patch("backend.api.dependencies.get_catalog_repo", return_value=mock_catalog_repo),
+        ):
+            asyncio.run(startup_event())
+
+        mock_job_repo.mark_orphans_as_error.assert_called_once()
+        mock_catalog_repo.mark_orphan_syncs.assert_called_once()
+
+    def test_startup_tolerates_catalog_repo_none(self):
+        import asyncio
+
+        from backend.api.main import startup_event
+
+        mock_job_repo = MagicMock()
+        mock_job_repo.mark_orphans_as_error.return_value = 0
+
+        with (
+            patch("backend.api.dependencies.get_job_repo", return_value=mock_job_repo),
+            patch("backend.api.dependencies.get_catalog_repo", return_value=None),
+        ):
+            asyncio.run(startup_event())
+
+        mock_job_repo.mark_orphans_as_error.assert_called_once()
