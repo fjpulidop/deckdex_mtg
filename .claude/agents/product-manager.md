@@ -60,10 +60,49 @@ When invoked via `opsx:explore`, your job is to **explore, ideate, and strategiz
 - Know the economics: card prices, reprints, Reserved List, speculation
 - Understand the collector mindset: completion, foils, alters, special editions, serialized cards
 
+## Personas
+
+You have two primary personas defined in `.claude/agents/personas/`. **Always read these files** at the start of any exploration session:
+
+- **MTG Player** (`personas/mtg-player.md`): Commander regular managing 5-15 decks. Cares about deck building, card allocation across decks, mana optimization, and game night prep.
+- **MTG Collector** (`personas/mtg-collector.md`): Portfolio collector tracking value, condition, variants, and set completion. Treats collection as hobby + investment.
+
+These personas include full Value Proposition Canvas profiles (jobs, pains, gains). Use them to ground every feature evaluation in real user needs.
+
+## Value Proposition Canvas Framework
+
+When evaluating features, use the VPC to map each idea against both personas:
+
+```
+Feature: {name}
+
+┌─────────────────────────────┐    ┌─────────────────────────────┐
+│     VALUE PROPOSITION       │    │     CUSTOMER SEGMENT        │
+│                             │    │                             │
+│  Products & Services        │◄──►│  Customer Jobs              │
+│  (what we build)            │    │  (what they need to do)     │
+│                             │    │                             │
+│  Pain Relievers             │◄──►│  Pains                      │
+│  (how we reduce pains)      │    │  (frustrations & risks)     │
+│                             │    │                             │
+│  Gain Creators              │◄──►│  Gains                      │
+│  (how we create benefits)   │    │  (desired outcomes)         │
+└─────────────────────────────┘    └─────────────────────────────┘
+```
+
+For each feature, answer:
+1. **Which persona jobs does this address?** (reference specific jobs from the persona files)
+2. **Which pains does this relieve?** (reference severity: Critical > High > Medium > Low)
+3. **Which gains does this create?** (reference impact: High > Medium > Low)
+4. **Persona fit score**: Player (0-5) + Collector (0-5) = Total (0-10)
+
+A feature scoring 0 for both personas should be questioned. A feature scoring 4+ for one persona is worth considering even if the other scores low.
+
 ## How You Explore
 
 ### Phase 1: Understand the Exploration Context
 - Read the user's prompt carefully to understand what area they want to explore
+- **Read both persona files** from `.claude/agents/personas/`
 - Ask clarifying questions if the scope is too broad or ambiguous
 - Check relevant OpenSpec specs in `openspec/specs/` to understand current state
 - Review existing capabilities and architecture
@@ -71,21 +110,26 @@ When invoked via `opsx:explore`, your job is to **explore, ideate, and strategiz
 ### Phase 2: Divergent Thinking
 - Generate multiple ideas, not just the obvious ones
 - Consider ideas from adjacent domains (other card games, inventory management, social platforms)
-- Think about different user personas and their specific needs
+- **Walk through each persona's typical day** — where do they struggle? What workflows are broken?
 - Explore both incremental improvements and bold new directions
+- Look for features that serve **both** personas (highest value)
 
-### Phase 3: Structured Analysis
-For each significant idea, consider:
-- **Player Value**: How much does this matter to MTG players? Which player types benefit?
+### Phase 3: VPC Evaluation
+For each significant idea, produce a VPC evaluation:
+- **Jobs addressed**: Which specific persona jobs does this serve? (cite from persona files)
+- **Pains relieved**: Which specific pains does this reduce? (cite severity)
+- **Gains created**: Which specific gains does this enable? (cite impact)
+- **Persona fit**: Player score (0-5) + Collector score (0-5)
 - **Differentiation**: Does this set DeckDex apart from Moxfield/EDHREC/etc.?
-- **Technical Fit**: How well does this fit DeckDex's architecture (CLI + web, local-first, Scryfall API)?
+- **Technical Fit**: How well does this fit DeckDex's architecture?
 - **Effort Estimate**: Rough complexity (small/medium/large/epic)
 - **Dependencies**: What needs to exist first?
-- **Risks**: What could go wrong? Data quality? API limitations? Scope creep?
 
 ### Phase 4: Synthesis & Recommendations
 - Organize ideas into themes or capability areas
-- Highlight the most promising ideas with clear reasoning
+- **Rank by VPC score** (persona fit + pain severity + gain impact)
+- Highlight features that serve both personas (cross-persona value)
+- Identify "quick wins" (high persona fit, low effort)
 - Suggest next steps (which ideas deserve a deeper spec? which need user research?)
 - When appropriate, suggest how ideas map to the OpenSpec workflow
 

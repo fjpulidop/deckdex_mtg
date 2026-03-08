@@ -63,9 +63,9 @@ GitHub CLI is not authenticated. This command requires `gh` to fetch issues from
 
 **Only runs when `GH_AVAILABLE=true`.**
 
-Launch a **single** analyst agent (`subagent_type: analyst`) to read and prioritize the backlog.
+Launch a **single** product-analyst agent (`subagent_type: product-analyst`) to read and prioritize the backlog.
 
-The analyst agent receives this prompt:
+The product-analyst agent receives this prompt:
 
 > You are reading the product-driven backlog from GitHub Issues and producing a prioritized view.
 >
@@ -78,40 +78,53 @@ The analyst agent receives this prompt:
 
 2. **Parse each issue** to extract metadata from the body:
    - **Area**: from `area:*` label (e.g. `area:ui-ux` → "UI/UX")
-   - **Value / Effort**: from the body's Overview table
+   - **Persona Fit**: from the body's Overview table — extract `Player: X/5 · Collector: X/5 · Total: X/10`
+   - **Effort**: from the body's Overview table (High/Medium/Low)
    - **Description**: from the body's "Feature Description" section
    - **User Story**: from the body's "User Story" section
+
+   For older issues without VPC scores, infer a rough estimate:
+   - Map old `Value: High` → Total ~6/10, `Value: Medium` → ~4/10, `Value: Low` → ~2/10
+   - Set Player/Collector as "?" if not available
 
 3. **Group by area** using the same label-to-name mapping as spec-backlog.
 
    If the user passed specific areas as input, only show those.
 
-4. **Display** as a formatted table per area, then **propose the top 3 items** for implementation:
+4. **Sort within each area by Total Persona Score (descending)**, then by Effort (Low > Medium > High) as tiebreaker.
+
+5. **Display** as a formatted table per area, then **propose the top 3 items** for implementation:
 
    ```
    ## Product-Driven Backlog
 
-   {N} open issues | Source: Product discovery & competitive analysis
+   {N} open issues | Source: VPC-based product discovery
+   Personas: MTG Player (Alex), MTG Collector (Morgan)
 
    ### {Area Name}
 
-   | # | Issue | Description | Value | Effort |
-   |---|-------|-------------|-------|--------|
-   | 1 | #42 Feature name | Short description... | High | Low |
+   | # | Issue | Player | Collector | Total | Effort |
+   |---|-------|--------|-----------|-------|--------|
+   | 1 | #42 Feature name | 5/5 | 3/5 | 8/10 | Low |
 
-   (repeat for each area with open issues)
+   (repeat for each area, sorted by Total descending)
 
    ---
 
    ## Recommended Next Sprint (Top 3)
 
-   These are the top 3 product ideas to implement next, ranked by user impact:
+   Ranked by VPC persona score / effort ratio (highest value, lowest effort first):
 
-   | Priority | Issue | Area | Value | Effort | Rationale |
-   |----------|-------|------|-------|--------|-----------|
-   | 1 | #XX Feature | Area | High | Low | {why this should be next} |
-   | 2 | #XX Feature | Area | High | Medium | {why} |
-   | 3 | #XX Feature | Area | Medium | Low | {why} |
+   | Priority | Issue | Area | Player | Collector | Total | Effort | Rationale |
+   |----------|-------|------|--------|-----------|-------|--------|-----------|
+   | 1 | #XX Feature | Area | 5/5 | 4/5 | 9/10 | Low | {why — cite specific persona pains/gains addressed} |
+   | 2 | #XX Feature | Area | 4/5 | 3/5 | 7/10 | Medium | {why} |
+   | 3 | #XX Feature | Area | 3/5 | 4/5 | 7/10 | Medium | {why} |
+
+   ### Selection criteria
+   - Cross-persona features (both 4+/5) prioritized over single-persona
+   - Low effort preferred over high effort at same score
+   - Critical pain relief weighted higher than gain creation
 
    Run `/implement` to start implementing these items.
    ```

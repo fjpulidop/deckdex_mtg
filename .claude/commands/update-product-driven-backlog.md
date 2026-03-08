@@ -35,11 +35,19 @@ Launch a **single** explorer subagent (`subagent_type: Explore`, `run_in_backgro
 
 The Explore agent receives this prompt:
 
-> You are a product strategist analyzing the DeckDex MTG project to generate new feature ideas.
+> You are a product strategist analyzing the DeckDex MTG project to generate new feature ideas using the **Value Proposition Canvas** framework.
 >
-> **Your goal:** For each area, propose 2-4 new features that would significantly improve the user experience. These should be features that **don't exist yet** — not gaps in existing specs.
+> **Your goal:** For each area, propose 2-4 new features that would significantly improve the user experience. These should be features that **don't exist yet** — not gaps in existing specs. Every feature MUST be evaluated against the project's two primary personas.
 >
 > **Areas to analyze:** {all areas or filtered by user input}
+>
+> ### Step 0: Read Personas
+>
+> **Before anything else**, read both persona files:
+> - `.claude/agents/personas/mtg-player.md` — Commander player managing multiple decks
+> - `.claude/agents/personas/mtg-collector.md` — Portfolio collector tracking value and completion
+>
+> These contain full Value Proposition Canvas profiles (jobs, pains, gains). Reference specific items from these files in your evaluations.
 >
 > ### Research steps
 >
@@ -57,46 +65,58 @@ The Explore agent receives this prompt:
 >    ```
 >    Do NOT propose features that already have open issues.
 >
-> 3. **Think like a user** — For each area, consider:
->    - What would a competitive MTG collection manager offer? (Moxfield, Archidekt, EDHREC, Scryfall, MTGGoldfish)
->    - What common workflows are clunky or missing?
+> 3. **Think through each persona's day** — For each area, walk through:
+>    - What does the **MTG Player** (Alex) need here? Which of their jobs/pains/gains does this area touch?
+>    - What does the **MTG Collector** (Morgan) need here? Which of their jobs/pains/gains does this area touch?
+>    - What would a competitive MTG tool offer? (Moxfield, Archidekt, EDHREC, Scryfall, MTGGoldfish, EchoMTG)
 >    - What data is available but not surfaced to the user?
->    - What would make users come back daily?
->    - What would make users recommend this to friends?
 >
-> 4. **For each idea, produce:**
+> 4. **For each idea, produce a VPC evaluation:**
 >    - **Feature name** (short, descriptive)
 >    - **User story** ("As a [user type], I want to [action] so that [benefit]")
->    - **Feature description** (2-3 sentences describing the feature, what it would look like, and how it would work)
->    - **Value** (High/Medium/Low — with justification focused on user impact)
->    - **Effort** (High/Medium/Low — with justification based on what infrastructure already exists vs what needs to be built)
->    - **Inspiration** (which competitor or product pattern inspired this, if any)
->    - **Prerequisites** (what existing features or infrastructure this depends on)
+>    - **Feature description** (2-3 sentences)
+>    - **VPC Fit — Player (Alex):**
+>      - Jobs addressed: {cite specific jobs from persona file, or "None"}
+>      - Pains relieved: {cite specific pains with severity, or "None"}
+>      - Gains created: {cite specific gains with impact, or "None"}
+>      - **Score: X/5**
+>    - **VPC Fit — Collector (Morgan):**
+>      - Jobs addressed: {cite specific jobs from persona file, or "None"}
+>      - Pains relieved: {cite specific pains with severity, or "None"}
+>      - Gains created: {cite specific gains with impact, or "None"}
+>      - **Score: X/5**
+>    - **Total Persona Score: X/10**
+>    - **Effort** (High/Medium/Low — based on existing infrastructure)
+>    - **Inspiration** (competitor or product pattern)
+>    - **Prerequisites** (what needs to exist first)
 >    - **Area** (which area this belongs to)
 >
 > ### Priority rules
-> - Features that leverage existing infrastructure (low effort, high value) first
-> - Features that increase daily engagement next
+> - Features scoring 7+/10 persona fit (serve both personas) first
+> - Features scoring 4+/5 for one persona with Low effort next
 > - Features that differentiate from competitors next
-> - Complex features with uncertain value last
+> - Features scoring <4 total or High effort with uncertain value last
 >
 > ### Output format
 >
 > ```
-> ## Product Discovery
+> ## Product Discovery (VPC-Evaluated)
 >
 > Generated: {DATE}
+> Personas: MTG Player (Alex), MTG Collector (Morgan)
 >
 > ### {Area Name}
 >
-> | # | Feature | Value | Effort | Inspiration |
-> |---|---------|-------|--------|-------------|
-> | 1 | ... | High | Low | Moxfield |
+> | # | Feature | Player | Collector | Total | Effort | Inspiration |
+> |---|---------|--------|-----------|-------|--------|-------------|
+> | 1 | ... | 4/5 | 3/5 | 7/10 | Low | Moxfield |
 >
 > #### Feature: {name}
 > - **User story:** As a {user}, I want to {action} so that {benefit}
 > - **Description:** {2-3 sentences}
-> - **Value:** {level} — {justification}
+> - **VPC — Player (Alex):** Jobs: {list} | Pains: {list} | Gains: {list} → **{X}/5**
+> - **VPC — Collector (Morgan):** Jobs: {list} | Pains: {list} | Gains: {list} → **{X}/5**
+> - **Total: {X}/10**
 > - **Effort:** {level} — {justification}
 > - **Inspiration:** {source}
 > - **Prerequisites:** {list or "None"}
@@ -105,9 +125,19 @@ The Explore agent receives this prompt:
 >
 > ---
 >
-> ### Top 5 Ideas (cross-area)
+> ### Top 5 Ideas (cross-area, ranked by persona score / effort)
 >
-> {The 5 best ideas ranked by value/effort ratio, with area tag}
+> | Rank | Feature | Area | Player | Collector | Total | Effort |
+> |------|---------|------|--------|-----------|-------|--------|
+> | 1 | ... | ... | 5/5 | 4/5 | 9/10 | Low |
+>
+> ### Cross-Persona Opportunities
+>
+> {Features scoring 4+ for BOTH personas — these are the highest-value targets}
+>
+> ### Persona-Specific Opportunities
+>
+> {Features scoring 4+ for one persona but <2 for the other — niche but valuable for that segment}
 > ```
 
 ---
@@ -136,14 +166,14 @@ After the Explore agent completes:
      --title "[Product] {Feature name}" \
      --label "product-driven-backlog,area:{area-kebab},enhancement" \
      --body "$(cat <<'EOF'
-   > **This is a product feature idea, not a bug report.** It was generated through product discovery analysis and has no existing spec yet.
+   > **This is a product feature idea, not a bug report.** It was generated through VPC-based product discovery and has no existing spec yet.
 
    ## Overview
 
    | Field | Value |
    |-------|-------|
    | **Area** | {Area} |
-   | **Value** | {High/Medium/Low} — {justification} |
+   | **Persona Fit** | Player: {X}/5 · Collector: {X}/5 · **Total: {X}/10** |
    | **Effort** | {High/Medium/Low} — {justification} |
    | **Inspiration** | {source or "Original idea"} |
    | **Prerequisites** | {list or "None"} |
@@ -155,6 +185,18 @@ After the Explore agent completes:
    ## Feature Description
 
    {2-3 sentence description of the feature, what it would look like, and how it would work.}
+
+   ## Value Proposition Canvas
+
+   ### Player (Alex) — {X}/5
+   - **Jobs:** {specific jobs addressed from persona}
+   - **Pains relieved:** {specific pains with severity}
+   - **Gains created:** {specific gains with impact}
+
+   ### Collector (Morgan) — {X}/5
+   - **Jobs:** {specific jobs addressed from persona}
+   - **Pains relieved:** {specific pains with severity}
+   - **Gains created:** {specific gains with impact}
 
    ## Implementation Notes
 
