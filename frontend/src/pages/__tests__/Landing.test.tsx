@@ -1,4 +1,4 @@
-import { render, screen, fireEvent } from '@testing-library/react';
+import { render, screen } from '@testing-library/react';
 import { vi, describe, it, expect, beforeEach } from 'vitest';
 import { MemoryRouter } from 'react-router-dom';
 import { Hero } from '@/components/landing/Hero';
@@ -19,31 +19,26 @@ vi.mock('@/utils/auth', () => ({
   redirectToGoogleLogin: vi.fn(),
 }));
 
-describe('Hero image fallback', () => {
-  it('renders the hero image initially', () => {
+describe('Hero bilingual description card', () => {
+  it('renders EN and ES language labels', () => {
     render(
       <MemoryRouter>
         <Hero />
       </MemoryRouter>
     );
-    const img = screen.getByAltText('DeckDex dashboard preview');
-    expect(img).toBeInTheDocument();
-    expect(img).toHaveAttribute('src', '/dashboard-preview.png');
+    expect(screen.getByText('EN')).toBeInTheDocument();
+    expect(screen.getByText('ES')).toBeInTheDocument();
   });
 
-  it('hides the image and shows fallback on error', () => {
+  it('renders the English description card title', () => {
     render(
       <MemoryRouter>
         <Hero />
       </MemoryRouter>
     );
-    const img = screen.getByAltText('DeckDex dashboard preview');
-    fireEvent.error(img);
-    expect(img.style.display).toBe('none');
-    // The fallback is the img's next sibling div
-    const fallback = img.nextElementSibling as HTMLElement;
-    expect(fallback).not.toBeNull();
-    expect(fallback.style.display).toBe('flex');
+    // The bilingual card renders the title in both EN and ES panels;
+    // in the test environment both may resolve to the same English text.
+    expect(screen.getAllByText('What is DeckDex?').length).toBeGreaterThanOrEqual(1);
   });
 });
 

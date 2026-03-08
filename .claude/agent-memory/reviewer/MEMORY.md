@@ -20,6 +20,9 @@
 - **`tempfile.TemporaryDirectory()` with context manager**: Assertions that check file existence MUST be inside the `with` block. If placed outside (after the `with` ends), the directory is already deleted and all `exists()` checks return `False`.
 - **Validation error status codes**: This project's `validation_exception_handler` converts ALL Pydantic `RequestValidationError` to HTTP 400 (not the FastAPI default of 422). Tests asserting on Pydantic validation failures must expect 400, not 422.
 
+### Bilingual Components
+- When a component renders the same i18n key via both `getFixedT('en')` and `getFixedT('es')` and the Spanish translation falls back to English in the test environment, `screen.getByText(...)` will throw "multiple elements found". Fix: use `screen.getAllByText(...).length >= 1` instead. Document in test with a comment explaining the bilingual rendering.
+
 ### Cross-Feature Merge Issues
 - Parallel developers may both modify `en.json`/`es.json` — check for merge conflicts in i18n files
 - Shared files like `client.ts`, `useApi.ts` may have duplicate type definitions
