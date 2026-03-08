@@ -11,7 +11,57 @@ Display the spec-driven backlog by reading GitHub Issues labeled `spec-driven-ba
 
 ---
 
+## Phase 0: Environment Pre-flight
+
+Before fetching issues, detect if we're in a cloud/remote environment and ensure `gh` CLI is available.
+
+### Detection
+
+```bash
+if [ "$CLAUDE_CODE_REMOTE" = "true" ] || [[ "$CLAUDE_CODE_ENTRYPOINT" == remote_* ]]; then
+  echo "CLOUD_ENV=true"
+fi
+```
+
+### GitHub CLI check
+
+```bash
+gh auth status 2>&1
+```
+
+- If `gh` is authenticated: set `GH_AVAILABLE=true`, proceed to Execution.
+- If `gh` is NOT authenticated and we're in a cloud environment:
+  - Check if the git remote uses a local proxy (`127.0.0.1`):
+    ```bash
+    git remote get-url origin 2>/dev/null
+    ```
+  - If local proxy detected, try to configure `gh` to work through it.
+  - If `gh` still can't authenticate: set `GH_AVAILABLE=false`.
+
+### When `GH_AVAILABLE=false`
+
+**Stop and inform the user.** Do NOT attempt to generate or synthesize backlog data. Display:
+
+```
+## Spec-Driven Backlog — Unavailable
+
+GitHub CLI is not authenticated. This command requires `gh` to fetch issues from GitHub.
+
+**You are in a cloud environment** where `gh` API access is not available through the local proxy.
+
+### What you can do:
+- **From a local terminal** with `gh` authenticated: run `/spec-backlog` to see the full backlog.
+- **To refresh the backlog**: run `/update-spec-driven-backlog` from a local terminal — it will analyze specs vs code and create/update GitHub Issues.
+- **To implement directly**: run `/implement "description of feature"` — this works without GitHub access.
+```
+
+**Do NOT proceed to Execution.**
+
+---
+
 ## Execution
+
+**Only runs when `GH_AVAILABLE=true`.**
 
 Launch a **single** analyst agent (`subagent_type: analyst`) to read and prioritize the backlog.
 
