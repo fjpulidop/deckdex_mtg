@@ -1,6 +1,6 @@
 import { motion } from 'framer-motion';
 import { useTranslation } from 'react-i18next';
-import { ArrowRight } from 'lucide-react';
+import { ArrowRight, BarChart3, Brain, Library, TrendingUp } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { redirectToGoogleLogin } from '@/utils/auth';
 
@@ -12,7 +12,7 @@ export const Hero = () => {
   const { t } = useTranslation();
   const { isAuthenticated } = useAuth();
   return (
-    <section className="min-h-screen pt-20 pb-16 bg-gradient-to-br from-slate-900/80 via-purple-900/60 to-slate-900/80 flex items-center">
+    <section className="min-h-screen pt-20 pb-16 bg-gradient-to-br from-slate-900/30 via-purple-900/20 to-slate-900/30 flex items-center">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 w-full">
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
           {/* Left Column - Text */}
@@ -78,30 +78,31 @@ export const Hero = () => {
             </div>
           </motion.div>
 
-          {/* Right Column - Dashboard Preview */}
+          {/* Right Column - App Description */}
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.8, delay: 0.2, ease: 'easeOut' }}
-            className="flex justify-center"
+            className="space-y-4"
           >
-            <div className="relative w-full max-w-xl aspect-[3/2] rounded-lg overflow-hidden shadow-2xl shadow-purple-500/20 border border-slate-700/50">
-              <img
-                src="/dashboard-preview.png"
-                alt="DeckDex dashboard preview"
-                className="absolute inset-0 w-full h-full object-cover object-top"
-                onError={(e) => {
-                  const target = e.currentTarget;
-                  target.style.display = 'none';
-                  const fallback = target.nextElementSibling as HTMLElement | null;
-                  if (fallback) fallback.style.display = 'flex';
-                }}
-              />
-              {/* Gradient fallback (hidden when screenshot loads) */}
-              <div className="absolute inset-0 bg-gradient-to-br from-purple-600/20 via-slate-900 to-slate-900 items-center justify-center hidden">
-                <div className="h-32 w-32 rounded-lg bg-gradient-to-br from-purple-500/30 to-pink-500/30 blur-xl" />
+            {[
+              { icon: Library, key: 'hero.features.collection' },
+              { icon: TrendingUp, key: 'hero.features.prices' },
+              { icon: Brain, key: 'hero.features.ai' },
+              { icon: BarChart3, key: 'hero.features.analytics' },
+            ].map(({ icon: Icon, key }) => (
+              <div
+                key={key}
+                className="flex items-start gap-4 p-4 rounded-xl bg-slate-800/40 backdrop-blur-sm border border-slate-700/30"
+              >
+                <div className="flex-shrink-0 p-2 rounded-lg bg-gradient-to-br from-primary-500/20 to-accent-500/20">
+                  <Icon className="h-5 w-5 text-purple-400" />
+                </div>
+                <p className="text-slate-300 text-sm leading-relaxed">
+                  {t(key)}
+                </p>
               </div>
-            </div>
+            ))}
           </motion.div>
         </div>
       </div>
