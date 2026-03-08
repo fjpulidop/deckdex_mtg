@@ -32,9 +32,10 @@ export function ActiveJobsProvider({ children }: { children: React.ReactNode }) 
     const restoreJobs = async () => {
       try {
         const list = await api.getJobs();
-        if (list.length > 0) {
+        const active = list.filter((job) => job.status === 'running' || job.status === 'pending');
+        if (active.length > 0) {
           setJobs(
-            list.map((job) => ({
+            active.map((job) => ({
               jobId: job.job_id,
               type: job.job_type,
               startedAt: job.start_time ? new Date(job.start_time) : new Date(),
@@ -57,13 +58,14 @@ export function ActiveJobsProvider({ children }: { children: React.ReactNode }) 
       if (now - lastSyncRef.current < 2000) return; // debounce
       lastSyncRef.current = now;
       api.getJobs().then((list) => {
-        const serverIds = new Set(list.map((j) => j.job_id));
+        const activeList = list.filter((j) => j.status === 'running' || j.status === 'pending');
+        const activeIds = new Set(activeList.map((j) => j.job_id));
         setJobs((prev) => {
-          // Keep locally-added jobs that the server still knows about,
-          // plus add any new ones from the server.
+          // Keep locally-added jobs that the server still reports as active,
+          // plus add any new active ones from the server.
           const existing = new Set(prev.map((j) => j.jobId));
-          const kept = prev.filter((j) => serverIds.has(j.jobId));
-          const added = list
+          const kept = prev.filter((j) => activeIds.has(j.jobId));
+          const added = activeList
             .filter((j) => !existing.has(j.job_id))
             .map((j) => ({
               jobId: j.job_id,

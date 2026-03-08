@@ -197,7 +197,7 @@ app.include_router(progress.router)
 @app.on_event("startup")
 async def startup_event():
     """Application startup tasks"""
-    from .dependencies import get_job_repo
+    from .dependencies import get_catalog_repo, get_job_repo
 
     job_repo = get_job_repo()
     if job_repo is not None:
@@ -207,6 +207,16 @@ async def startup_event():
                 logger.warning(f"Marked {count} orphaned running jobs as error on startup")
         except Exception as e:
             logger.warning(f"Orphan job cleanup failed on startup: {e}")
+
+    catalog_repo = get_catalog_repo()
+    if catalog_repo is not None:
+        try:
+            count = catalog_repo.mark_orphan_syncs()
+            if count > 0:
+                logger.warning(f"Reset {count} orphaned catalog sync(s) to idle on startup")
+        except Exception as e:
+            logger.warning(f"Orphan catalog sync cleanup failed on startup: {e}")
+
     logger.info("API startup complete")
 
 

@@ -211,6 +211,21 @@ class CatalogRepository:
             conn.execute(sql, fields)
             conn.commit()
 
+    def mark_orphan_syncs(self) -> int:
+        """Reset any running sync state to idle. Returns count of affected rows."""
+        from sqlalchemy import text
+
+        with self._engine().connect() as conn:
+            result = conn.execute(
+                text("""
+                    UPDATE catalog_sync_state
+                    SET status = 'idle', updated_at = NOW()
+                    WHERE status IN ('syncing_data', 'syncing_images')
+                """)
+            )
+            conn.commit()
+        return result.rowcount
+
     def count_cards(self) -> int:
         """Return total number of rows in catalog_cards."""
         from sqlalchemy import text

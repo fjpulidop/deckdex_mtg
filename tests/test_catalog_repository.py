@@ -240,5 +240,36 @@ class TestSyncState(unittest.TestCase):
         repo._eng.connect.assert_not_called()
 
 
+class TestMarkOrphanSyncs(unittest.TestCase):
+    """Test CatalogRepository.mark_orphan_syncs()."""
+
+    def test_resets_syncing_data_to_idle(self):
+        repo = _make_repo()
+        mock_conn = MagicMock()
+        repo._eng.connect.return_value.__enter__ = MagicMock(return_value=mock_conn)
+        repo._eng.connect.return_value.__exit__ = MagicMock(return_value=False)
+        mock_conn.execute.return_value.rowcount = 1
+
+        count = repo.mark_orphan_syncs()
+        self.assertEqual(count, 1)
+        call_args = mock_conn.execute.call_args
+        sql_text = str(call_args[0][0])
+        self.assertIn("syncing_data", sql_text)
+        self.assertIn("syncing_images", sql_text)
+        self.assertIn("idle", sql_text)
+        mock_conn.commit.assert_called_once()
+
+    def test_no_orphans_returns_zero(self):
+        repo = _make_repo()
+        mock_conn = MagicMock()
+        repo._eng.connect.return_value.__enter__ = MagicMock(return_value=mock_conn)
+        repo._eng.connect.return_value.__exit__ = MagicMock(return_value=False)
+        mock_conn.execute.return_value.rowcount = 0
+
+        count = repo.mark_orphan_syncs()
+        self.assertEqual(count, 0)
+        mock_conn.commit.assert_called_once()
+
+
 if __name__ == "__main__":
     unittest.main()
