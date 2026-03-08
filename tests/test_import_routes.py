@@ -63,7 +63,7 @@ SAMPLE_RESOLVED_CARDS = [
 # ---------------------------------------------------------------------------
 
 
-@pytest.fixture(scope="module")
+@pytest.fixture(scope="function")
 def import_client():
     """TestClient with auth override and rate limiter disabled.
 
@@ -525,3 +525,51 @@ def test_import_external_cards_replace_mode(import_client):
     assert response.status_code == 200
     data = response.json()
     assert data["mode"] == "replace"
+
+
+# ===========================================================================
+# ResolveService unit tests — Scryfall fallback cap
+# ===========================================================================
+
+
+def test_resolve_service_scryfall_cap_limits_autocomplete_calls():
+    """ResolveService calls Scryfall autocomplete at most 50 times (SCRYFALL_LOOKUP_CAP).
+
+    When 55 cards are passed with Scryfall enabled and no catalog, only the
+    first 50 cards trigger autocomplete calls. The remaining 5 stay "not_found".
+    """
+    from backend.api.services.resolve_service import SCRYFALL_LOOKUP_CAP, ResolveService
+    from deckdex.importers.base import ParsedCard
+
+    num_cards = 55
+    parsed_cards: list = [ParsedCard(name=f"Card_{i}", set_name=None, quantity=1) for i in range(1, num_cards + 1)]
+
+    mock_fetcher = MagicMock()
+    # Return a suggestion that does NOT exactly match the card name so cards
+    # land in "suggested" status, confirming Scryfall was actually called.
+    mock_fetcher.autocomplete.return_value = ["Suggested Card"]
+
+    service = ResolveService(
+        catalog_repo=None,
+        card_fetcher=mock_fetcher,
+        scryfall_enabled=True,
+    )
+
+    results = service.resolve(parsed_cards)
+
+    assert len(results) == num_cards
+
+    # Autocomplete must be called exactly SCRYFALL_LOOKUP_CAP times.
+    assert mock_fetcher.autocomplete.call_count == SCRYFALL_LOOKUP_CAP
+
+    # First 50 cards got a Scryfall suggestion → status "suggested".
+    for result in results[:SCRYFALL_LOOKUP_CAP]:
+        assert result["status"] == "suggested", (
+            f"Expected 'suggested' for {result['original_name']}, got {result['status']}"
+        )
+
+    # Remaining 5 cards were skipped → status "not_found".
+    for result in results[SCRYFALL_LOOKUP_CAP:]:
+        assert result["status"] == "not_found", (
+            f"Expected 'not_found' for {result['original_name']}, got {result['status']}"
+        )

@@ -33,7 +33,7 @@ Analyze the project from a **product perspective** to generate new feature ideas
 
 Launch a **single** explorer subagent (`subagent_type: Explore`, `run_in_background: true`) for product discovery.
 
-The explorer agent receives this prompt:
+The Explore agent receives this prompt:
 
 > You are a product strategist analyzing the DeckDex MTG project to generate new feature ideas.
 >
@@ -114,7 +114,7 @@ The explorer agent receives this prompt:
 
 ## Assembly — GitHub Issues Sync
 
-After the explorer agent completes:
+After the Explore agent completes:
 
 1. **Display** the product discovery results to the user.
 

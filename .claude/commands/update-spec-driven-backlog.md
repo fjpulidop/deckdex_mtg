@@ -33,9 +33,28 @@ Use these hardcoded area groupings. If the user passed specific areas as input, 
 
 ## Execution
 
-Launch a **single** analyst subagent (`subagent_type: Explore`, `run_in_background: true`) that analyzes all areas sequentially.
+### Pre-check: Incremental mode
 
-The explorer agent receives this prompt:
+Before launching the full analysis, check if a previous backlog exists and what changed:
+
+1. **Check for existing issues:**
+   ```bash
+   gh issue list --label "spec-driven-backlog" --state open --limit 1 --json number
+   ```
+2. **If issues exist**, detect which specs changed since last analysis:
+   ```bash
+   git log --since="2 weeks ago" --name-only --pretty=format: -- openspec/specs/ | sort -u | grep spec.md
+   ```
+3. **If changed specs found**: Only pass the areas whose specs changed to the explorer. This avoids re-analyzing unchanged areas.
+4. **If no issues exist OR no git history**: Run full analysis on all areas.
+
+Pass the filtered area list (or "all") to the explorer prompt below.
+
+### Launch explorer
+
+Launch a **single** explorer subagent (`subagent_type: Explore`, `run_in_background: true`) that analyzes areas sequentially.
+
+The Explore agent receives this prompt:
 
 > You are analyzing the DeckDex MTG project to produce a prioritized backlog across all areas.
 >
@@ -126,7 +145,7 @@ The explorer agent receives this prompt:
 
 ## Assembly — GitHub Issues Sync
 
-After the explorer agent completes:
+After the Explore agent completes:
 
 1. **Display** the markdown backlog to the user.
 

@@ -1,24 +1,31 @@
-# Parallel Implementation Pipeline
+# Implementation Pipeline
 
-Explore multiple areas, pick the best improvement for each, and implement them all in parallel using the full OpenSpec lifecycle with specialized agents (architect designs, developer implements, reviewer validates).
+Full OpenSpec lifecycle with specialized agents: architect designs, developer implements, reviewer validates and archives. Handles 1 to N features — adapts automatically (sequential for 1, parallel with worktrees for N).
 
-**Input:** $ARGUMENTS — accepts two modes:
+**Input:** $ARGUMENTS — accepts three modes:
 
 1. **Issue numbers** (recommended): `#85, #71, #63` — implement these specific GitHub Issues directly. Skips exploration and selection.
-2. **Area names** (fallback): `Analytics, Deck Builder, Testing` — explores areas and picks the best items. Only use if no backlog issues exist.
+2. **Text description** (single feature): `"add price history chart to analytics"` — implement a single feature from a description. Skips exploration and selection.
+3. **Area names** (fallback): `Analytics, Deck Builder, Testing` — explores areas and picks the best items. Only use if no backlog issues exist.
 
 **Typical workflow:**
 ```
 /spec-backlog          →  see top 3 spec items
 /product-backlog       →  see top 3 product ideas
-/parallel-implement #85, #71, #63   →  implement those 3
+/implement #85, #71, #63   →  implement those 3
+/implement "add price history chart"  →  implement one feature
 ```
 
 **IMPORTANT:** Before running, ensure Read/Write/Bash/Glob/Grep permissions are set to "allow" — background agents cannot request permissions interactively. Worktree-isolated agents especially need Bash for CI verification and git operations.
 
 ---
 
-## Phase 0: Parse input and fetch issue data
+## Phase 0: Parse input and determine mode
+
+**If the user passed a text description** (e.g. `"add price history chart"`):
+- This is a **single-feature mode**. Derive a kebab-case change name from the description.
+- Set `SINGLE_MODE = true`. No worktrees, no parallelism — everything runs sequentially in the main repo.
+- **Skip Phase 1 and Phase 2** — go directly to Phase 3a.
 
 **If the user passed issue numbers** (e.g. `#85, #71, #63`):
 - Fetch each issue:
@@ -28,6 +35,7 @@ Explore multiple areas, pick the best improvement for each, and implement them a
 - Extract from each issue body: area (from `area:*` label), value, effort, and feature details.
 - For `spec-driven-backlog` issues: use "Missing deliverables" for the idea description, "Evidence of existing work" for context.
 - For `product-driven-backlog` issues: use "Feature Description" for the idea description, "Implementation Notes" for context.
+- If only 1 issue: set `SINGLE_MODE = true`.
 - **Skip Phase 1 and Phase 2** — go directly to confirmation table below.
 - Present the issues to the user in a table:
 
@@ -52,14 +60,14 @@ Explore multiple areas, pick the best improvement for each, and implement them a
 
 **Only runs if Phase 0 found no backlog issues AND user passed area names.**
 
-For each area, launch an **explorer** agent (`subagent_type: explorer`, `run_in_background: true`):
+For each area, launch a **product-manager** agent (`subagent_type: product-manager`, `run_in_background: true`):
 - Read relevant code, specs, and OpenSpec artifacts
 - Identify what's built vs what's missing
 - Generate improvement ideas with value/complexity ratings
 - Prioritize by impact/effort ratio
 - Write a summary to `.claude/agent-memory/product-ideation-explorer/<area>-exploration.md`
 
-Wait for all explorers to complete. Read their output to extract findings.
+Wait for all product-managers to complete. Read their output to extract findings.
 
 ## Phase 2: Select
 
@@ -86,7 +94,7 @@ Each agent's prompt should be:
 >
 > **Description:** "<one-line description of the chosen idea>"
 >
-> **Context from exploration:** <paste key findings from the explorer for this area>
+> **Context from exploration:** <paste key findings from the product-manager for this area>
 >
 > Execute the OpenSpec design phase without any user interaction:
 >
@@ -97,7 +105,13 @@ Each agent's prompt should be:
 >    - **proposal.md**: What and why. Product motivation, scope, success criteria.
 >    - **design.md**: Detailed technical design. Reference actual file paths, existing patterns, real code structures. Include impact analysis (which files/modules/APIs change), architectural decisions with rationale, data flow diagrams where helpful, and risks/edge cases.
 >    - **delta-spec**: Only sections that change from existing specs. Reference the base spec.
->    - **tasks.md**: Atomic, ordered tasks with clear acceptance criteria. Each task specifies files involved, what "done" looks like, and dependencies on other tasks. Group by layer (Core -> Backend -> Frontend -> Tests). Include test tasks.
+>    - **tasks.md**: Atomic, ordered tasks with clear acceptance criteria. Each task specifies files involved, what "done" looks like, and dependencies on other tasks. Group by layer (Core -> Backend -> Frontend -> Tests). Include test tasks. Tag each task with its layer: `[backend]`, `[frontend]`, `[core]`, or `[test]`.
+>    - **context-bundle.md**: A compact reference for the developer. For each file that will be modified or is critical context, include:
+>      - File path
+>      - Key patterns used (e.g., "uses Repository pattern", "exports via client.ts")
+>      - Relevant existing code snippets (imports, function signatures, type definitions) — just enough to implement without re-reading the full file
+>      - Dependencies and imports the developer will need
+>      This saves the developer from re-reading every referenced file. Keep it under 200 lines.
 >
 > **Quality standards:**
 > - Every artifact must reference real file paths and existing code patterns (not theoretical)
@@ -122,19 +136,48 @@ For each shared file, decide:
 
 Document the ownership plan before launching developers — this prevents manual merge headaches in Phase 4.
 
-## Phase 3b: Implement (parallel, isolated worktrees)
+### 3a.2 Pre-validate architect output
+
+Before launching developers, quick-check each architect's artifacts:
+
+1. **tasks.md exists** and has at least one task with `- [ ]`
+2. **context-bundle.md exists** (the developer depends on it)
+3. **File references are real**: Extract all file paths from tasks.md, run `ls` on each. If >30% don't exist, the architect hallucinated — mark it as FAILED and skip this feature.
+4. **Layer tags present**: Each task should have `[backend]`, `[frontend]`, `[core]`, or `[test]`. If missing, assign them based on file paths (e.g., `frontend/` → `[frontend]`, `tests/` → `[test]`).
+
+This catches architect failures early, before wasting developer tokens on bad blueprints.
+
+## Phase 3b: Implement
 
 ### Pre-flight: Verify Bash permission
 
 Before launching any developer agent, run a trivial Bash command (e.g. `echo "permission check"`) to confirm Bash is allowed. If it is NOT allowed:
-- **Stop** and tell the user: "Bash permission is required for worktree developers to run CI and commit. Please set Bash to 'allow' and re-run."
+- **Stop** and tell the user: "Bash permission is required for developers to run CI and commit. Please set Bash to 'allow' and re-run."
 - Do NOT launch developer agents without confirmed Bash permission — they will write code but cannot verify or commit it.
 
 ### Launch developers
 
-For each change with completed artifacts, launch a **developer** agent in an isolated worktree (`subagent_type: developer`, `isolation: worktree`, `run_in_background: true`).
+**CRITICAL:** Read the full content of each architect's `tasks.md` and `context-bundle.md` and inline them directly into the developer's prompt. Do NOT just tell the developer to "read tasks.md" — past sprints showed that developers who must discover their own tasks sometimes misidentify or skip them.
 
-**CRITICAL:** Read the full content of each architect's `tasks.md` and inline it directly into the developer's prompt. Do NOT just tell the developer to "read tasks.md" — past sprints showed that developers who must discover their own tasks sometimes misidentify or skip them.
+**Read reviewer learnings:** Before building the developer prompt, check if `.claude/agent-memory/reviewer/common-fixes.md` exists. If it does, read it and include its content in the developer prompt as "lessons from past reviews" — this prevents developers from repeating mistakes the reviewer has already caught.
+
+#### Choosing the right developer agent
+
+For each feature, analyze the tasks' layer tags to decide which developer(s) to launch:
+
+- **All `[backend]`/`[core]`/`[test]` tasks**: Use `backend-developer` (lighter prompt, backend-only CI)
+- **All `[frontend]`/`[test]` tasks**: Use `frontend-developer` (lighter prompt, frontend-only CI)
+- **Mixed layers**: Use the generic `developer` (full-stack prompt, full CI)
+
+This reduces token usage — a backend-only feature doesn't need React/TypeScript/Tailwind rules in its prompt.
+
+#### Launch modes
+
+**If `SINGLE_MODE`**: Launch the appropriate developer agent in the main repo. No worktree, no background — run in foreground.
+
+**If multiple features**: For each change, launch the appropriate developer agent in an isolated worktree (`isolation: worktree`, `run_in_background: true`).
+
+#### Developer prompt template
 
 Each agent's prompt should be:
 
@@ -142,37 +185,36 @@ Each agent's prompt should be:
 >
 > **Change name:** "<name>"
 >
+> ## Context bundle
+>
+> <PASTE THE FULL CONTENT OF context-bundle.md HERE — key patterns, snippets, imports from relevant files. Use this instead of re-reading every file from scratch. Only read a file fully if the bundle doesn't cover what you need.>
+>
 > ## Tasks to implement
 >
 > <PASTE THE FULL CONTENT OF tasks.md HERE — every task, every acceptance criterion, every file path>
 >
+> ## Lessons from past reviews
+>
+> <IF `.claude/agent-memory/reviewer/common-fixes.md` EXISTS, PASTE ITS CONTENT HERE. Otherwise write "No reviewer learnings yet.">
+>
 > Execute the implementation phase without any user interaction:
 >
-> 1. **Read context files**: Read the design at `openspec/changes/<name>/design.md` and every file referenced in the tasks below. Understand the codebase before writing code.
+> 1. **Read context**: Use the context bundle above as your primary reference. Only read full files when the bundle doesn't cover what you need. Read `openspec/changes/<name>/design.md` for architectural decisions.
 > 2. **Implement**: Follow the tasks above in order. For each task:
 >    - Read the acceptance criteria carefully
 >    - Implement the change following the design's architectural decisions
 >    - Mark the task as done: `- [ ]` -> `- [x]`
-> 4. **Verify** with the full CI-equivalent suite:
->    - `ruff check .` (fix with `--fix` if needed)
->    - `ruff format --check .` (fix with `ruff format <file>` if needed)
->    - `./venv/bin/pytest tests/ -q`
->    - `cd frontend && npm run lint` (NOT just tsc — this catches ESLint rules like react-hooks)
->    - `cd frontend && npx tsc --noEmit`
->    - `cd frontend && npx vitest run`
+> 3. **Verify** with CI checks (run only the checks relevant to your layer):
+>    - Backend: `ruff check .` → `ruff format --check .` → `./venv/bin/pytest tests/ -q`
+>    - Frontend: `cd frontend && npm run lint` → `npx tsc --noEmit` → `npx vitest run`
 >    Fix failures (up to 3 attempts).
-> 5. **Commit your changes**: `git add -A && git commit -m "feat: <change-name>"` — this makes merge easier. Do NOT add `Co-Authored-By` trailers.
-> 6. **Do NOT archive** — the orchestrator handles archival after merge.
+> 4. **Commit your changes**: `git add -A && git commit -m "feat: <change-name>"` — this makes merge easier. Do NOT add `Co-Authored-By` trailers.
+> 5. **Do NOT archive** — the reviewer agent handles archival after CI validation.
 >
 > **Rules:**
 > - Never ask for clarification. The architect's artifacts have your answers.
 > - Follow existing codebase patterns (check similar files before writing new ones).
-> - Backend: thin routes, services for logic, Pydantic models.
-> - Frontend: functional components, TanStack Query, Tailwind, strict TypeScript, i18n in en.json + es.json.
-> - Tests: pytest functions in `tests/`, mock external deps, use `dependency_overrides` with setUp/tearDown per class (NOT module-level).
-> - **Test isolation**: All pytest fixtures with mocked repos/services MUST use `scope="function"` (NOT `scope="module"`). Module-scoped mocks cause cross-test pollution.
-> - **Temp dir assertions**: All file-existence assertions MUST be inside the `with tempfile.TemporaryDirectory()` block — the directory is deleted when the block exits.
-> - **HTTP status codes**: This project's `validation_exception_handler` converts Pydantic `RequestValidationError` to HTTP 400 (NOT 422). Always expect 400 for validation errors.
+> - Pay attention to the "Lessons from past reviews" section — these are real mistakes from previous sprints.
 > - If a task is unclear, refer back to design.md for the architectural decision.
 > - **Shared files**: <list any shared file ownership rules from step 3a.1 here>
 
@@ -194,7 +236,9 @@ This prevents discovering failures late during the merge phase.
 
 ### 4a. Merge worktree changes to main repo
 
-For each completed worktree:
+**If `SINGLE_MODE`**: Skip this step — the developer already worked in the main repo.
+
+**If multiple features**: For each completed worktree:
 1. **Get the diff**: `cd <worktree> && git diff HEAD --name-only` to identify changed files (developers should have committed, so use `git diff main..HEAD --name-only` if committed).
 2. **Copy feature-specific files**: Only copy files unique to this feature. Skip shared files (client.ts, en.json, es.json) — merge those manually.
 3. **Merge shared files**: For files modified by multiple developers, read each version, identify the additions, and splice them into the main repo's version. Never blindly overwrite.
@@ -206,11 +250,13 @@ Launch a single **reviewer** agent (`subagent_type: reviewer`) to validate ALL m
 
 The reviewer's prompt should be:
 
-> You are the final quality gate. All developer agents have completed and their changes have been merged into the main repo. Your job is to run the exact CI/CD pipeline checks and fix any issues.
+> You are the final quality gate. All developer agents have completed and their changes have been merged into the main repo. Your job is to run the exact CI/CD pipeline checks, fix any issues, and archive the completed changes.
 >
 > **Features implemented:** <list the features and their change names>
 >
 > **Files changed:** <list all modified/created files across all features>
+>
+> ## Step 1: CI Verification
 >
 > Run the full CI-equivalent verification suite in this exact order:
 >
@@ -231,6 +277,26 @@ The reviewer's prompt should be:
 > - Conflicting changes to shared files (en.json, es.json, client.ts, useApi.ts)
 > - Inconsistent patterns between features
 >
+> ## Step 2: Record learnings
+>
+> If you fixed ANY issues, append a summary to `.claude/agent-memory/reviewer/common-fixes.md`. Format:
+> ```
+> ## Sprint {DATE}
+> - {description of fix}: {what was wrong} -> {how you fixed it}
+> ```
+> Keep entries concise (1 line each). This file is read by future developers to avoid repeating mistakes. If the file already has >50 entries, remove the oldest 10.
+>
+> ## Step 3: Archive changes
+>
+> After ALL checks pass, archive each completed change:
+> ```bash
+> openspec sync-specs "<change-name>"
+> openspec archive change "<change-name>"
+> ```
+> Repeat for each change name listed above.
+>
+> ## Report
+>
 > Report your findings in this format:
 > ```
 > ## Review Results
@@ -247,6 +313,9 @@ The reviewer's prompt should be:
 > - ...
 >
 > ### Files Modified by Reviewer
+> - ...
+>
+> ### Archived Changes
 > - ...
 > ```
 
@@ -303,9 +372,9 @@ List files created or modified per area. Include the PR URL and CI status.
 
 ## Error Handling
 
-- If an explorer fails: skip that area, continue with others
-- If an architect fails: skip that area, report the failure. Suggest running `/auto-implement <description>` manually.
-- If a developer fails mid-pipeline: report which phase it failed at and the error. Suggest running `/auto-implement <description>` manually for that feature.
+- If a product-manager fails: skip that area, continue with others
+- If an architect fails: skip that area, report the failure. Suggest running `/implement "<description>"` manually for that feature.
+- If a developer fails mid-pipeline: report which phase it failed at and the error. Suggest running `/implement "<description>"` manually for that feature.
 - If the reviewer finds unfixable issues: report them clearly, push what works, note failures in the PR description.
 - If CI fails after reviewer approval: attempt to fix (read `gh run view --log-failed`), push fix, re-check.
 - Never block the entire pipeline on a single agent failure. Always produce a final report.
