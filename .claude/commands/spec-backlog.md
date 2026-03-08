@@ -3,7 +3,6 @@ name: "Spec Backlog"
 description: "View spec-driven backlog from GitHub Issues and propose top 3 for implementation"
 category: Workflow
 tags: [workflow, backlog, viewer, spec-driven]
-model: haiku
 ---
 
 Display the spec-driven backlog by reading GitHub Issues labeled `spec-driven-backlog`. These are items derived from OpenSpec specifications — gaps between what specs require and what code exists. Use `/update-spec-driven-backlog` to refresh.
@@ -13,6 +12,14 @@ Display the spec-driven backlog by reading GitHub Issues labeled `spec-driven-ba
 ---
 
 ## Execution
+
+Launch a **single** analyst agent (`subagent_type: analyst`) to read and prioritize the backlog.
+
+The analyst agent receives this prompt:
+
+> You are reading the spec-driven backlog from GitHub Issues and producing a prioritized view.
+>
+> Execute the following steps:
 
 1. **Fetch all open spec-driven backlog issues:**
    ```bash
@@ -66,7 +73,7 @@ Display the spec-driven backlog by reading GitHub Issues labeled `spec-driven-ba
    | 2 | #XX Item | Area | High | Medium | {why} |
    | 3 | #XX Item | Area | High | Medium | {why} |
 
-   Run `/parallel-implement` to start implementing these items.
+   Run `/implement` to start implementing these items.
    ```
 
 5. If no issues exist, tell the user:

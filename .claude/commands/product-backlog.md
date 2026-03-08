@@ -3,7 +3,6 @@ name: "Product Backlog"
 description: "View product-driven backlog from GitHub Issues and propose top 3 for implementation"
 category: Workflow
 tags: [workflow, backlog, viewer, product-driven]
-model: haiku
 ---
 
 Display the product-driven backlog by reading GitHub Issues labeled `product-driven-backlog`. These are new feature ideas generated through product discovery — features that don't have specs yet but would improve the product. Use `/update-product-driven-backlog` to generate new ideas.
@@ -13,6 +12,14 @@ Display the product-driven backlog by reading GitHub Issues labeled `product-dri
 ---
 
 ## Execution
+
+Launch a **single** analyst agent (`subagent_type: analyst`) to read and prioritize the backlog.
+
+The analyst agent receives this prompt:
+
+> You are reading the product-driven backlog from GitHub Issues and producing a prioritized view.
+>
+> Execute the following steps:
 
 1. **Fetch all open product-driven backlog issues:**
    ```bash
@@ -56,7 +63,7 @@ Display the product-driven backlog by reading GitHub Issues labeled `product-dri
    | 2 | #XX Feature | Area | High | Medium | {why} |
    | 3 | #XX Feature | Area | Medium | Low | {why} |
 
-   Run `/parallel-implement` to start implementing these items.
+   Run `/implement` to start implementing these items.
    ```
 
 5. If no issues exist, tell the user:

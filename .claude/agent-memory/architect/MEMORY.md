@@ -38,7 +38,7 @@
 
 - `DeckRepository` lives in `deckdex/storage/deck_repository.py` — not under the CollectionRepository ABC (its own standalone class).
 - `require_deck_repo()` in `backend/api/routes/decks.py` returns 501 when no Postgres — all deck endpoints use this dependency.
-- Tests in `tests/test_decks.py` use `deck_client` fixture (module-scoped): mocks `require_deck_repo` + `get_current_user_id`. All 19 tests use the same mock_repo.
+- Tests in `tests/test_decks.py` use `deck_client` fixture (`scope="function"`): mocks `require_deck_repo` + `get_current_user_id`. All 19 tests use the same mock_repo.
 - Tests in `tests/test_deck_repository.py` test `DeckRepository.find_card_ids_by_names` with `MagicMock` engine injection.
 - `POST /api/decks/{id}/import` had zero test coverage prior to the batch-card-add-deck change.
 - `DeckCardPickerModal.tsx` had N+1 sequential request pattern (one POST per selected card) — fixed in batch-card-add-deck change.
@@ -105,6 +105,13 @@ Remaining gaps addressed in `a11y-modals-tables-pass`:
 Pattern for nested `AccessibleModal` + ESC propagation prevention: use `document.addEventListener`
 in capture phase (`true`) with `e.stopPropagation()` before the outer `AccessibleModal`'s
 bubble-phase handler. See `ProfileModal` crop sub-modal design.
+
+## Import System Key Facts
+
+- `ResolveService` at `backend/api/services/resolve_service.py`. `SCRYFALL_LOOKUP_CAP = 50` at line 15. Cap guard: `scryfall_lookups < SCRYFALL_LOOKUP_CAP` at line 70.
+- `ParsedCard` in `deckdex/importers/base.py` is a `TypedDict` — construct as plain dict `{"name": ..., "quantity": ..., "set_name": ...}`, NOT `ParsedCard(name=...)`.
+- `import_client` fixture in `tests/test_import_routes.py` originally used `scope="module"` (base spec bug); corrected to `scope="function"` in `import-test-coverage-gaps` change.
+- All route test fixtures project-wide use `scope="function"`. `scope="module"` in any test file is a bug.
 
 ## Common Pitfalls
 

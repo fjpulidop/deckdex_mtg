@@ -54,6 +54,32 @@
 - `backend/api/main.py` — startup hooks go here
 - `frontend/src/contexts/ActiveJobsContext.tsx` — frontend job state, restores from GET /api/jobs on mount
 
+## OpenSpec CLI Critical: Must Run from Repo Root
+
+- `openspec` commands MUST be run from `/Users/javi/repos/deckdex_mtg` (project root) or they fail with "No OpenSpec changes directory found"
+- Always prefix with `cd /Users/javi/repos/deckdex_mtg &&` when using Bash tool
+- Writing artifact files directly with Write tool works fine (CLI not needed for file creation)
+
+## cards Table Index Inventory (as of migration 014)
+
+Existing indexes — do NOT recreate in new migrations:
+- `idx_cards_name ON cards (name)` — migration 001
+- `idx_cards_set_name ON cards (set_name)` — migration 001 (single-column only)
+- `idx_cards_scryfall_id ON cards (scryfall_id)` — migration 004
+- `idx_cards_user_id ON cards (user_id)` — migration 006
+- `idx_cards_name_set_user ON cards (user_id, name, set_id)` — migration 007
+
+Migration 015 adds: `(user_id, rarity)`, `(cmc)`, `(user_id, set_name)`.
+
+## Frontend Infra Patterns (confirmed)
+
+- `frontend/scripts/` — Node ESM scripts (`.mjs`) for one-off tooling (e.g., `screenshot-demo.mjs`).
+- `frontend/package.json` has `"type": "module"` — `.js`/`.mjs` are ESM by default. Use `fileURLToPath(import.meta.url)` → `dirname()` to get `__dirname` equivalent.
+- `@playwright/test` already a devDependency. Chromium binary: `npx playwright install chromium` (one-time per machine).
+- Standalone Playwright scripts in `scripts/` do NOT use `playwright.config.ts` — programmatic `chromium.launch()` only. Config is for `npx playwright test` test suite.
+- `frontend/e2e/smoke.spec.ts` — E2E smoke tests. `playwright.config.ts` uses `webServer` to auto-start Vite.
+- `frontend/public/dashboard-preview.png` — committed to git (baseline hero image). Regenerated manually via `npm run screenshot:demo`.
+
 ## Architecture Constraints (confirmed)
 
 - `deckdex/` has zero framework imports — no FastAPI, no SQLAlchemy direct in service files
