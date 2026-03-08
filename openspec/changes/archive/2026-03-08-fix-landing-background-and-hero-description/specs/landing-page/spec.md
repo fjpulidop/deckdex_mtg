@@ -1,4 +1,4 @@
-# Landing Page
+## MODIFIED Requirements
 
 ### Requirement: Hero section shows bilingual app description card
 The landing page Hero section SHALL display an inline bilingual description card in the right column, rendered in both English and Spanish simultaneously, instead of a static dashboard screenshot image. The card SHALL communicate what DeckDex does through a short title, a set of feature bullets, and a tagline.
@@ -19,55 +19,6 @@ The landing page Hero section SHALL display an inline bilingual description card
 - **THEN** there SHALL be no `onError` image fallback mechanism in the Hero component
 - **AND** the `frontend/public/dashboard-preview.png` file is no longer required by the landing page
 
-### Requirement: Live demo CTA in Hero
-The Hero section SHALL include a secondary call-to-action link to the public demo route.
-
-#### Scenario: Demo link visible before login
-- **WHEN** an unauthenticated visitor views the landing page
-- **THEN** a "Try live demo" button SHALL be visible alongside the sign-in button, linking to `/demo`
-
-#### Scenario: Demo link not shown when authenticated
-- **WHEN** an authenticated user views the landing page
-- **THEN** the "Try live demo" button SHALL NOT be shown; only the "Go to Dashboard" button appears
-
-### Requirement: Live demo CTA in FinalCTA
-The FinalCTA section SHALL also include a secondary link to the demo route for visitors who scroll to the bottom without signing in.
-
-#### Scenario: FinalCTA demo link visible before login
-- **WHEN** an unauthenticated visitor views the FinalCTA section
-- **THEN** a "Try live demo" secondary button SHALL be visible alongside the sign-in button
-
-### Requirement: Footer rendered on landing page
-The landing page SHALL render the Footer component.
-
-#### Scenario: Footer visible at bottom of landing
-- **WHEN** a visitor loads the landing page
-- **THEN** the Footer component SHALL be rendered below the FinalCTA section
-
-### Requirement: BentoGrid cards display styled visual content
-Each BentoCard SHALL display a styled gradient illustration with a relevant icon instead of raw placeholder text with pixel dimensions. The CardMatrix animated background SHALL be visible behind all landing page sections, providing additional visual depth.
-
-#### Scenario: Visitor sees feature cards
-- **WHEN** a visitor views the BentoGrid section on the landing page
-- **THEN** each feature card SHALL show a visually styled illustration area with gradient colors and an icon relevant to the feature
-- **AND** no raw dimension text (e.g., "600x500px") SHALL be visible
-
-#### Scenario: Animated background visible behind sections
-- **WHEN** a visitor loads the landing page
-- **THEN** the CardMatrix animated background SHALL be visible behind the Hero, BentoGrid, FinalCTA, and Footer sections
-- **THEN** the existing gradient styling of the landing page SHALL remain as the base layer beneath the animated background
-
-### Requirement: GitHub links use correct repository URL
-All GitHub links in the landing page SHALL point to the actual repository (`fjpulidop/deckdex-mtg`).
-
-#### Scenario: BentoGrid contribute links
-- **WHEN** a visitor views the BentoGrid section
-- **THEN** the "fork" and "pull requests" links SHALL point to `https://github.com/fjpulidop/deckdex-mtg/fork` and `https://github.com/fjpulidop/deckdex-mtg/pulls` respectively
-
-#### Scenario: FinalCTA contribute link
-- **WHEN** a visitor views the FinalCTA section
-- **THEN** the GitHub link SHALL point to `https://github.com/fjpulidop/deckdex-mtg`
-
 ### Requirement: CardMatrix animated background visible through landing sections
 The CardMatrix animated canvas background SHALL be visually perceptible behind the Hero, BentoGrid, FinalCTA, and Footer sections of the landing page. The `Landing` wrapper element SHALL NOT carry a background color or gradient that occludes the canvas.
 
@@ -86,6 +37,8 @@ The CardMatrix animated canvas background SHALL be visually perceptible behind t
 - **THEN** the Hero headline, subtitle, and CTA buttons SHALL remain clearly readable against the background
 - **AND** the reduced-opacity tint on the Hero section SHALL ensure sufficient contrast
 
+## ADDED Requirements
+
 ### Requirement: Locale keys for Hero description card
 The locale files SHALL include a `hero.descCard` key group in both `en.json` and `es.json` covering the title, feature bullets, and tagline displayed in the bilingual Hero card.
 
@@ -96,9 +49,3 @@ The locale files SHALL include a `hero.descCard` key group in both `en.json` and
 #### Scenario: Spanish keys present
 - **WHEN** `frontend/src/locales/es.json` is loaded
 - **THEN** the same six `hero.descCard.*` keys SHALL be present with Spanish translations
-
-### Requirement: No dead code in landing components
-The landing page module SHALL NOT contain unused components.
-
-### Requirement: No debug artifacts in public directory
-The `frontend/public/` directory SHALL NOT contain debug image files.

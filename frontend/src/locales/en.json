@@ -501,7 +501,15 @@
     "goToDashboard": "Go to Dashboard",
     "signIn": "Sign in",
     "tryDemo": "Try Demo",
-    "tryLiveDemo": "Try live demo"
+    "tryLiveDemo": "Try live demo",
+    "descCard": {
+      "title": "What is DeckDex?",
+      "feature1": "Track your MTG collection with real-time Scryfall prices",
+      "feature2": "Build Commander decks with AI-powered insights",
+      "feature3": "Import from MTGO, Moxfield, or paste a card list",
+      "feature4": "Analytics: mana curve, color identity, set distribution",
+      "tagline": "Free · Open Source · Community-Driven"
+    }
   },
   "bento": {
     "sectionTitle": "Powerful Features",

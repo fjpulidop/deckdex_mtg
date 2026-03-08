@@ -71,6 +71,14 @@ Existing indexes — do NOT recreate in new migrations:
 
 Migration 015 adds: `(user_id, rarity)`, `(cmc)`, `(user_id, set_name)`.
 
+## Landing Page Architecture Notes
+
+- z-layering: CardMatrix canvas at z-0 (fixed), Landing wrapper at z-10 (relative)
+- A background-color on the Landing wrapper occludes the canvas even though z-index is correct — the fix is removing the background, not changing z-index
+- Hero gradient `from-slate-900/80 via-purple-900/60` compounds occlusion; reduce to `/20` and `/10` for visibility + readability
+- `i18next.getFixedT('en')` and `getFixedT('es')` are valid for rendering fixed-language panels independent of the active locale
+- `context-bundle.md` is an extra artifact (not part of the spec-driven schema) — write it manually in the change dir
+
 ## Frontend Infra Patterns (confirmed)
 
 - `frontend/scripts/` — Node ESM scripts (`.mjs`) for one-off tooling (e.g., `screenshot-demo.mjs`).
