@@ -20,6 +20,91 @@ Full OpenSpec lifecycle with specialized agents: architect designs, developer im
 
 ---
 
+## Phase -1: Environment Setup (cloud pre-flight)
+
+**This phase runs BEFORE anything else.** Detect if we're in a cloud/remote environment and ensure all required tools are available.
+
+### Detection
+
+Check the environment variable `CLAUDE_CODE_ENTRYPOINT`. If it contains `remote_mobile` or `remote_web`, OR if `CLAUDE_CODE_REMOTE` is `true`, we're in a **cloud environment** and must verify the toolchain.
+
+```bash
+if [ "$CLAUDE_CODE_REMOTE" = "true" ] || [[ "$CLAUDE_CODE_ENTRYPOINT" == remote_* ]]; then
+  echo "CLOUD_ENV=true"
+fi
+```
+
+### Checks to run (sequential, fail-fast)
+
+Run each check. If a tool is missing, install/configure it before proceeding. Report a summary table at the end.
+
+#### 1. GitHub CLI authentication
+
+```bash
+gh auth status 2>&1
+```
+
+- If `gh` is not authenticated: The local git proxy handles `git push/pull` but `gh` CLI needs separate auth for API calls (issues, PRs, checks).
+- **Fix**: Check if the git remote uses a local proxy (`127.0.0.1`). If so, try to configure `gh` to work with it. If that fails, **warn the user** that PR creation and issue operations will not work, but continue — the pipeline can still architect, develop, and commit. PR creation will be skipped in Phase 4c.
+- Set `GH_AVAILABLE=true/false` for later phases.
+
+#### 2. OpenSpec CLI
+
+```bash
+which openspec && openspec --version
+```
+
+- If missing: `npm install -g @openspec/cli` (or check if it's in `node_modules/.bin/openspec`).
+- If install fails: **STOP** — openspec is required for the architect phase. Tell the user: "OpenSpec CLI is required. Install it with `npm install -g @openspec/cli`."
+
+#### 3. Python dependencies (backend)
+
+```bash
+python3 -c "import fastapi, httpx, slowapi, loguru, pydantic, sqlalchemy, ruff" 2>&1
+```
+
+- If any import fails: `pip install -r requirements.txt -r backend/requirements-api.txt -q`
+- Also verify `ruff` and `pytest` are in PATH: `which ruff pytest`
+- If `pytest` is not available as a command, note to use `python3 -m pytest` instead in all CI commands.
+
+#### 4. Frontend dependencies
+
+```bash
+[ -d frontend/node_modules ] && echo "OK" || echo "MISSING"
+```
+
+- If missing: `cd frontend && npm install`
+
+#### 5. Python virtual environment
+
+```bash
+[ -f venv/bin/python ] && echo "OK" || echo "MISSING"
+```
+
+- If `venv/` doesn't exist but `python3 -m pytest` works, that's fine — just note that CI commands should use `python3 -m pytest` instead of `./venv/bin/pytest`.
+- Set `PYTEST_CMD` to either `./venv/bin/pytest tests/ -q` or `python3 -m pytest tests/ -q` accordingly.
+
+### Summary
+
+Print a setup report:
+
+```
+## Environment Setup
+| Tool | Status | Notes |
+|------|--------|-------|
+| GitHub CLI | ✓ / ✗ | authenticated / PR creation disabled |
+| OpenSpec | ✓ v1.2.0 | |
+| Python deps | ✓ | |
+| Frontend deps | ✓ | |
+| pytest | ✓ | via python3 -m pytest |
+```
+
+If any **critical** tool is missing (OpenSpec, Python deps), stop and tell the user. If only `gh` auth is missing, continue with `GH_AVAILABLE=false` — skip PR creation in Phase 4c and tell the user to create the PR manually.
+
+**Pass `PYTEST_CMD` and `GH_AVAILABLE` forward** — all later phases must use these instead of hardcoded commands.
+
+---
+
 ## Phase 0: Parse input and determine mode
 
 **If the user passed a text description** (e.g. `"add price history chart"`):
@@ -205,7 +290,7 @@ Each agent's prompt should be:
 >    - Implement the change following the design's architectural decisions
 >    - Mark the task as done: `- [ ]` -> `- [x]`
 > 3. **Verify** with CI checks (run only the checks relevant to your layer):
->    - Backend: `ruff check .` → `ruff format --check .` → `./venv/bin/pytest tests/ -q`
+>    - Backend: `ruff check .` → `ruff format --check .` → `{PYTEST_CMD}` (from Phase -1 setup)
 >    - Frontend: `cd frontend && npm run lint` → `npx tsc --noEmit` → `npx vitest run`
 >    Fix failures (up to 3 attempts).
 > 4. **Commit your changes**: `git add -A && git commit -m "feat: <change-name>"` — this makes merge easier. Do NOT add `Co-Authored-By` trailers.
@@ -263,7 +348,7 @@ The reviewer's prompt should be:
 > ### Backend
 > 1. `ruff check .` — fix with `ruff check . --fix` if needed
 > 2. `ruff format --check .` — fix with `ruff format <file>` if needed
-> 3. `./venv/bin/pytest tests/ -q` — if failures, read test + implementation to fix
+> 3. `{PYTEST_CMD}` (use the command determined in Phase -1; typically `python3 -m pytest tests/ -q` in cloud or `./venv/bin/pytest tests/ -q` locally) — if failures, read test + implementation to fix
 >
 > ### Frontend
 > 4. `cd frontend && npm run lint` — if ESLint errors, understand the rule and fix properly (no eslint-disable)
@@ -327,7 +412,13 @@ Wait for the reviewer to complete. Read its report.
 3. Create **one commit per feature** with descriptive messages following existing commit style (e.g., `fix:`, `feat:`, `test:`, `refactor:`). Do NOT add `Co-Authored-By` trailers.
 4. If the reviewer modified files, create an additional commit: `fix: resolve CI issues (reviewer)`.
 5. Push the branch: `git push -u origin <branch-name>`
-6. **Link backlog issues to the PR** — If any implemented features originated from backlog issues (Phase 0/2), include `Closes #XX` in the PR body for each resolved issue. This ensures GitHub automatically closes the issues when the PR is merged.
+6. **If `GH_AVAILABLE=false`** (from Phase -1): Skip PR creation. Instead, print the compare URL for the user to create the PR manually:
+   ```
+   PR creation skipped (GitHub CLI not authenticated).
+   Create the PR manually at: https://github.com/{owner}/{repo}/compare/main...<branch-name>
+   ```
+   Then skip to Phase 4e (Report).
+7. **Link backlog issues to the PR** — If any implemented features originated from backlog issues (Phase 0/2), include `Closes #XX` in the PR body for each resolved issue. This ensures GitHub automatically closes the issues when the PR is merged.
    ```
    gh pr create --title "feat: ..." --body "$(cat <<'EOF'
    ## Summary
