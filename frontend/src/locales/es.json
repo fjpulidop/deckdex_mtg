@@ -501,13 +501,7 @@
     "goToDashboard": "Ir al panel",
     "signIn": "Iniciar sesión",
     "tryDemo": "Probar demo",
-    "tryLiveDemo": "Probar demo en vivo",
-    "features": {
-      "collection": "Gestiona toda tu colección de MTG en un solo lugar. Importa desde CSV, escanea cartas y lleva el control de cada carta que posees en todas las ediciones.",
-      "prices": "Seguimiento de precios en tiempo real con Scryfall. Monitoriza el valor de tu colección, detecta tendencias del mercado y toma decisiones de intercambio informadas.",
-      "ai": "Sugerencias de mazos y análisis de sinergia con IA. Recibe recomendaciones inteligentes basadas en tu colección y estilo de juego.",
-      "analytics": "Analíticas detalladas sobre tu colección: distribución de curva de maná, desglose por colores, cobertura de ediciones y valor del portfolio a lo largo del tiempo."
-    }
+    "tryLiveDemo": "Probar demo en vivo"
   },
   "bento": {
     "sectionTitle": "Funcionalidades potentes",
