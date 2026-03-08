@@ -219,9 +219,9 @@ This project is built and maintained using [Claude Code](https://claude.com/clau
 
 The development cycle follows three stages:
 
-1. **Backlog** — Automated commands scan specs vs. code to find gaps, or generate new feature ideas through product discovery. Results are published as GitHub Issues with labels, priority, and effort estimates.
+1. **Product Discovery** — An automated command generates feature ideas using the **Value Proposition Canvas** framework, evaluating each proposal against two personas: an MTG Player ("Alex") and an MTG Collector ("Morgan"). Each feature receives a persona fit score (0-10). Low-scoring ideas are automatically pruned. Results are published as GitHub Issues.
 
-2. **Prioritization** — The operator reviews the backlog and selects items for implementation (typically 3 per sprint).
+2. **Prioritization** — The operator reviews the backlog sorted by VPC persona score and selects items for implementation (typically 3 per sprint).
 
 3. **Parallel Implementation** — Selected items are implemented concurrently by specialized agents.
 
@@ -229,9 +229,9 @@ The development cycle follows three stages:
 
 ```mermaid
 graph LR
-    subgraph Backlog["1. Backlog"]
-        SB["/spec-backlog"]
-        PB["/product-backlog"]
+    subgraph Discovery["1. Product Discovery"]
+        VPC["/update-product-driven-backlog<br/>(VPC + Personas)"]
+        PB["/product-backlog<br/>(sorted by score)"]
     end
 
     Operator["Operator picks top 3"]
@@ -261,8 +261,7 @@ graph LR
 
     PR["PR + auto-close issues"]
 
-    SB --> Operator
-    PB --> Operator
+    VPC --> PB --> Operator
     Operator --> Pipeline
     Review --> PR
 ```
@@ -271,13 +270,22 @@ graph LR
 
 | Agent | Role | Scope |
 |-------|------|-------|
-| **Explorer** | Scans code and specs to assess what's built vs. what's missing | Read-only, parallel |
+| **Product Manager** | VPC-based product discovery, evaluates features against player & collector personas | Read-only, Opus |
+| **Product Analyst** | Reads backlog, sorts by VPC score, proposes top 3 | Read-only, Haiku |
 | **Architect** | Creates design artifacts (proposal, design, delta-spec, tasks) using [OpenSpec](openspec/) | Writes to `openspec/changes/`, parallel |
 | **Developer** | Implements tasks from architect's blueprint, runs CI locally | Isolated git worktree per feature, parallel |
 | **Reviewer** | Validates all merged changes, fixes cross-feature conflicts | Main repo, sequential |
 | **Orchestrator** | Coordinates the pipeline, merges worktrees, creates PR | Main repo, manages all phases |
 
 Each feature gets its own architect + developer pair running in parallel. The orchestrator merges all results, the reviewer validates, and a single PR is opened linking the resolved GitHub Issues.
+
+### Personas & Value Proposition Canvas
+
+Features are evaluated against two user personas defined in `.claude/agents/personas/`:
+- **Alex (MTG Player)** — Commander regular with 5-15 decks, focused on deck building, card allocation, and game night prep
+- **Morgan (MTG Collector)** — Portfolio collector tracking value, condition, variants, and set completion
+
+Each persona has a full VPC profile (customer jobs, pains with severity, gains with impact). During product discovery, every feature receives a score (0-5 per persona, 0-10 total). Features scoring ≤2/10 are automatically pruned from the backlog.
 
 ### Specs as Source of Truth
 

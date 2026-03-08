@@ -4,25 +4,29 @@
 
 The workflow system has three layers: **Feed** (populate backlogs), **View** (prioritize), and **Execute** (implement). Each layer uses specialized agents with models chosen for the task complexity.
 
-## Layer 1: Backlog Feeding
+## Layer 1: Backlog Feeding (Product Discovery)
 
 | Command | Purpose | Agent | Model | GitHub Label |
 |---------|---------|-------|-------|--------------|
-| `/update-spec-driven-backlog` | Analyze specs vs code, find gaps | `Explore` (built-in) | *(environment default)* | `spec-driven-backlog` |
-| `/update-product-driven-backlog` | Research competitors, generate new ideas | `Explore` (built-in) | *(environment default)* | `product-driven-backlog` |
+| `/update-product-driven-backlog` | VPC-based product discovery with persona evaluation | `Explore` (built-in) | *(environment default)* | `product-driven-backlog` |
 
 Uses `Explore` (built-in, read-only) because it requires deep codebase exploration: reading specs, navigating code, comparing with competitors, and deducing what's missing. The orchestrator then creates/updates/closes GitHub Issues with the results.
 
-**Incremental mode**: `/update-spec-driven-backlog` checks `git log` for recently changed specs and only re-analyzes affected areas, avoiding full re-analysis on every run.
+**Value Proposition Canvas (VPC)**: Every proposed feature is evaluated against two personas:
+- **MTG Player (Alex)** — Commander regular managing 5-15 decks (`.claude/agents/personas/mtg-player.md`)
+- **MTG Collector (Morgan)** — Portfolio collector tracking value and completion (`.claude/agents/personas/mtg-collector.md`)
 
-## Layer 2: Viewers (read + prioritize)
+Each feature receives a persona fit score (Player 0-5, Collector 0-5, Total 0-10). Features scoring ≤2/10 are automatically closed. The VPC evaluation references specific jobs, pains (with severity), and gains (with impact) from the persona files.
+
+## Layer 2: Viewer (read + prioritize)
 
 | Command | Purpose | Agent | Model |
 |---------|---------|-------|-------|
-| `/spec-backlog` | Read Issues, group by area, propose top 3 | `analyst` | **Haiku** |
-| `/product-backlog` | Read Issues, group by area, propose top 3 | `analyst` | **Haiku** |
+| `/product-backlog` | Read Issues, sort by VPC score, propose top 3 | `product-analyst` | **Haiku** |
 
-Uses `analyst` (Haiku) because it's purely analytical work: reading structured data (GitHub Issues), parsing, grouping, and prioritizing. No code exploration needed.
+Uses `product-analyst` (Haiku) because it's purely analytical work: reading structured data (GitHub Issues), parsing VPC scores, grouping by area, and prioritizing. No code exploration needed.
+
+**Sorting**: Issues are ranked by Total Persona Score (descending), with Effort as tiebreaker. Cross-persona features (both 4+/5) are prioritized over single-persona features.
 
 ## Layer 3: Implementation (`/implement`)
 
@@ -93,8 +97,8 @@ Phase 4e: Report --- Summary table with status per feature
 
 | Agent | `subagent_type` | Model | Role | Model Justification |
 |-------|----------------|-------|------|---------------------|
-| **Product Manager** | `product-manager` | **Opus** | Ideation, brainstorming, product strategy | Requires creativity and deep reasoning |
-| **Analyst** | `analyst` | **Haiku** | Parse Issues, group, prioritize | Mechanical task with structured data |
+| **Product Manager** | `product-manager` | **Opus** | VPC-based ideation, persona evaluation, product strategy | Requires creativity and deep reasoning |
+| **Product Analyst** | `product-analyst` | **Haiku** | Parse Issues, sort by VPC score, prioritize | Mechanical task with structured data |
 | **Architect** | `architect` | **Sonnet** | Design OpenSpec artifacts + context bundle | Good balance of technical design / cost |
 | **Backend Developer** | `backend-developer` | **Sonnet** | Implement Python/FastAPI/PostgreSQL code | Specialized, lighter prompt (no frontend rules) |
 | **Frontend Developer** | `frontend-developer` | **Sonnet** | Implement React/TypeScript/Tailwind code | Specialized, lighter prompt (no backend rules) |
@@ -123,9 +127,9 @@ Instead of always using the full-stack `developer` agent (which carries Python +
 
 Routing is based on layer tags (`[backend]`, `[frontend]`, `[core]`, `[test]`) assigned by the architect in tasks.md.
 
-### 4. Incremental Backlog Analysis
+### 4. Persona-Driven Feature Evaluation
 
-`/update-spec-driven-backlog` checks git history for recently changed specs before launching the full explorer. If only 2 of 8 areas had spec changes, it only analyzes those 2 areas instead of all 8.
+`/update-product-driven-backlog` reads two persona files (~100 lines each) containing full VPC profiles. The Explore agent references specific jobs, pains, and gains from these files when scoring features, ensuring evaluations are grounded in real user needs rather than abstract "value" estimates. Features scoring ≤2/10 are automatically pruned.
 
 ### 5. Pre-validation Post-Architect
 
@@ -139,13 +143,11 @@ This catches architect hallucinations early, before wasting developer tokens on 
 ## Typical Flow
 
 ```
-/update-spec-driven-backlog              <- Feed (Explore)
-/update-product-driven-backlog           <- Feed (Explore)
-        |
-        v
-/spec-backlog                            <- Prioritize (analyst, Haiku)
-/product-backlog                         <- Prioritize (analyst, Haiku)
-        |
+/update-product-driven-backlog           <- Discovery (Explore + VPC personas)
+        |                                   Evaluates features against Alex & Morgan
+        v                                   Scores 0-10, prunes ≤2
+/product-backlog                         <- Prioritize (product-analyst, Haiku)
+        |                                   Sorted by VPC score descending
         v
 /implement #85, #71                      <- Execute:
                                             architect (Sonnet)
@@ -158,13 +160,16 @@ This catches architect hallucinations early, before wasting developer tokens on 
 ```
 .claude/
 |-- agents/
-|   |-- product-manager.md               <- Opus
-|   |-- analyst.md                       <- Haiku
+|   |-- product-manager.md               <- Opus (VPC framework, persona references)
+|   |-- product-analyst.md               <- Haiku (VPC score parsing & prioritization)
 |   |-- architect.md                     <- Sonnet
 |   |-- backend-developer.md             <- Sonnet (backend specialist)
 |   |-- frontend-developer.md            <- Sonnet (frontend specialist)
 |   |-- developer.md                     <- Sonnet (full-stack fallback)
-|   +-- reviewer.md                      <- Sonnet
+|   |-- reviewer.md                      <- Sonnet
+|   +-- personas/                        <- User personas for VPC evaluation
+|       |-- mtg-player.md               <- "Alex" — Commander player (jobs, pains, gains)
+|       +-- mtg-collector.md            <- "Morgan" — Portfolio collector (jobs, pains, gains)
 |-- agent-memory/
 |   |-- reviewer/common-fixes.md         <- Reviewer learnings (feedback loop)
 |   |-- backend-developer/              <- Backend dev memory
@@ -174,10 +179,8 @@ This catches architect hallucinations early, before wasting developer tokens on 
 |   +-- product-ideation-explorer/      <- Product manager memory
 |-- commands/
 |   |-- implement.md                     <- Unified pipeline
-|   |-- spec-backlog.md                  <- Spec viewer
-|   |-- product-backlog.md               <- Product viewer
-|   |-- update-spec-driven-backlog.md    <- Feed specs (incremental)
-|   |-- update-product-driven-backlog.md <- Feed product
+|   |-- product-backlog.md               <- Product viewer (VPC-sorted)
+|   |-- update-product-driven-backlog.md <- VPC-based product discovery
 |   +-- opsx/                            <- Manual OpenSpec workflow
 +-- skills/
     +-- openspec-*/SKILL.md              <- OpenSpec skills
@@ -187,9 +190,11 @@ This catches architect hallucinations early, before wasting developer tokens on 
 
 **Why no merge agent?** The orchestrator (Opus) handles merge because it already has full context: which features were implemented, the shared file ownership plan from 3a.1, and what each developer changed. A separate agent would need all that context passed as prompt, duplicating what the orchestrator already knows.
 
-**Why `Explore` for feeding and `analyst` for viewing?** Feeding requires deep codebase exploration (reading specs, verifying deliverables against actual code). Viewing only reads structured GitHub Issues -- purely mechanical parsing and prioritization.
+**Why `Explore` for feeding and `product-analyst` for viewing?** Feeding requires deep codebase exploration (reading specs, personas, navigating code, evaluating against VPC). Viewing only reads structured GitHub Issues with VPC scores — purely mechanical parsing and prioritization.
 
-**Why `product-manager` on Opus?** Product ideation requires creative reasoning, competitive analysis, and strategic thinking across multiple domains. Opus handles the ambiguity and open-endedness better than Sonnet.
+**Why `product-manager` on Opus?** Product ideation requires creative reasoning, VPC evaluation against multiple personas, competitive analysis, and strategic thinking across multiple domains. Opus handles the ambiguity and open-endedness better than Sonnet.
+
+**Why personas as documents, not separate agents?** Creating separate "player agent" and "collector agent" would triple the token cost of each discovery cycle (~50-80k vs ~20-35k tokens) while the product-manager can evaluate against both personas in a single pass using their VPC profiles as reference documents. Same analytical quality, ~60% lower cost.
 
 **Why Sonnet for architect/developer/reviewer?** These agents have well-defined tasks with clear inputs (specs, artifacts, code). Sonnet provides excellent code generation and technical reasoning at lower cost than Opus.
 
