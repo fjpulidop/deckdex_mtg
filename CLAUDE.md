@@ -74,6 +74,8 @@ Browser → React (Vite, :5173)
 
 Layer-specific conventions are in `.claude/rules/` (loaded conditionally per layer).
 
+⚠️ **Git commits**: NEVER add `Co-Authored-By` trailers to commits.
+
 ## Warnings
 
 ⚠️ **Concurrency**: Do NOT run CLI and web simultaneously when using Google Sheets only — writes conflict. PostgreSQL (`DATABASE_URL` set) allows both.

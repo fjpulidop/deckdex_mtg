@@ -69,6 +69,7 @@ export const BentoGrid = () => {
               gradientFrom="from-blue-500/20"
               gradientTo="to-blue-600/20"
               illustrationIcon={<LayoutGrid className="h-20 w-20" strokeWidth={1} />}
+              iconColor="text-blue-400/60 group-hover:text-blue-300/80"
             />
           </motion.div>
 
@@ -83,6 +84,7 @@ export const BentoGrid = () => {
               gradientFrom="from-purple-500/20"
               gradientTo="to-purple-600/20"
               illustrationIcon={<Wand2 className="h-20 w-20" strokeWidth={1} />}
+              iconColor="text-purple-400/60 group-hover:text-purple-300/80"
             />
           </motion.div>
 
@@ -96,6 +98,7 @@ export const BentoGrid = () => {
               gradientFrom="from-pink-500/20"
               gradientTo="to-rose-600/20"
               illustrationIcon={<MessageSquareText className="h-20 w-20" strokeWidth={1} />}
+              iconColor="text-pink-400/60 group-hover:text-pink-300/80"
             />
           </motion.div>
 
@@ -109,6 +112,7 @@ export const BentoGrid = () => {
               gradientFrom="from-amber-500/20"
               gradientTo="to-orange-600/20"
               illustrationIcon={<Activity className="h-20 w-20" strokeWidth={1} />}
+              iconColor="text-amber-400/60 group-hover:text-amber-300/80"
             />
           </motion.div>
 
@@ -122,6 +126,7 @@ export const BentoGrid = () => {
               gradientFrom="from-green-500/20"
               gradientTo="to-emerald-600/20"
               illustrationIcon={<BarChart3 className="h-20 w-20" strokeWidth={1} />}
+              iconColor="text-green-400/60 group-hover:text-green-300/80"
             />
           </motion.div>
         </motion.div>

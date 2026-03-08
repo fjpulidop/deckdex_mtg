@@ -14,11 +14,6 @@ from backend.api.dependencies import get_current_user_id
 # Import app after potential path setup; run tests from repo root
 from backend.api.main import app
 
-# Override auth for all tests — no real JWT needed
-app.dependency_overrides[get_current_user_id] = lambda: 1
-
-client = TestClient(app)
-
 # Shared fixture: cards with parseable prices for stats and filter tests
 SAMPLE_CARDS = [
     {"name": "Lightning Bolt", "rarity": "common", "type": "Instant", "set_name": "M10", "price": "0.5"},
@@ -31,12 +26,21 @@ SAMPLE_CARDS = [
 # Health (no mocks)
 # ---------------------------------------------------------------------------
 class TestHealth(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        app.dependency_overrides[get_current_user_id] = lambda: 1
+        cls.client = TestClient(app)
+
+    @classmethod
+    def tearDownClass(cls):
+        app.dependency_overrides.pop(get_current_user_id, None)
+
     def test_health_returns_200(self):
-        response = client.get("/api/health")
+        response = self.client.get("/api/health")
         self.assertEqual(response.status_code, 200)
 
     def test_health_body_has_service_version_status(self):
-        response = client.get("/api/health")
+        response = self.client.get("/api/health")
         self.assertEqual(response.status_code, 200)
         data = response.json()
         self.assertIn("service", data)
@@ -51,6 +55,15 @@ class TestHealth(unittest.TestCase):
 # Stats (patch get_cached_collection in backend.api.routes.stats)
 # ---------------------------------------------------------------------------
 class TestStats(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        app.dependency_overrides[get_current_user_id] = lambda: 1
+        cls.client = TestClient(app)
+
+    @classmethod
+    def tearDownClass(cls):
+        app.dependency_overrides.pop(get_current_user_id, None)
+
     def setUp(self):
         from backend.api.routes.stats import clear_stats_cache
 
@@ -61,7 +74,7 @@ class TestStats(unittest.TestCase):
             patch("backend.api.routes.stats.get_collection_repo", return_value=None),
             patch("backend.api.routes.stats.get_cached_collection", return_value=[]),
         ):
-            response = client.get("/api/stats/")
+            response = self.client.get("/api/stats/")
             self.assertEqual(response.status_code, 200)
             data = response.json()
             self.assertEqual(data["total_cards"], 0)
@@ -75,7 +88,7 @@ class TestStats(unittest.TestCase):
             patch("backend.api.routes.stats.get_collection_repo", return_value=None),
             patch("backend.api.routes.stats.get_cached_collection", return_value=SAMPLE_CARDS),
         ):
-            response = client.get("/api/stats/")
+            response = self.client.get("/api/stats/")
             self.assertEqual(response.status_code, 200)
             data = response.json()
             self.assertEqual(data["total_cards"], 3)
@@ -88,11 +101,47 @@ class TestStats(unittest.TestCase):
             patch("backend.api.routes.stats.get_collection_repo", return_value=None),
             patch("backend.api.routes.stats.get_cached_collection", return_value=SAMPLE_CARDS),
         ):
-            response = client.get("/api/stats/", params={"rarity": "common"})
+            response = self.client.get("/api/stats/", params={"rarity": "common"})
             self.assertEqual(response.status_code, 200)
             data = response.json()
             self.assertEqual(data["total_cards"], 2)  # Lightning Bolt, Counterspell
             self.assertAlmostEqual(data["total_value"], 1.7, places=1)  # 0.5 + 1.2
+
+    def test_stats_set_name_filter(self):
+        with (
+            patch("backend.api.routes.stats.get_collection_repo", return_value=None),
+            patch("backend.api.routes.stats.get_cached_collection", return_value=SAMPLE_CARDS),
+        ):
+            response = self.client.get("/api/stats/", params={"set_name": "M10"})
+            self.assertEqual(response.status_code, 200)
+            data = response.json()
+            # Only Lightning Bolt and Counterspell are from M10
+            self.assertEqual(data["total_cards"], 2)
+            self.assertAlmostEqual(data["total_value"], 1.7, places=1)
+
+    def test_stats_search_filter(self):
+        with (
+            patch("backend.api.routes.stats.get_collection_repo", return_value=None),
+            patch("backend.api.routes.stats.get_cached_collection", return_value=SAMPLE_CARDS),
+        ):
+            response = self.client.get("/api/stats/", params={"search": "bolt"})
+            self.assertEqual(response.status_code, 200)
+            data = response.json()
+            # Only Lightning Bolt matches "bolt"
+            self.assertEqual(data["total_cards"], 1)
+            self.assertAlmostEqual(data["total_value"], 0.5, places=1)
+
+    def test_stats_multi_filter_combo(self):
+        with (
+            patch("backend.api.routes.stats.get_collection_repo", return_value=None),
+            patch("backend.api.routes.stats.get_cached_collection", return_value=SAMPLE_CARDS),
+        ):
+            response = self.client.get("/api/stats/", params={"rarity": "common", "set_name": "M10"})
+            self.assertEqual(response.status_code, 200)
+            data = response.json()
+            # Both Lightning Bolt and Counterspell are common AND from M10
+            self.assertEqual(data["total_cards"], 2)
+            self.assertAlmostEqual(data["total_value"], 1.7, places=1)
 
 
 # ---------------------------------------------------------------------------
@@ -100,12 +149,21 @@ class TestStats(unittest.TestCase):
 # GET /api/cards/ now returns { items, total, limit, offset } instead of List[Card]
 # ---------------------------------------------------------------------------
 class TestCardsList(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        app.dependency_overrides[get_current_user_id] = lambda: 1
+        cls.client = TestClient(app)
+
+    @classmethod
+    def tearDownClass(cls):
+        app.dependency_overrides.pop(get_current_user_id, None)
+
     def test_cards_empty_collection_returns_200_empty_items(self):
         with (
             patch("backend.api.routes.cards.get_collection_repo", return_value=None),
             patch("backend.api.routes.cards.get_cached_collection", return_value=[]),
         ):
-            response = client.get("/api/cards/")
+            response = self.client.get("/api/cards/")
             self.assertEqual(response.status_code, 200)
             data = response.json()
             self.assertIn("items", data)
@@ -117,7 +175,7 @@ class TestCardsList(unittest.TestCase):
             patch("backend.api.routes.cards.get_collection_repo", return_value=None),
             patch("backend.api.routes.cards.get_cached_collection", return_value=SAMPLE_CARDS),
         ):
-            response = client.get("/api/cards/")
+            response = self.client.get("/api/cards/")
             self.assertEqual(response.status_code, 200)
             data = response.json()
             self.assertIn("items", data)
@@ -135,7 +193,7 @@ class TestCardsList(unittest.TestCase):
             patch("backend.api.routes.cards.get_collection_repo", return_value=None),
             patch("backend.api.routes.cards.get_cached_collection", return_value=SAMPLE_CARDS),
         ):
-            response = client.get("/api/cards/", params={"limit": 2, "offset": 1})
+            response = self.client.get("/api/cards/", params={"limit": 2, "offset": 1})
             self.assertEqual(response.status_code, 200)
             data = response.json()
             items = data["items"]
@@ -150,7 +208,7 @@ class TestCardsList(unittest.TestCase):
             patch("backend.api.routes.cards.get_collection_repo", return_value=None),
             patch("backend.api.routes.cards.get_cached_collection", return_value=SAMPLE_CARDS),
         ):
-            response = client.get("/api/cards/", params={"set_name": "M10"})
+            response = self.client.get("/api/cards/", params={"set_name": "M10"})
             self.assertEqual(response.status_code, 200)
             data = response.json()
             items = data["items"]
@@ -158,3 +216,53 @@ class TestCardsList(unittest.TestCase):
             self.assertEqual(data["total"], 2)
             for c in items:
                 self.assertEqual(c.get("set_name"), "M10")
+
+    def test_cards_rarity_filter(self):
+        with (
+            patch("backend.api.routes.cards.get_collection_repo", return_value=None),
+            patch("backend.api.routes.cards.get_cached_collection", return_value=SAMPLE_CARDS),
+        ):
+            response = self.client.get("/api/cards/", params={"rarity": "common"})
+            self.assertEqual(response.status_code, 200)
+            data = response.json()
+            items = data["items"]
+            # Only Lightning Bolt and Counterspell are common
+            self.assertEqual(len(items), 2)
+            self.assertEqual(data["total"], 2)
+            for c in items:
+                self.assertEqual(c.get("rarity"), "common")
+
+    def test_cards_search_filter(self):
+        with (
+            patch("backend.api.routes.cards.get_collection_repo", return_value=None),
+            patch("backend.api.routes.cards.get_cached_collection", return_value=SAMPLE_CARDS),
+        ):
+            response = self.client.get("/api/cards/", params={"search": "lotus"})
+            self.assertEqual(response.status_code, 200)
+            data = response.json()
+            items = data["items"]
+            # Only Black Lotus matches "lotus"
+            self.assertEqual(len(items), 1)
+            self.assertEqual(items[0]["name"], "Black Lotus")
+
+    def test_cards_invalid_sort_by_falls_back_to_default(self):
+        with (
+            patch("backend.api.routes.cards.get_collection_repo", return_value=None),
+            patch("backend.api.routes.cards.get_cached_collection", return_value=SAMPLE_CARDS),
+        ):
+            # Invalid sort_by should not error — the route silently falls back to "created_at"
+            response = self.client.get("/api/cards/", params={"sort_by": "invalid_column"})
+            self.assertEqual(response.status_code, 200)
+            data = response.json()
+            self.assertIn("items", data)
+
+    def test_cards_invalid_sort_dir_falls_back_to_default(self):
+        with (
+            patch("backend.api.routes.cards.get_collection_repo", return_value=None),
+            patch("backend.api.routes.cards.get_cached_collection", return_value=SAMPLE_CARDS),
+        ):
+            # Invalid sort_dir should not error — the route silently falls back to "desc"
+            response = self.client.get("/api/cards/", params={"sort_dir": "sideways"})
+            self.assertEqual(response.status_code, 200)
+            data = response.json()
+            self.assertIn("items", data)

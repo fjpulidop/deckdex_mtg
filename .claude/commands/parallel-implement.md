@@ -124,7 +124,17 @@ Document the ownership plan before launching developers — this prevents manual
 
 ## Phase 3b: Implement (parallel, isolated worktrees)
 
+### Pre-flight: Verify Bash permission
+
+Before launching any developer agent, run a trivial Bash command (e.g. `echo "permission check"`) to confirm Bash is allowed. If it is NOT allowed:
+- **Stop** and tell the user: "Bash permission is required for worktree developers to run CI and commit. Please set Bash to 'allow' and re-run."
+- Do NOT launch developer agents without confirmed Bash permission — they will write code but cannot verify or commit it.
+
+### Launch developers
+
 For each change with completed artifacts, launch a **developer** agent in an isolated worktree (`subagent_type: developer`, `isolation: worktree`, `run_in_background: true`).
+
+**CRITICAL:** Read the full content of each architect's `tasks.md` and inline it directly into the developer's prompt. Do NOT just tell the developer to "read tasks.md" — past sprints showed that developers who must discover their own tasks sometimes misidentify or skip them.
 
 Each agent's prompt should be:
 
@@ -132,11 +142,14 @@ Each agent's prompt should be:
 >
 > **Change name:** "<name>"
 >
+> ## Tasks to implement
+>
+> <PASTE THE FULL CONTENT OF tasks.md HERE — every task, every acceptance criterion, every file path>
+>
 > Execute the implementation phase without any user interaction:
 >
-> 1. **Read the architect's artifacts**: Read all files in `openspec/changes/<name>/` — proposal.md, design.md, delta-spec, tasks.md. These are your blueprint.
-> 2. **Read context files**: Read every file referenced in the design and tasks. Understand the codebase before writing code.
-> 3. **Implement**: Follow tasks.md in order. For each task:
+> 1. **Read context files**: Read the design at `openspec/changes/<name>/design.md` and every file referenced in the tasks below. Understand the codebase before writing code.
+> 2. **Implement**: Follow the tasks above in order. For each task:
 >    - Read the acceptance criteria carefully
 >    - Implement the change following the design's architectural decisions
 >    - Mark the task as done: `- [ ]` -> `- [x]`
@@ -148,7 +161,7 @@ Each agent's prompt should be:
 >    - `cd frontend && npx tsc --noEmit`
 >    - `cd frontend && npx vitest run`
 >    Fix failures (up to 3 attempts).
-> 5. **Commit your changes**: `git add -A && git commit -m "feat: <change-name>"` — this makes merge easier.
+> 5. **Commit your changes**: `git add -A && git commit -m "feat: <change-name>"` — this makes merge easier. Do NOT add `Co-Authored-By` trailers.
 > 6. **Do NOT archive** — the orchestrator handles archival after merge.
 >
 > **Rules:**
@@ -164,6 +177,16 @@ Each agent's prompt should be:
 > - **Shared files**: <list any shared file ownership rules from step 3a.1 here>
 
 Wait for all developers to complete.
+
+### Post-flight: Validate worktree diffs
+
+After all developers complete, for each worktree:
+1. Run `git status --short` and `git diff main..HEAD --name-only` (or `git diff HEAD --name-only` if uncommitted).
+2. Extract the list of files that **should** have been modified from the architect's tasks.md.
+3. **Compare**: If the worktree diff does NOT include the expected files, mark that developer as **FAILED** immediately.
+4. Failed developers' tasks will be reassigned to the reviewer in Phase 4b.
+
+This prevents discovering failures late during the merge phase.
 
 ## Phase 4: Merge & Review
 
@@ -232,7 +255,7 @@ Wait for the reviewer to complete. Read its report.
 ### 4c. Git commit, push, and PR
 1. Create a **new branch** from `main`: `git checkout main && git pull && git checkout -b feat/<descriptive-name>`
 2. Copy/apply all changes onto this branch (stash + pop if needed).
-3. Create **one commit per feature** with descriptive messages following existing commit style (e.g., `fix:`, `feat:`, `test:`, `refactor:`). End each message with `Co-Authored-By: Claude <noreply@anthropic.com>`.
+3. Create **one commit per feature** with descriptive messages following existing commit style (e.g., `fix:`, `feat:`, `test:`, `refactor:`). Do NOT add `Co-Authored-By` trailers.
 4. If the reviewer modified files, create an additional commit: `fix: resolve CI issues (reviewer)`.
 5. Push the branch: `git push -u origin <branch-name>`
 6. **Link backlog issues to the PR** — If any implemented features originated from backlog issues (Phase 0/2), include `Closes #XX` in the PR body for each resolved issue. This ensures GitHub automatically closes the issues when the PR is merged.

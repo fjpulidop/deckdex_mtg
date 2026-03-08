@@ -274,5 +274,118 @@ class TestPriorityOrder(unittest.TestCase):
         self.assertEqual(config.processing.batch_size, 40)
 
 
+class TestWriteBufferBatchesYamlParsing(unittest.TestCase):
+    """Test write_buffer_batches is correctly parsed through the YAML loading pipeline."""
+
+    YAML_CONTENT = """
+default:
+  processing:
+    batch_size: 20
+    max_workers: 4
+    api_delay: 0.1
+    write_buffer_batches: 3
+  api:
+    scryfall:
+      max_retries: 3
+      retry_delay: 0.5
+      timeout: 10.0
+    google_sheets:
+      batch_size: 500
+      max_retries: 5
+      retry_delay: 2.0
+      sheet_name: magic
+      worksheet_name: cards
+    openai:
+      enabled: false
+      model: gpt-3.5-turbo
+      max_tokens: 150
+      temperature: 0.7
+      max_retries: 3
+
+development:
+  processing:
+    batch_size: 10
+    max_workers: 2
+    api_delay: 0.2
+    write_buffer_batches: 2
+
+production:
+  processing:
+    batch_size: 50
+    max_workers: 8
+    api_delay: 0.05
+    write_buffer_batches: 5
+"""
+
+    def setUp(self):
+        """Create a temporary YAML config file."""
+        import tempfile
+
+        f = tempfile.NamedTemporaryFile(mode="w", suffix=".yaml", delete=False)
+        f.write(self.YAML_CONTENT)
+        f.close()
+        self.temp_path = f.name
+
+    def tearDown(self):
+        """Remove the temporary config file."""
+        os.unlink(self.temp_path)
+
+    def test_default_profile_write_buffer_batches(self):
+        """default profile yields write_buffer_batches == 3."""
+        yaml_config = load_yaml_config(self.temp_path, "default")
+        config = build_processor_config(yaml_config)
+        self.assertEqual(config.processing.write_buffer_batches, 3)
+
+    def test_development_profile_write_buffer_batches(self):
+        """development profile yields write_buffer_batches == 2 and preserves batch_size from its own override."""
+        yaml_config = load_yaml_config(self.temp_path, "development")
+        config = build_processor_config(yaml_config)
+        self.assertEqual(config.processing.write_buffer_batches, 2)
+        # The development profile overrides batch_size to 10
+        self.assertEqual(config.processing.batch_size, 10)
+
+    def test_production_profile_write_buffer_batches(self):
+        """production profile yields write_buffer_batches == 5."""
+        yaml_config = load_yaml_config(self.temp_path, "production")
+        config = build_processor_config(yaml_config)
+        self.assertEqual(config.processing.write_buffer_batches, 5)
+
+
+class TestWriteBufferBatchesEnvOverride(unittest.TestCase):
+    """Test DECKDEX_PROCESSING_WRITE_BUFFER_BATCHES env override propagates correctly."""
+
+    def setUp(self):
+        """Save original environment."""
+        self.original_env = os.environ.copy()
+
+    def tearDown(self):
+        """Restore original environment."""
+        os.environ.clear()
+        os.environ.update(self.original_env)
+
+    def _base_config(self):
+        return {
+            "processing": {"batch_size": 20, "max_workers": 4, "api_delay": 0.1, "write_buffer_batches": 3},
+            "api": {"scryfall": {}, "google_sheets": {}, "openai": {}},
+        }
+
+    def test_env_override_write_buffer_batches(self):
+        """DECKDEX_PROCESSING_WRITE_BUFFER_BATCHES=7 sets processing.write_buffer_batches to int 7."""
+        config = self._base_config()
+        os.environ["DECKDEX_PROCESSING_WRITE_BUFFER_BATCHES"] = "7"
+        config = apply_env_overrides(config)
+        result = build_processor_config(config)
+        self.assertEqual(result.processing.write_buffer_batches, 7)
+        self.assertIsInstance(result.processing.write_buffer_batches, int)
+
+    def test_env_override_write_buffer_batches_invalid_value_raises(self):
+        """DECKDEX_PROCESSING_WRITE_BUFFER_BATCHES=0 raises ValueError (< 1 not allowed)."""
+        config = self._base_config()
+        os.environ["DECKDEX_PROCESSING_WRITE_BUFFER_BATCHES"] = "0"
+        config = apply_env_overrides(config)
+        with self.assertRaises(ValueError):
+            build_processor_config(config)
+
+
 if __name__ == "__main__":
     unittest.main()
