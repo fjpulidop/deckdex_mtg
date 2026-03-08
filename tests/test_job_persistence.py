@@ -484,8 +484,10 @@ class TestStartupOrphanCleanup(unittest.TestCase):
         mock_catalog_repo = MagicMock()
         mock_catalog_repo.mark_orphan_syncs.return_value = 0
 
-        with patch("backend.api.dependencies.get_job_repo", return_value=mock_job_repo), \
-             patch("backend.api.dependencies.get_catalog_repo", return_value=mock_catalog_repo):
+        with (
+            patch("backend.api.dependencies.get_job_repo", return_value=mock_job_repo),
+            patch("backend.api.dependencies.get_catalog_repo", return_value=mock_catalog_repo),
+        ):
             asyncio.run(startup_event())
 
         mock_job_repo.mark_orphans_as_error.assert_called_once()
@@ -499,8 +501,10 @@ class TestStartupOrphanCleanup(unittest.TestCase):
         mock_job_repo = MagicMock()
         mock_job_repo.mark_orphans_as_error.return_value = 0
 
-        with patch("backend.api.dependencies.get_job_repo", return_value=mock_job_repo), \
-             patch("backend.api.dependencies.get_catalog_repo", return_value=None):
+        with (
+            patch("backend.api.dependencies.get_job_repo", return_value=mock_job_repo),
+            patch("backend.api.dependencies.get_catalog_repo", return_value=None),
+        ):
             asyncio.run(startup_event())
 
         mock_job_repo.mark_orphans_as_error.assert_called_once()
