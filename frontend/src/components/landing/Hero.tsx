@@ -1,5 +1,6 @@
 import { motion } from 'framer-motion';
 import { useTranslation } from 'react-i18next';
+import i18next from 'i18next';
 import { ArrowRight } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { redirectToGoogleLogin } from '@/utils/auth';
@@ -12,7 +13,7 @@ export const Hero = () => {
   const { t } = useTranslation();
   const { isAuthenticated } = useAuth();
   return (
-    <section className="min-h-screen pt-20 pb-16 bg-gradient-to-br from-slate-900/80 via-purple-900/60 to-slate-900/80 flex items-center">
+    <section className="min-h-screen pt-20 pb-16 bg-gradient-to-br from-slate-900/20 via-purple-900/10 to-slate-900/20 flex items-center">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 w-full">
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
           {/* Left Column - Text */}
@@ -78,28 +79,47 @@ export const Hero = () => {
             </div>
           </motion.div>
 
-          {/* Right Column - Dashboard Preview */}
+          {/* Right Column - App Description Card */}
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.8, delay: 0.2, ease: 'easeOut' }}
             className="flex justify-center"
           >
-            <div className="relative w-full max-w-xl aspect-[3/2] rounded-lg overflow-hidden shadow-2xl shadow-purple-500/20 border border-slate-700/50">
-              <img
-                src="/dashboard-preview.png"
-                alt="DeckDex dashboard preview"
-                className="absolute inset-0 w-full h-full object-cover object-top"
-                onError={(e) => {
-                  const target = e.currentTarget;
-                  target.style.display = 'none';
-                  const fallback = target.nextElementSibling as HTMLElement | null;
-                  if (fallback) fallback.style.display = 'flex';
-                }}
-              />
-              {/* Gradient fallback (hidden when screenshot loads) */}
-              <div className="absolute inset-0 bg-gradient-to-br from-purple-600/20 via-slate-900 to-slate-900 items-center justify-center hidden">
-                <div className="h-32 w-32 rounded-lg bg-gradient-to-br from-purple-500/30 to-pink-500/30 blur-xl" />
+            <div className="relative w-full max-w-xl rounded-2xl overflow-hidden shadow-2xl shadow-purple-500/20 border border-slate-700/50 bg-slate-900/60 backdrop-blur-sm p-6">
+              <div className="flex gap-4">
+                {/* English panel */}
+                <div className="flex-1 border-r border-slate-700/30 pr-4">
+                  <p className="text-xs font-bold text-purple-400/70 uppercase tracking-widest mb-3">EN</p>
+                  <p className="text-purple-300 font-semibold text-sm mb-3">
+                    {i18next.getFixedT('en')('hero.descCard.title')}
+                  </p>
+                  <ul className="space-y-2 mb-4">
+                    {(['feature1', 'feature2', 'feature3', 'feature4'] as const).map((key) => (
+                      <li key={key} className="text-slate-300 text-sm flex gap-2">
+                        <span className="text-purple-400 shrink-0">✦</span>
+                        {i18next.getFixedT('en')(`hero.descCard.${key}`)}
+                      </li>
+                    ))}
+                  </ul>
+                  <p className="text-slate-400 text-xs italic">{i18next.getFixedT('en')('hero.descCard.tagline')}</p>
+                </div>
+                {/* Spanish panel */}
+                <div className="flex-1 pl-0">
+                  <p className="text-xs font-bold text-purple-400/70 uppercase tracking-widest mb-3">ES</p>
+                  <p className="text-purple-300 font-semibold text-sm mb-3">
+                    {i18next.getFixedT('es')('hero.descCard.title')}
+                  </p>
+                  <ul className="space-y-2 mb-4">
+                    {(['feature1', 'feature2', 'feature3', 'feature4'] as const).map((key) => (
+                      <li key={key} className="text-slate-300 text-sm flex gap-2">
+                        <span className="text-purple-400 shrink-0">✦</span>
+                        {i18next.getFixedT('es')(`hero.descCard.${key}`)}
+                      </li>
+                    ))}
+                  </ul>
+                  <p className="text-slate-400 text-xs italic">{i18next.getFixedT('es')('hero.descCard.tagline')}</p>
+                </div>
               </div>
             </div>
           </motion.div>

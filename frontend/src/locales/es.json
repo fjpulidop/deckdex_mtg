@@ -501,7 +501,15 @@
     "goToDashboard": "Ir al panel",
     "signIn": "Iniciar sesión",
     "tryDemo": "Probar demo",
-    "tryLiveDemo": "Probar demo en vivo"
+    "tryLiveDemo": "Probar demo en vivo",
+    "descCard": {
+      "title": "¿Qué es DeckDex?",
+      "feature1": "Gestiona tu colección de MTG con precios Scryfall en tiempo real",
+      "feature2": "Construye mazos Commander con análisis potenciados por IA",
+      "feature3": "Importa desde MTGO, Moxfield o pega una lista de cartas",
+      "feature4": "Estadísticas: curva de maná, identidad de color, distribución por edición",
+      "tagline": "Gratis · Código abierto · Impulsado por la comunidad"
+    }
   },
   "bento": {
     "sectionTitle": "Funcionalidades potentes",
