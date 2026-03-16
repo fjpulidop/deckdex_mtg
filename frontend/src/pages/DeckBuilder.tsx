@@ -6,14 +6,28 @@ import { useCardImage } from '../hooks/useCardImage';
 import { DeckDetailModal } from '../components/DeckDetailModal';
 import { ConfirmModal } from '../components/ConfirmModal';
 
+const BRACKET_COLORS: Record<number, string> = {
+  1: 'bg-green-600',
+  2: 'bg-blue-600',
+  3: 'bg-orange-500',
+  4: 'bg-red-600',
+};
+
 export function DeckCardButton({ deck, onClick }: { deck: DeckListItem; onClick: () => void }) {
   const { t } = useTranslation();
   const { src: commanderImageUrl } = useCardImage(deck.commander_card_id ?? null);
+  const { data: powerLevel } = useQuery({
+    queryKey: ['deckPowerLevel', deck.id],
+    queryFn: () => api.getDeckPowerLevel(deck.id),
+    retry: false,
+    staleTime: 5 * 60 * 1000,
+  });
   return (
     <button
       type="button"
       onClick={onClick}
-      className="relative flex flex-col items-stretch justify-end rounded-xl border border-gray-200 dark:border-gray-700 overflow-hidden p-4 text-left shadow-sm hover:ring-2 hover:ring-indigo-500 dark:hover:ring-indigo-400 min-h-[120px] h-full bg-gray-200 dark:bg-gray-700"
+      /* min-h-[100px] intentional: exceeds 44px WCAG touch-target minimum */
+      className="relative flex flex-col items-stretch justify-end rounded-xl border border-gray-200 dark:border-gray-700 overflow-hidden p-4 text-left shadow-sm hover:ring-2 hover:ring-indigo-500 dark:hover:ring-indigo-400 min-h-[100px] h-full bg-gray-200 dark:bg-gray-700"
     >
       {commanderImageUrl && (
         <div
@@ -47,6 +61,14 @@ export function DeckCardButton({ deck, onClick }: { deck: DeckListItem; onClick:
       >
         {t('deckBuilder.cards', { count: deck.card_count ?? 0 })}
       </span>
+      {powerLevel && (
+        <span
+          className={`absolute bottom-2 right-2 z-20 text-white text-xs font-semibold px-1.5 py-0.5 rounded ${BRACKET_COLORS[powerLevel.bracket] ?? 'bg-gray-600'}`}
+          title={powerLevel.summary}
+        >
+          B{powerLevel.bracket} · {powerLevel.score.toFixed(1)}
+        </span>
+      )}
     </button>
   );
 }
@@ -126,12 +148,13 @@ export function DeckBuilder() {
         {!decksUnavailable && !isLoading && (
           <div
             className="grid gap-4 grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5"
-            style={{ gridAutoRows: 'minmax(120px, auto)' }}
+            style={{ gridAutoRows: 'minmax(100px, auto)' }}
           >
             <button
               type="button"
               onClick={handleAddDeck}
-              className="flex items-center justify-center rounded-xl border-2 border-dashed border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-500 dark:text-gray-400 hover:border-indigo-500 hover:text-indigo-600 dark:hover:border-indigo-400 dark:hover:text-indigo-300 transition-colors min-h-[120px]"
+              /* min-h-[100px] intentional: exceeds 44px WCAG touch-target minimum */
+              className="flex items-center justify-center rounded-xl border-2 border-dashed border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-500 dark:text-gray-400 hover:border-indigo-500 hover:text-indigo-600 dark:hover:border-indigo-400 dark:hover:text-indigo-300 transition-colors min-h-[100px]"
               aria-label={t('deckBuilder.addDeckAriaLabel')}
             >
               <span className="text-3xl font-light">+</span>

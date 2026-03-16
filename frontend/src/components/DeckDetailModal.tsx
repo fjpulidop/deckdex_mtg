@@ -5,6 +5,7 @@ import { BarChart, Bar, XAxis, YAxis, ResponsiveContainer, Cell } from 'recharts
 import { api, DeckCard, DeckImportResponse } from '../api/client';
 import { formatCurrency } from './analytics/constants';
 import { useCardImage } from '../hooks/useCardImage';
+import { useSwipeToRemove } from '../hooks/useSwipeToRemove';
 import { DeckCardPickerModal } from './DeckCardPickerModal';
 import { CardDetailModal } from './CardDetailModal';
 import { ConfirmModal } from './ConfirmModal';
@@ -66,6 +67,108 @@ function groupCardsBySection(cards: DeckCard[]): Map<string, DeckCard[]> {
   return map;
 }
 
+// ---------------------------------------------------------------------------
+// DeckCardRow — extracted sub-component so each row can call useSwipeToRemove
+// ---------------------------------------------------------------------------
+
+interface DeckCardRowProps {
+  card: DeckCard;
+  setCommanderPending: number | null;
+  onMouseEnter: () => void;
+  onMouseLeave: () => void;
+  onRemove: (cardId: number) => void;
+  onSetCommander: (e: React.MouseEvent, cardId: number) => void;
+  onCardClick: (card: DeckCard) => void;
+}
+
+function DeckCardRow({
+  card,
+  setCommanderPending,
+  onMouseEnter,
+  onMouseLeave,
+  onRemove,
+  onSetCommander,
+  onCardClick,
+}: DeckCardRowProps) {
+  const { t } = useTranslation();
+  const qty = card.quantity ?? 1;
+  const showSetCommander =
+    isLegendaryCreature(card) && !card.is_commander && card.id != null;
+
+  const { containerProps, translateX, animatingBack, isRevealed } = useSwipeToRemove(
+    () => card.id != null && onRemove(card.id),
+  );
+
+  return (
+    <li
+      key={card.id}
+      onMouseEnter={onMouseEnter}
+      onMouseLeave={onMouseLeave}
+      className="relative overflow-hidden rounded"
+      {...containerProps}
+    >
+      {/* Red swipe strip — revealed on left-swipe */}
+      <div
+        className={`absolute right-0 inset-y-0 w-[72px] flex items-center justify-center text-white text-xs font-bold rounded-r bg-red-500 transition-opacity ${isRevealed ? 'opacity-100' : 'opacity-0'}`}
+        aria-hidden="true"
+      >
+        Remove
+      </div>
+      {/* Row content — translates left on swipe */}
+      <div
+        className="flex items-center gap-2 py-2.5 px-2 hover:bg-gray-100 dark:hover:bg-gray-700/50 group"
+        style={{
+          transform: `translateX(${translateX}px)`,
+          transition: animatingBack ? 'transform 200ms' : undefined,
+        }}
+      >
+        <span className="w-6 text-right text-gray-500 dark:text-gray-400 text-sm tabular-nums flex-shrink-0">
+          {qty}
+        </span>
+        <button
+          type="button"
+          onClick={() => card && onCardClick(card)}
+          className="flex-1 min-w-0 text-left truncate text-gray-900 dark:text-white hover:underline"
+        >
+          {card.name}
+        </button>
+        {card.mana_cost && (
+          <span className="flex-shrink-0 card-symbols-inline">
+            <ManaText text={card.mana_cost} className="text-sm" />
+          </span>
+        )}
+        {showSetCommander && (
+          <button
+            type="button"
+            onClick={(e) => card.id != null && onSetCommander(e, card.id)}
+            disabled={setCommanderPending === card.id}
+            className="flex-shrink-0 px-2 py-0.5 text-xs rounded bg-amber-100 dark:bg-amber-900/40 text-amber-800 dark:text-amber-200 hover:bg-amber-200 dark:hover:bg-amber-800/50 disabled:opacity-50"
+          >
+            {setCommanderPending === card.id ? '…' : t('deckDetail.setAsCommander')}
+          </button>
+        )}
+        <button
+          type="button"
+          onClick={(e) => {
+            e.stopPropagation();
+            if (card.id != null) onRemove(card.id);
+          }}
+          className="sm:opacity-0 sm:group-hover:opacity-100 text-red-600 hover:text-red-700 dark:text-red-400 p-3 sm:p-1 rounded flex-shrink-0"
+          aria-label={`Remove ${card.name}`}
+        >
+          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+          </svg>
+        </button>
+      </div>
+    </li>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// DeckDetailModal
+// ---------------------------------------------------------------------------
+
 interface DeckDetailModalProps {
   deckId: number;
   onClose: () => void;
@@ -78,6 +181,24 @@ export function DeckDetailModal({ deckId, onClose, onDeleted }: DeckDetailModalP
   const [pickerOpen, setPickerOpen] = useState(false);
   const [importOpen, setImportOpen] = useState(false);
   const [copyFeedback, setCopyFeedback] = useState(false);
+
+  const { data: powerLevel } = useQuery({
+    queryKey: ['deckPowerLevel', deckId],
+    queryFn: () => api.getDeckPowerLevel(deckId),
+    retry: false,
+    staleTime: 5 * 60 * 1000,
+  });
+
+  const BRACKET_LABELS: Record<number, string> = {
+    1: 'Casual', 2: 'Mid Power', 3: 'High Power', 4: 'Optimised',
+  };
+  const bracketTextColor = (b: number): string => {
+    if (b === 1) return 'text-green-500';
+    if (b === 2) return 'text-blue-500';
+    if (b === 3) return 'text-orange-500';
+    return 'text-red-500';
+  };
+
   const [deleteDeckConfirmOpen, setDeleteDeckConfirmOpen] = useState(false);
   const [hoverCardId, setHoverCardId] = useState<number | null>(null);
   const [detailCard, setDetailCard] = useState<DeckCard | null>(null);
@@ -261,9 +382,9 @@ export function DeckDetailModal({ deckId, onClose, onDeleted }: DeckDetailModalP
 
   return (
     <>
-      <AccessibleModal isOpen titleId="deck-detail-modal-title" onClose={onClose} className="z-50">
+      <AccessibleModal isOpen titleId="deck-detail-modal-title" onClose={onClose} className="z-50" fullScreenOnMobile>
         <div
-          className="bg-white dark:bg-gray-800 rounded-xl shadow-xl max-w-4xl w-full max-h-[90vh] flex flex-col overflow-hidden"
+          className="bg-white dark:bg-gray-800 rounded-xl shadow-xl max-w-4xl w-full max-h-[90vh] flex flex-col overflow-hidden max-sm:rounded-none max-sm:max-w-none max-sm:max-h-none max-sm:h-full"
         >
           <div className="border-b border-gray-200 dark:border-gray-700 p-4">
             <div className="flex flex-wrap items-center gap-3 sm:gap-4">
@@ -345,8 +466,22 @@ export function DeckDetailModal({ deckId, onClose, onDeleted }: DeckDetailModalP
                   CMC {filterByCmc === 7 ? '7+' : filterByCmc} ×
                 </button>
               )}
-              {/* Buttons */}
-              <div className="flex items-center gap-2 shrink-0 ml-auto">
+              {/* Power level */}
+              {powerLevel && (
+                <div
+                  className="flex flex-col items-center shrink-0 cursor-help px-2"
+                  title={powerLevel.summary}
+                >
+                  <span className={`text-lg font-bold leading-none ${bracketTextColor(powerLevel.bracket)}`}>
+                    {powerLevel.score.toFixed(1)}
+                  </span>
+                  <span className="text-xs text-gray-500 dark:text-gray-400 whitespace-nowrap mt-0.5">
+                    {BRACKET_LABELS[powerLevel.bracket]} · B{powerLevel.bracket}
+                  </span>
+                </div>
+              )}
+              {/* Desktop header action buttons — hidden on mobile (replaced by sticky bar) */}
+              <div className="hidden md:flex items-center gap-2 shrink-0 ml-auto">
                 <button
                   type="button"
                   onClick={handleExport}
@@ -380,7 +515,8 @@ export function DeckDetailModal({ deckId, onClose, onDeleted }: DeckDetailModalP
           </div>
 
           <div className="flex flex-1 overflow-hidden min-h-0">
-            <div className="w-64 flex-shrink-0 border-r border-gray-200 dark:border-gray-700 flex flex-col items-center justify-start bg-gray-50 dark:bg-gray-900/50 p-4 overflow-visible">
+            {/* Left image panel — hidden on mobile */}
+            <div className="hidden md:flex w-64 flex-shrink-0 border-r border-gray-200 dark:border-gray-700 flex-col items-center justify-start bg-gray-50 dark:bg-gray-900/50 p-4 overflow-visible">
               {bigImageUrl ? (
                 <>
                   <div
@@ -420,62 +556,57 @@ export function DeckDetailModal({ deckId, onClose, onDeleted }: DeckDetailModalP
                     {title} ({sectionCards.length})
                   </h3>
                   <ul className="space-y-1">
-                    {sectionCards.map((card) => {
-                      const qty = card.quantity ?? 1;
-                      const showSetCommander =
-                        isLegendaryCreature(card) && !card.is_commander && card.id != null;
-                      return (
-                        <li
-                          key={card.id}
-                          onMouseEnter={() => card.id != null && setHoverCardId(card.id)}
-                          onMouseLeave={() => setHoverCardId(null)}
-                          className="flex items-center gap-2 py-1 px-2 rounded hover:bg-gray-100 dark:hover:bg-gray-700/50 group"
-                        >
-                          <span className="w-6 text-right text-gray-500 dark:text-gray-400 text-sm tabular-nums flex-shrink-0">
-                            {qty}
-                          </span>
-                          <button
-                            type="button"
-                            onClick={() => card && setDetailCard(card)}
-                            className="flex-1 min-w-0 text-left truncate text-gray-900 dark:text-white hover:underline"
-                          >
-                            {card.name}
-                          </button>
-                          {card.mana_cost && (
-                            <span className="flex-shrink-0 card-symbols-inline">
-                              <ManaText text={card.mana_cost} className="text-sm" />
-                            </span>
-                          )}
-                          {showSetCommander && (
-                            <button
-                              type="button"
-                              onClick={(e) => card.id != null && handleSetCommander(e, card.id)}
-                              disabled={setCommanderPending === card.id}
-                              className="flex-shrink-0 px-2 py-0.5 text-xs rounded bg-amber-100 dark:bg-amber-900/40 text-amber-800 dark:text-amber-200 hover:bg-amber-200 dark:hover:bg-amber-800/50 disabled:opacity-50"
-                            >
-                              {setCommanderPending === card.id ? '…' : t('deckDetail.setAsCommander')}
-                            </button>
-                          )}
-                          <button
-                            type="button"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              if (card.id != null) handleRemoveCard(card.id);
-                            }}
-                            className="opacity-0 group-hover:opacity-100 text-red-600 hover:text-red-700 dark:text-red-400 p-1 rounded flex-shrink-0"
-                            aria-label={`Remove ${card.name}`}
-                          >
-                            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                            </svg>
-                          </button>
-                        </li>
-                      );
-                    })}
+                    {sectionCards.map((card) => (
+                      <DeckCardRow
+                        key={card.id}
+                        card={card}
+                        setCommanderPending={setCommanderPending}
+                        onMouseEnter={() => card.id != null && setHoverCardId(card.id)}
+                        onMouseLeave={() => setHoverCardId(null)}
+                        onRemove={handleRemoveCard}
+                        onSetCommander={handleSetCommander}
+                        onCardClick={setDetailCard}
+                      />
+                    ))}
                   </ul>
                 </div>
               ))}
             </div>
+          </div>
+
+          {/* Mobile sticky action bar — hidden on md and above */}
+          <div
+            className="md:hidden sticky bottom-0 border-t border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 flex"
+            style={{ paddingBottom: 'env(safe-area-inset-bottom, 0px)' }}
+          >
+            <button
+              type="button"
+              onClick={() => setPickerOpen(true)}
+              className="flex-1 flex items-center justify-center gap-1 py-3 text-sm font-medium text-indigo-600 dark:text-indigo-400"
+            >
+              {t('deckDetail.mobileActions.addCard')}
+            </button>
+            <button
+              type="button"
+              onClick={handleExport}
+              className="flex-1 flex items-center justify-center gap-1 py-3 text-sm font-medium text-gray-700 dark:text-gray-200"
+            >
+              {t('deckDetail.mobileActions.export')}
+            </button>
+            <button
+              type="button"
+              onClick={() => setImportOpen(true)}
+              className="flex-1 flex items-center justify-center gap-1 py-3 text-sm font-medium text-gray-700 dark:text-gray-200"
+            >
+              {t('deckDetail.mobileActions.import')}
+            </button>
+            <button
+              type="button"
+              onClick={handleDelete}
+              className="flex-1 flex items-center justify-center gap-1 py-3 text-sm font-medium text-red-600 dark:text-red-400"
+            >
+              {t('deckDetail.mobileActions.deleteDeck')}
+            </button>
           </div>
         </div>
       </AccessibleModal>

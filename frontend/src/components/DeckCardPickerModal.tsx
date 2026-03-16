@@ -1,7 +1,8 @@
 import { useState, useCallback, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useQuery } from '@tanstack/react-query';
-import { api, Card } from '../api/client';
+import { api } from '../api/client';
+import type { Card } from '../api/client';
 import { ManaText } from './ManaText';
 import { AccessibleModal } from './AccessibleModal';
 
@@ -93,9 +94,9 @@ export function DeckCardPickerModal({ deckId, onClose, onAdded }: DeckCardPicker
   }, [deckId, selected, onAdded]);
 
   return (
-    <AccessibleModal isOpen titleId="deck-card-picker-title" onClose={onClose} className="z-[60]" showCloseButton>
+    <AccessibleModal isOpen titleId="deck-card-picker-title" onClose={onClose} className="z-[60]" showCloseButton fullScreenOnMobile>
       <div
-        className="bg-white dark:bg-gray-800 rounded-xl shadow-xl max-w-2xl w-full max-h-[80vh] flex flex-col overflow-hidden"
+        className="bg-white dark:bg-gray-800 rounded-xl shadow-xl max-w-2xl w-full max-h-[80vh] flex flex-col overflow-hidden max-sm:rounded-none max-sm:max-w-none max-sm:max-h-none max-sm:h-full max-sm:w-full"
       >
         <div className="p-4 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between gap-4">
           <h2 id="deck-card-picker-title" className="text-lg font-semibold text-gray-900 dark:text-white">
@@ -195,7 +196,7 @@ export function DeckCardPickerModal({ deckId, onClose, onAdded }: DeckCardPicker
                   <button
                     type="button"
                     onClick={() => toggle(id)}
-                    className={`w-full flex items-center gap-2 py-2 px-3 rounded text-left ${
+                    className={`w-full flex items-center gap-2 py-3 px-3 rounded text-left ${
                       isSelected
                         ? 'bg-indigo-100 dark:bg-indigo-900/40 text-indigo-900 dark:text-indigo-100'
                         : 'hover:bg-gray-100 dark:hover:bg-gray-700/50 text-gray-900 dark:text-white'
@@ -229,7 +230,7 @@ export function DeckCardPickerModal({ deckId, onClose, onAdded }: DeckCardPicker
             type="button"
             onClick={handleAdd}
             disabled={selected.size === 0 || addPending}
-            className="px-4 py-2 rounded bg-indigo-600 text-white hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed dark:bg-indigo-500 dark:hover:bg-indigo-600"
+            className="w-full sm:w-auto px-4 py-2 rounded bg-indigo-600 text-white hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed dark:bg-indigo-500 dark:hover:bg-indigo-600"
           >
             {addPending ? t('deckCardPicker.adding') : t('deckCardPicker.addToDeck')}
           </button>
