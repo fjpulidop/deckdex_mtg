@@ -10,7 +10,15 @@ from fastapi.responses import FileResponse
 from loguru import logger
 from pydantic import BaseModel
 
-from ..dependencies import clear_collection_cache, get_cached_collection, get_collection_repo, get_current_user_id
+from deckdex.storage.deck_repository import DeckRepository
+
+from ..dependencies import (
+    clear_collection_cache,
+    get_cached_collection,
+    get_collection_repo,
+    get_current_user_id,
+    get_deck_repo,
+)
 from ..filters import filter_collection
 from ..main import limiter
 from ..services.card_image_service import get_card_image_path
@@ -90,6 +98,25 @@ class PriceHistoryResponse(BaseModel):
     card_id: int
     currency: str
     points: List[PriceHistoryPoint]
+
+
+class DeckRef(BaseModel):
+    deck_id: int
+    deck_name: str
+
+
+class CardAllocation(BaseModel):
+    card_id: int
+    card_name: str
+    image_url: Optional[str] = None
+    type_line: Optional[str] = None
+    mana_cost: Optional[str] = None
+    quantity: int
+    decks: List[DeckRef]
+
+
+class CardAllocationsResponse(BaseModel):
+    cards: List[CardAllocation]
 
 
 # ---------------------------------------------------------------------------
@@ -276,6 +303,55 @@ async def list_cards(
             )
 
         raise HTTPException(status_code=500, detail="Failed to fetch cards")
+
+
+# ---------------------------------------------------------------------------
+# GET /api/cards/allocations  (must be before /{id} wildcard routes)
+# ---------------------------------------------------------------------------
+
+
+def _require_deck_repo_for_allocations():
+    """Guard: returns DeckRepository or raises 501 when Postgres is not configured."""
+    repo = get_deck_repo()
+    if repo is None:
+        raise HTTPException(
+            status_code=501,
+            detail="Allocations require Postgres. Set DATABASE_URL to use deck features.",
+        )
+    return repo
+
+
+@router.get("/allocations", response_model=CardAllocationsResponse)
+async def get_card_allocations(
+    user_id: int = Depends(get_current_user_id),
+    repo: DeckRepository = Depends(_require_deck_repo_for_allocations),
+):
+    """Return all collection cards with their deck assignment lists.
+
+    Each card appears once in the response; its `decks` list is empty when it
+    is not assigned to any deck (status: available).
+    Requires PostgreSQL. Returns 501 when DATABASE_URL is not set.
+    """
+    rows = repo.get_all_card_allocations(user_id=user_id)
+
+    # Aggregate flat (card, deck) rows into per-card structure
+    seen: Dict[int, CardAllocation] = {}
+    for row in rows:
+        cid = row["card_id"]
+        if cid not in seen:
+            seen[cid] = CardAllocation(
+                card_id=cid,
+                card_name=row["card_name"] or "",
+                image_url=row.get("image_url"),
+                type_line=row.get("type_line"),
+                mana_cost=row.get("mana_cost"),
+                quantity=row.get("quantity") or 1,
+                decks=[],
+            )
+        if row.get("deck_id") is not None:
+            seen[cid].decks.append(DeckRef(deck_id=row["deck_id"], deck_name=row["deck_name"]))
+
+    return CardAllocationsResponse(cards=list(seen.values()))
 
 
 # ---------------------------------------------------------------------------

@@ -186,6 +186,41 @@ export interface BatchAddResult {
   deck: DeckWithCards;
 }
 
+export interface DeckRef {
+  deck_id: number;
+  deck_name: string;
+}
+
+export interface CardAllocation {
+  card_id: number;
+  card_name: string;
+  image_url: string | null;
+  type_line: string | null;
+  mana_cost: string | null;
+  quantity: number;
+  decks: DeckRef[];
+}
+
+export interface CardAllocationsResponse {
+  cards: CardAllocation[];
+}
+
+export interface PowerLevelBreakdown {
+  fast_mana: number;
+  tutors: number;
+  combo_pieces: number;
+  avg_cmc: number;
+  land_quality: number;
+  staple_density: number;
+}
+
+export interface PowerLevelResponse {
+  score: number;
+  bracket: number;
+  summary: string;
+  breakdown: PowerLevelBreakdown;
+}
+
 export interface ProfileUpdateBody {
   display_name?: string;
   avatar_url?: string;
@@ -833,6 +868,17 @@ export const api = {
     return response.json();
   },
 
+  getDeckPowerLevel: async (deckId: number): Promise<PowerLevelResponse> => {
+    const response = await apiFetch(`${API_BASE}/decks/${deckId}/power-level`);
+    if (!response.ok) {
+      const err = await response.json().catch(() => ({}));
+      if (response.status === 404) throw new Error('Deck not found');
+      if (response.status === 501) throw new Error((err as { detail?: string }).detail || 'Decks require Postgres');
+      throw new Error((err as { detail?: string }).detail || 'Failed to fetch power level');
+    }
+    return response.json();
+  },
+
   // Insights
   getInsightsCatalog: async (): Promise<InsightCatalogEntry[]> => {
     const response = await apiFetch(`${API_BASE}/insights/catalog`);
@@ -891,5 +937,12 @@ export const api = {
       throw new Error((err as { detail?: string }).detail || 'Failed to update profile');
     }
     return response.json();
+  },
+
+  // Card allocations — requires Postgres (501 if unavailable)
+  getCardAllocations: async (): Promise<CardAllocationsResponse> => {
+    const res = await apiFetch(`${API_BASE}/cards/allocations`);
+    if (!res.ok) throw new Error(`Failed to fetch allocations: ${res.status}`);
+    return res.json();
   },
 };

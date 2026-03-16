@@ -56,6 +56,7 @@ export function Navbar() {
   const navLinks = [
     { path: '/dashboard', label: t('navbar.collection') },
     { path: '/decks', label: t('navbar.deckBuilder'), badge: 'alpha' },
+    { path: '/allocations', label: t('navbar.allocations'), badge: 'alpha' },
     { path: '/analytics', label: t('navbar.analytics'), badge: 'beta' },
     ...(user?.is_admin ? [{ path: '/admin', label: t('navbar.admin') }] : []),
   ];

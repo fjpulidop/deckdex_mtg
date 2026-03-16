@@ -1,0 +1,22 @@
+{
+  "schema_version": "1",
+  "change": "cross-deck-card-allocation",
+  "agent": "reviewer",
+  "scored_at": "2026-03-16T08:00:00Z",
+  "overall": 86,
+  "aspects": {
+    "type_correctness": 92,
+    "pattern_adherence": 88,
+    "test_coverage": 90,
+    "security": 85,
+    "architectural_alignment": 87
+  },
+  "notes": {
+    "type_correctness": "AllocationTile, AllocationPopover, and CardAllocations all use correctly typed props and API types from client.ts. The CardAllocation type is imported as a type-only import where appropriate after fixes.",
+    "pattern_adherence": "i18n strings were missing on initial delivery — added allocations namespace to en.json/es.json and wired useTranslation() into all three components. Now matches project-wide i18n pattern. aria-modal was incorrectly set on a non-modal popover — removed.",
+    "test_coverage": "Unit tests cover getAllocationStatus, AllocationTile rendering (all three badge states), click handler, and CardAllocations page states (loading, data, error, remove). Coverage is thorough for the scope.",
+    "security": "No new attack surface. The IDOR gap noted by security reviewer is mitigated at the route handler level. Allocations query is user-scoped in the repository.",
+    "architectural_alignment": "API calls go through api/client.ts. Repository pattern is respected. CardAllocations page correctly delegates to service layer. AllocationPopover is a pure presentational component."
+  },
+  "flags": []
+}
