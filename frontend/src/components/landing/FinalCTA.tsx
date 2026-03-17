@@ -11,7 +11,7 @@ export const FinalCTA = () => {
   const { t } = useTranslation();
   const { isAuthenticated } = useAuth();
   return (
-    <section className="py-20 md:py-32 bg-gradient-to-r from-slate-900/80 via-purple-900/40 to-slate-900/80 px-4 sm:px-6 lg:px-8">
+    <section className="py-20 md:py-32 bg-gradient-to-r from-dracula-bg/80 via-dracula-purple/40 to-dracula-bg/80 px-4 sm:px-6 lg:px-8">
       <div className="max-w-4xl mx-auto text-center">
         <motion.div
           initial={{ opacity: 0, y: 20 }}
@@ -21,16 +21,16 @@ export const FinalCTA = () => {
           className="space-y-6"
         >
           <h2 className="text-4xl md:text-5xl font-bold">
-            <span className="bg-gradient-to-r from-purple-300 to-pink-400 bg-clip-text text-transparent">
+            <span className="bg-gradient-to-r from-dracula-purple to-dracula-pink bg-clip-text text-transparent">
               {t('finalCta.headline')}
             </span>
           </h2>
 
-          <p className="text-lg text-slate-300 max-w-2xl mx-auto">
+          <p className="text-lg text-dracula-fg max-w-2xl mx-auto">
             {t('finalCta.body')}
           </p>
 
-          <p className="text-slate-400 text-sm max-w-2xl mx-auto">
+          <p className="text-dracula-comment text-sm max-w-2xl mx-auto">
             <Trans
               i18nKey="finalCta.contribute"
               components={{
@@ -67,7 +67,7 @@ export const FinalCTA = () => {
                 </button>
                 <a
                   href="/demo"
-                  className="inline-flex items-center justify-center px-10 py-4 rounded-lg border-2 border-slate-600 text-white font-semibold text-lg hover:bg-slate-800/50 hover:border-slate-500 transition-all duration-300"
+                  className="inline-flex items-center justify-center px-10 py-4 rounded-lg border-2 border-dracula-current text-white font-semibold text-lg hover:bg-dracula-current/50 hover:border-dracula-current transition-all duration-300"
                 >
                   {t('finalCta.tryLiveDemo')}
                 </a>

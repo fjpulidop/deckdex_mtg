@@ -28,19 +28,19 @@ const itemVariants = {
 export const BentoGrid = () => {
   const { t } = useTranslation();
   return (
-    <section id="features" className="py-20 md:py-32 bg-gradient-to-b from-slate-900/80 to-slate-950/80 px-4 sm:px-6 lg:px-8">
+    <section id="features" className="py-20 md:py-32 bg-gradient-to-b from-dracula-bg/80 to-dracula-bg/80 px-4 sm:px-6 lg:px-8">
       <div className="max-w-7xl mx-auto">
         {/* Section Header */}
         <div className="text-center mb-16 md:mb-24">
           <h2 className="text-4xl md:text-5xl font-bold mb-4">
-            <span className="bg-gradient-to-r from-purple-300 to-pink-400 bg-clip-text text-transparent">
+            <span className="bg-gradient-to-r from-dracula-purple to-dracula-pink bg-clip-text text-transparent">
               {t('bento.sectionTitle')}
             </span>
           </h2>
-          <p className="text-slate-400 text-lg max-w-2xl mx-auto mb-6">
+          <p className="text-dracula-comment text-lg max-w-2xl mx-auto mb-6">
             {t('bento.sectionSubtitle')}
           </p>
-          <p className="text-slate-500 text-sm max-w-2xl mx-auto">
+          <p className="text-dracula-comment text-sm max-w-2xl mx-auto">
             <Trans
               i18nKey="bento.contribute"
               components={{
@@ -66,10 +66,10 @@ export const BentoGrid = () => {
               title={t('bento.cards.collection.title')}
               description={t('bento.cards.collection.desc')}
               icon={<Zap className="h-6 w-6" />}
-              gradientFrom="from-blue-500/20"
-              gradientTo="to-blue-600/20"
+              gradientFrom="from-dracula-cyan/20"
+              gradientTo="to-dracula-cyan/20"
               illustrationIcon={<LayoutGrid className="h-20 w-20" strokeWidth={1} />}
-              iconColor="text-blue-400/60 group-hover:text-blue-300/80"
+              iconColor="text-dracula-cyan/60 group-hover:text-dracula-cyan/80"
             />
           </motion.div>
 
@@ -81,10 +81,10 @@ export const BentoGrid = () => {
               description={t('bento.cards.deckBuilder.desc')}
               icon={<Wand2 className="h-6 w-6" />}
               badge="ALPHA"
-              gradientFrom="from-purple-500/20"
-              gradientTo="to-purple-600/20"
+              gradientFrom="from-dracula-purple/20"
+              gradientTo="to-dracula-purple/20"
               illustrationIcon={<Wand2 className="h-20 w-20" strokeWidth={1} />}
-              iconColor="text-purple-400/60 group-hover:text-purple-300/80"
+              iconColor="text-dracula-purple/60 group-hover:text-dracula-purple/80"
             />
           </motion.div>
 
@@ -95,10 +95,10 @@ export const BentoGrid = () => {
               title={t('bento.cards.aiInsights.title')}
               description={t('bento.cards.aiInsights.desc')}
               icon={<Wand2 className="h-6 w-6" />}
-              gradientFrom="from-pink-500/20"
-              gradientTo="to-rose-600/20"
+              gradientFrom="from-dracula-pink/20"
+              gradientTo="to-dracula-pink/20"
               illustrationIcon={<MessageSquareText className="h-20 w-20" strokeWidth={1} />}
-              iconColor="text-pink-400/60 group-hover:text-pink-300/80"
+              iconColor="text-dracula-pink/60 group-hover:text-dracula-pink/80"
             />
           </motion.div>
 
@@ -109,10 +109,10 @@ export const BentoGrid = () => {
               title={t('bento.cards.realtime.title')}
               description={t('bento.cards.realtime.desc')}
               icon={<Gauge className="h-6 w-6" />}
-              gradientFrom="from-amber-500/20"
-              gradientTo="to-orange-600/20"
+              gradientFrom="from-dracula-orange/20"
+              gradientTo="to-dracula-orange/20"
               illustrationIcon={<Activity className="h-20 w-20" strokeWidth={1} />}
-              iconColor="text-amber-400/60 group-hover:text-amber-300/80"
+              iconColor="text-dracula-orange/60 group-hover:text-dracula-orange/80"
             />
           </motion.div>
 
@@ -123,10 +123,10 @@ export const BentoGrid = () => {
               title={t('bento.cards.priceTracking.title')}
               description={t('bento.cards.priceTracking.desc')}
               icon={<TrendingUp className="h-6 w-6" />}
-              gradientFrom="from-green-500/20"
-              gradientTo="to-emerald-600/20"
+              gradientFrom="from-dracula-green/20"
+              gradientTo="to-dracula-green/20"
               illustrationIcon={<BarChart3 className="h-20 w-20" strokeWidth={1} />}
-              iconColor="text-green-400/60 group-hover:text-green-300/80"
+              iconColor="text-dracula-green/60 group-hover:text-dracula-green/80"
             />
           </motion.div>
         </motion.div>

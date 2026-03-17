@@ -10,7 +10,7 @@ body {
   background-color: #f3f4f6;
 }
 .dark body {
-  background-color: #111827;
+  background-color: #282a36;
 }
 
 /* MTG mana symbols: estilos Scryfall (SVG) en mana-symbols-scryfall.css; fallback para símbolos sin clase */

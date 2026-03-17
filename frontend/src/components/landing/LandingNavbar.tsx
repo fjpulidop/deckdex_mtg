@@ -35,7 +35,7 @@ export const LandingNavbar = () => {
     <nav
       className={`fixed top-0 w-full z-50 transition-all duration-300 ${
         hasScrolled
-          ? 'bg-slate-950/80 backdrop-blur-md border-b border-slate-700/50'
+          ? 'bg-dracula-bg/80 backdrop-blur-md border-b border-dracula-current/50'
           : 'bg-transparent'
       }`}
     >
@@ -45,7 +45,7 @@ export const LandingNavbar = () => {
           <div className="flex-shrink-0">
             <button
               onClick={handleLogoClick}
-              className="text-2xl font-bold bg-gradient-to-r from-primary-400 to-accent-500 bg-clip-text text-transparent hover:opacity-80 transition-opacity focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-950 rounded"
+              className="text-2xl font-bold bg-gradient-to-r from-primary-400 to-accent-500 bg-clip-text text-transparent hover:opacity-80 transition-opacity focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400 focus-visible:ring-offset-2 focus-visible:ring-offset-dracula-bg rounded"
             >
               DeckDex
             </button>
@@ -55,7 +55,7 @@ export const LandingNavbar = () => {
           <div className="hidden md:flex items-center gap-8 flex-1 justify-center">
             <button
               onClick={() => handleSmoothScroll('features')}
-              className="text-slate-100 hover:text-white transition-colors flex items-center gap-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-950 rounded"
+              className="text-dracula-fg hover:text-white transition-colors flex items-center gap-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400 focus-visible:ring-offset-2 focus-visible:ring-offset-dracula-bg rounded"
             >
               <Sparkles className="h-5 w-5" />
               <span>{t('landingNav.features')}</span>
@@ -67,7 +67,7 @@ export const LandingNavbar = () => {
             <LanguageSwitcher />
             <button
               onClick={() => setShowGithubModal(true)}
-              className="text-slate-100 hover:text-white transition-colors flex items-center gap-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-950 rounded"
+              className="text-dracula-fg hover:text-white transition-colors flex items-center gap-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400 focus-visible:ring-offset-2 focus-visible:ring-offset-dracula-bg rounded"
             >
               <Github className="h-5 w-5" />
               <span>{t('landingNav.sourceCode')}</span>
@@ -78,7 +78,7 @@ export const LandingNavbar = () => {
           <div className="md:hidden">
             <button
               onClick={() => setIsOpen(!isOpen)}
-              className="inline-flex items-center justify-center p-2 rounded-md text-slate-100 hover:text-white hover:bg-slate-700 focus:outline-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-950"
+              className="inline-flex items-center justify-center p-2 rounded-md text-dracula-fg hover:text-white hover:bg-dracula-current focus:outline-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400 focus-visible:ring-offset-2 focus-visible:ring-offset-dracula-bg"
             >
               {isOpen ? (
                 <X className="h-6 w-6" />
@@ -92,11 +92,11 @@ export const LandingNavbar = () => {
 
       {/* Mobile Menu */}
       {isOpen && (
-        <div className="md:hidden bg-slate-950/95 backdrop-blur-md border-b border-slate-700/50">
+        <div className="md:hidden bg-dracula-bg/95 backdrop-blur-md border-b border-dracula-current/50">
           <div className="px-2 pt-2 pb-3 space-y-1">
             <button
               onClick={() => handleSmoothScroll('features')}
-              className="block w-full text-left px-3 py-2 rounded-md text-slate-100 hover:text-white hover:bg-slate-700 transition-colors flex items-center gap-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-950"
+              className="block w-full text-left px-3 py-2 rounded-md text-dracula-fg hover:text-white hover:bg-dracula-current transition-colors flex items-center gap-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400 focus-visible:ring-offset-2 focus-visible:ring-offset-dracula-bg"
             >
               <Sparkles className="h-5 w-5" />
               <span>{t('landingNav.features')}</span>
@@ -106,7 +106,7 @@ export const LandingNavbar = () => {
                 setShowGithubModal(true);
                 setIsOpen(false);
               }}
-              className="block w-full text-left px-3 py-2 rounded-md text-slate-100 hover:text-white hover:bg-slate-700 transition-colors flex items-center gap-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-950"
+              className="block w-full text-left px-3 py-2 rounded-md text-dracula-fg hover:text-white hover:bg-dracula-current transition-colors flex items-center gap-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400 focus-visible:ring-offset-2 focus-visible:ring-offset-dracula-bg"
             >
               <Github className="h-5 w-5" />
               <span>{t('landingNav.sourceCode')}</span>
@@ -125,10 +125,10 @@ export const LandingNavbar = () => {
             className="absolute inset-0 bg-black/50 backdrop-blur-sm"
             onClick={() => setShowGithubModal(false)}
           />
-          <div className="relative bg-slate-900 rounded-lg border border-slate-700 p-8 max-w-md w-full shadow-xl">
+          <div className="relative bg-dracula-bg rounded-lg border border-dracula-current p-8 max-w-md w-full shadow-xl">
             <button
               onClick={() => setShowGithubModal(false)}
-              className="absolute top-4 right-4 text-slate-400 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-900 rounded"
+              className="absolute top-4 right-4 text-dracula-comment hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400 focus-visible:ring-offset-2 focus-visible:ring-offset-dracula-bg rounded"
             >
               <X className="h-6 w-6" />
             </button>
@@ -136,7 +136,7 @@ export const LandingNavbar = () => {
               <Github className="h-8 w-8 text-white" />
               <h3 className="text-2xl font-bold text-white">{t('landingNav.repoTitle')}</h3>
             </div>
-            <p className="text-slate-300 mb-6">
+            <p className="text-dracula-comment mb-6">
               {t('landingNav.repoDesc')}
             </p>
             <a
@@ -144,7 +144,7 @@ export const LandingNavbar = () => {
               target="_blank"
               rel="noopener noreferrer"
               onClick={() => setShowGithubModal(false)}
-              className="inline-flex items-center justify-center w-full px-6 py-3 rounded-lg bg-gradient-to-r from-primary-500 to-accent-500 text-white font-semibold hover:shadow-lg hover:shadow-primary-500/50 transition-all duration-300 hover:scale-105 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-900"
+              className="inline-flex items-center justify-center w-full px-6 py-3 rounded-lg bg-gradient-to-r from-primary-500 to-accent-500 text-white font-semibold hover:shadow-lg hover:shadow-primary-500/50 transition-all duration-300 hover:scale-105 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400 focus-visible:ring-offset-2 focus-visible:ring-offset-dracula-bg"
             >
               <Github className="h-5 w-5 mr-2" />
               {t('landingNav.openRepo')}
