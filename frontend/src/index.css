@@ -1,6 +1,31 @@
 @import "tailwindcss";
 @import "./mana-symbols-scryfall.css";
 
+@theme {
+  /* Primary (purple scale) */
+  --color-primary-400: #c084fc;
+  --color-primary-500: #a855f7;
+  --color-primary-600: #9333ea;
+  --color-primary-700: #7e22ce;
+
+  /* Accent (pink scale) */
+  --color-accent-400: #f472b6;
+  --color-accent-500: #ec4899;
+  --color-accent-600: #db2777;
+
+  /* Dracula palette */
+  --color-dracula-bg:      #282a36;
+  --color-dracula-current: #44475a;
+  --color-dracula-fg:      #f8f8f2;
+  --color-dracula-comment: #6272a4;
+  --color-dracula-purple:  #bd93f9;
+  --color-dracula-pink:    #ff79c6;
+  --color-dracula-cyan:    #8be9fd;
+  --color-dracula-green:   #50fa7b;
+  --color-dracula-orange:  #ffb86c;
+  --color-dracula-yellow:  #f1fa8c;
+}
+
 /* Dark mode: class on <html> (e.g. class="dark") */
 @custom-variant dark (&&:where(.dark, .dark *));
 

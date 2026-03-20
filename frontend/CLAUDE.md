@@ -30,6 +30,6 @@ frontend/src/
 
 - All backend calls through `api/client.ts` + `useApi` hook. No raw `fetch` elsewhere.
 - Functional components only; hooks for state and side effects.
-- Tailwind for styling; theme from `ThemeContext`.
+- Tailwind v4 for styling; theme from `ThemeContext`. Custom color tokens (Dracula, primary, accent) are declared in `src/index.css` inside the `@theme { }` block — `tailwind.config.js` is inert under v4.
 - TypeScript strict — no `any`.
 - WebSockets only for real-time job progress; all other data via REST.

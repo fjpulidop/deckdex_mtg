@@ -1,3 +1,4 @@
+// Tailwind v4: color tokens are declared in src/index.css @theme block. This file has no effect.
 export default {
   theme: {
     extend: {

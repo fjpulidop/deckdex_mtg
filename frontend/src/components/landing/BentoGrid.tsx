@@ -28,7 +28,7 @@ const itemVariants = {
 export const BentoGrid = () => {
   const { t } = useTranslation();
   return (
-    <section id="features" className="py-20 md:py-32 bg-gradient-to-b from-dracula-bg/80 to-dracula-bg/80 px-4 sm:px-6 lg:px-8">
+    <section id="features" className="py-20 md:py-32 bg-dracula-current/20 px-4 sm:px-6 lg:px-8">
       <div className="max-w-7xl mx-auto">
         {/* Section Header */}
         <div className="text-center mb-16 md:mb-24">

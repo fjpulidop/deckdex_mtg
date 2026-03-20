@@ -1,0 +1,22 @@
+{
+  "schema_version": "1",
+  "change": "fix-landing-dracula-theme-rendering",
+  "agent": "reviewer",
+  "scored_at": "2026-03-20T00:00:00Z",
+  "overall": 91,
+  "aspects": {
+    "type_correctness": 88,
+    "pattern_adherence": 95,
+    "test_coverage": 92,
+    "security": 98,
+    "architectural_alignment": 95
+  },
+  "notes": {
+    "type_correctness": "The framer-motion Proxy mock in dracula-theme.test.tsx used `keyof JSX.IntrinsicElements` which references the global JSX namespace not available in react-jsx mode. Fixed to `React.ElementType`. All other type annotations in Hero.tsx, BentoGrid.tsx, and FinalCTA.tsx are clean with no `any`.",
+    "pattern_adherence": "All 17 color tokens are in `@theme {}` in index.css using `--color-*` naming — correct Tailwind v4 pattern. tailwind.config.js is correctly commented as inert. CLAUDE.md updated to document this convention. Background classes use solid dracula tokens where required by the fix.",
+    "test_coverage": "Tests cover all three section components (Hero, BentoGrid, FinalCTA) with positive assertions for the new class names and negative assertions ruling out the old broken gradient patterns. LandingNavbar smoke tests included. 85/85 tests pass.",
+    "security": "No new network calls, no API surface changes, no secrets. Inline SVGs are static presentational markup. No XSS vectors introduced.",
+    "architectural_alignment": "Color token migration from tailwind.config.js to @theme block in index.css is the correct Tailwind v4 architecture. Components render correctly under jsdom in tests. The fix is strictly within the styling layer with no logic changes."
+  },
+  "flags": []
+}
