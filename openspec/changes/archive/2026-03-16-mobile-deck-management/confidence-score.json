@@ -1,0 +1,22 @@
+{
+  "schema_version": "1",
+  "change": "mobile-deck-management",
+  "agent": "reviewer",
+  "scored_at": "2026-03-16T08:00:00Z",
+  "overall": 85,
+  "aspects": {
+    "type_correctness": 88,
+    "pattern_adherence": 87,
+    "test_coverage": 82,
+    "security": 88,
+    "architectural_alignment": 85
+  },
+  "notes": {
+    "type_correctness": "DeckCardPickerModal correctly types Card import as type-only after fix. Mobile-responsive classes are Tailwind utilities with no type surface.",
+    "pattern_adherence": "import type { Card } was missing — fixed. DeckCardPickerModal follows the AccessibleModal wrapper pattern used across the codebase.",
+    "test_coverage": "DeckCardPickerModal has a smoke test. useSwipeToRemove has 5 unit tests. Touch interaction paths have partial coverage but core render path is verified.",
+    "security": "No new endpoints or data surface introduced by mobile UI changes.",
+    "architectural_alignment": "Modal uses AccessibleModal wrapper pattern. API calls go through api/client.ts addCardsToDeckBatch. Layer boundaries respected."
+  },
+  "flags": []
+}

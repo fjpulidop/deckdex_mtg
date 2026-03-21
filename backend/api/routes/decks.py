@@ -74,6 +74,22 @@ class BatchAddResult(BaseModel):
     deck: Dict[str, Any]
 
 
+class PowerLevelBreakdownResponse(BaseModel):
+    fast_mana: float
+    tutors: float
+    combo_pieces: float
+    avg_cmc: float
+    land_quality: float
+    staple_density: float
+
+
+class PowerLevelResponse(BaseModel):
+    score: float
+    bracket: int
+    summary: str
+    breakdown: PowerLevelBreakdownResponse
+
+
 # --- Routes ---
 
 
@@ -271,3 +287,18 @@ async def import_deck_text(
         skipped=skipped,
         deck=updated_deck,
     )
+
+
+@router.get("/{deck_id}/power-level", response_model=PowerLevelResponse)
+async def get_deck_power_level(
+    deck_id: int,
+    repo: DeckRepository = Depends(require_deck_repo),
+    user_id: int = Depends(get_current_user_id),
+):
+    """Return heuristic power level score and Commander Bracket for a deck."""
+    from ..services.power_level_service import get_power_level
+
+    result = get_power_level(deck_id, repo, user_id)
+    if result is None:
+        raise HTTPException(status_code=404, detail="Deck not found")
+    return result

@@ -33,9 +33,9 @@ export function DeckImportModal({ deckId, onClose, onImported }: DeckImportModal
   }, [onClose]);
 
   return (
-    <AccessibleModal isOpen titleId="deck-import-modal-title" onClose={onClose} className="z-[70]" showCloseButton>
+    <AccessibleModal isOpen titleId="deck-import-modal-title" onClose={onClose} className="z-[70]" showCloseButton fullScreenOnMobile>
       <div
-        className="bg-white dark:bg-gray-800 rounded-xl shadow-2xl w-full max-w-lg flex flex-col overflow-hidden"
+        className="bg-white dark:bg-gray-800 rounded-xl shadow-2xl w-full max-w-lg flex flex-col overflow-hidden max-sm:rounded-none max-sm:max-w-none max-sm:h-full"
       >
         {/* Header */}
         <div className="border-b border-gray-200 dark:border-gray-700 px-6 py-4">
@@ -45,7 +45,7 @@ export function DeckImportModal({ deckId, onClose, onImported }: DeckImportModal
         </div>
 
         {/* Body */}
-        <div className="px-6 py-4 flex flex-col gap-4">
+        <div className="px-6 py-4 flex flex-col gap-4 flex-1">
           {result === null ? (
             <>
               <label
@@ -56,7 +56,7 @@ export function DeckImportModal({ deckId, onClose, onImported }: DeckImportModal
               </label>
               <textarea
                 id="deck-import-textarea"
-                className="w-full h-48 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm px-3 py-2 resize-none focus:outline-none focus:ring-2 focus:ring-indigo-500 font-mono placeholder:text-gray-400 dark:placeholder:text-gray-500"
+                className="w-full sm:h-48 flex-1 min-h-[12rem] rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm px-3 py-2 resize-none focus:outline-none focus:ring-2 focus:ring-indigo-500 font-mono placeholder:text-gray-400 dark:placeholder:text-gray-500"
                 placeholder={t('deckImport.placeholder')}
                 value={text}
                 onChange={(e) => setText(e.target.value)}

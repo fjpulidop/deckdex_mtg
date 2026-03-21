@@ -14,6 +14,11 @@ interface AccessibleModalProps {
    * the modal panel with aria-label={t('common.close')}.
    */
   showCloseButton?: boolean;
+  /**
+   * When true, the modal fills the full screen on viewports below the sm
+   * breakpoint (< 640 px). On sm and above the layout is unchanged.
+   */
+  fullScreenOnMobile?: boolean;
 }
 
 const FOCUSABLE_SELECTORS = [
@@ -44,6 +49,7 @@ export function AccessibleModal({
   children,
   className,
   showCloseButton = false,
+  fullScreenOnMobile = false,
 }: AccessibleModalProps) {
   const { t } = useTranslation();
   const panelRef = useRef<HTMLDivElement>(null);
@@ -135,9 +141,17 @@ export function AccessibleModal({
 
   if (!isOpen) return null;
 
+  const overlayClass = fullScreenOnMobile
+    ? `fixed inset-0 bg-black/50 sm:flex sm:items-center sm:justify-center z-50 sm:p-4 ${className ?? ''}`
+    : `fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4 ${className ?? ''}`;
+
+  const panelWrapperClass = fullScreenOnMobile
+    ? 'relative max-sm:w-full max-sm:h-[100dvh]'
+    : 'relative';
+
   return (
     <div
-      className={`fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4 ${className ?? ''}`}
+      className={overlayClass}
       role="dialog"
       aria-modal="true"
       aria-labelledby={titleId}
@@ -145,7 +159,7 @@ export function AccessibleModal({
     >
       <div
         ref={panelRef}
-        className="relative"
+        className={panelWrapperClass}
         onClick={e => e.stopPropagation()}
       >
         {showCloseButton && (

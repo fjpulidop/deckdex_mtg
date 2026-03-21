@@ -152,7 +152,13 @@
     "deleteConfirmTitle": "Eliminar mazo",
     "deleteConfirmMessage": "¿Seguro que quieres eliminar \"{{name}}\"? Esta acción no se puede deshacer.",
     "deleteConfirm": "Eliminar",
-    "deleteCancel": "Cancelar"
+    "deleteCancel": "Cancelar",
+    "mobileActions": {
+      "addCard": "Añadir",
+      "export": "Exportar",
+      "import": "Importar",
+      "deleteDeck": "Eliminar"
+    }
   },
   "deckImport": {
     "title": "Importar lista de mazo",
@@ -592,6 +598,7 @@
     "collection": "Colección",
     "analytics": "Estadísticas",
     "deckBuilder": "Constructor de mazos",
+    "allocations": "Asignaciones",
     "import": "Importar",
     "admin": "Administración",
     "settings": "Ajustes",
@@ -617,5 +624,30 @@
   "themeToggle": {
     "switchToDark": "Cambiar a modo oscuro",
     "switchToLight": "Cambiar a modo claro"
+  },
+  "powerLevel": {
+    "badge": "B{{bracket}} · {{score}}",
+    "casual": "Casual",
+    "midPower": "Poder medio",
+    "highPower": "Alto poder",
+    "optimised": "Optimizado",
+    "bracket": "Nivel {{bracket}}",
+    "loading": "Calculando..."
+  },
+  "allocations": {
+    "title": "Asignaciones de cartas",
+    "subtitle": "Consulta en qué mazos se usa cada carta de tu colección.",
+    "errorNoPostgres": "Los mazos requieren Postgres. Configura DATABASE_URL para activar las asignaciones.",
+    "errorGeneric": "Error al cargar las asignaciones. Inténtalo de nuevo.",
+    "statusAvailable": "Disponible",
+    "statusAssigned": "En 1 mazo",
+    "statusShared": "En varios mazos",
+    "tileLabel": "{{name}} — {{status}}",
+    "available": "Disponible — sin asignar a ningún mazo",
+    "assignedTo": "Asignada a:",
+    "close": "Cerrar",
+    "removeFrom": "Quitar de {{deckName}}",
+    "removing": "Quitando…",
+    "remove": "Quitar"
   }
 }
