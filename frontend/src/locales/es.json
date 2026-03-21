@@ -141,6 +141,7 @@
     "export": "Exportar",
     "copied": "¡Copiado!",
     "import": "Importar",
+    "history": "Historial",
     "deleteDeck": "Eliminar mazo",
     "hoverCard": "Pasa el cursor sobre una carta para previsualizarla",
     "loading": "Cargando…",
@@ -153,6 +154,24 @@
     "deleteConfirmMessage": "¿Seguro que quieres eliminar \"{{name}}\"? Esta acción no se puede deshacer.",
     "deleteConfirm": "Eliminar",
     "deleteCancel": "Cancelar"
+  },
+  "deckHistory": {
+    "title": "Historial del mazo",
+    "history": "Historial",
+    "loading": "Cargando historial…",
+    "empty": "Sin historial aún. Empieza a editar tu mazo para registrar cambios.",
+    "revert": "Revertir a esta versión",
+    "reverting": "Revirtiendo…",
+    "revertSuccess": "Mazo revertido con éxito",
+    "revertError": "Error al revertir el mazo",
+    "revertCardMissing": "No se puede revertir: una carta de esta versión ya no existe en tu colección",
+    "diffAdded_one": "+{{count}} carta",
+    "diffAdded_other": "+{{count}} cartas",
+    "diffRemoved_one": "-{{count}} carta",
+    "diffRemoved_other": "-{{count}} cartas",
+    "noChanges": "Estado inicial",
+    "currentVersion": "Versión actual",
+    "close": "Cerrar"
   },
   "deckImport": {
     "title": "Importar lista de mazo",
@@ -617,5 +636,26 @@
   "themeToggle": {
     "switchToDark": "Cambiar a modo oscuro",
     "switchToLight": "Cambiar a modo claro"
+  },
+  "deckComparison": {
+    "title": "Comparar Mazos",
+    "selectTitle": "Selecciona Mazos para Comparar",
+    "selectPrompt": "Elige entre 2 y 4 mazos para comparar en paralelo.",
+    "compareButton": "Comparar",
+    "backButton": "Atrás",
+    "cancelButton": "Cancelar",
+    "cards_one": "{{count}} carta",
+    "cards_other": "{{count}} cartas",
+    "totalValue": "Valor Total",
+    "creatureInstantRatio": "Criaturas : Instantáneos",
+    "manaCurve": "Curva de Maná",
+    "colorDistribution": "Distribución de Color",
+    "overlapTitle": "Cartas Compartidas",
+    "noOverlap": "Los mazos seleccionados no comparten ninguna carta.",
+    "loading": "Cargando comparación…",
+    "error": "Error al cargar la comparación",
+    "compareDecksButton": "Comparar Mazos",
+    "maxDecksReached": "Máximo 4 mazos seleccionados",
+    "minDecksRequired": "Selecciona al menos 2 mazos"
   }
 }

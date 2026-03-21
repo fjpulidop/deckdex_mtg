@@ -367,14 +367,14 @@ def test_import_deck_not_found_returns_404(deck_client):
 
 
 def test_import_deck_commander_section(deck_client):
-    """Cards under //Commander are passed to the repository with is_commander=True."""
+    """Cards under //Commander are passed to add_cards_from_import with is_commander=True."""
     client, mock_repo = deck_client
     mock_repo.get_by_id.return_value = SAMPLE_DECK
     mock_repo.find_card_ids_by_names.return_value = {
         "atraxa, praetors' voice": 42,
         "lightning bolt": 10,
     }
-    mock_repo.add_card.return_value = True
+    mock_repo.add_cards_from_import.return_value = None
     mock_repo.get_deck_with_cards.return_value = SAMPLE_DECK_WITH_CARDS
 
     response = client.post(
@@ -387,18 +387,380 @@ def test_import_deck_commander_section(deck_client):
     assert data["imported_count"] == 2
     assert data["skipped_count"] == 0
 
-    # Capture the add_card calls and verify commander status.
-    # Route signature: repo.add_card(deck_id, card_id, quantity=..., is_commander=..., user_id=...)
-    calls = mock_repo.add_card.call_args_list
-    assert len(calls) == 2
+    # Import now calls add_cards_from_import once with all cards in a single transaction.
+    assert mock_repo.add_cards_from_import.call_count == 1
+    call_args = mock_repo.add_cards_from_import.call_args
+    cards_imported = call_args.args[1] if call_args.args else call_args.kwargs.get("cards", [])
 
-    # Find the call for Atraxa (card_id=42) — must have is_commander=True
-    atraxa_call = next(c for c in calls if c.args[1] == 42)
-    assert atraxa_call.kwargs["is_commander"] is True
+    # Verify Atraxa was passed with is_commander=True
+    atraxa_entry = next((c for c in cards_imported if c["card_id"] == 42), None)
+    assert atraxa_entry is not None
+    assert atraxa_entry["is_commander"] is True
 
-    # Find the call for Lightning Bolt (card_id=10) — must have is_commander=False
-    bolt_call = next(c for c in calls if c.args[1] == 10)
-    assert bolt_call.kwargs["is_commander"] is False
+    # Verify Lightning Bolt was passed with is_commander=False
+    bolt_entry = next((c for c in cards_imported if c["card_id"] == 10), None)
+    assert bolt_entry is not None
+    assert bolt_entry["is_commander"] is False
+
+
+# ---------------------------------------------------------------------------
+# Deck history
+# ---------------------------------------------------------------------------
+
+SAMPLE_SNAPSHOT = {
+    "id": 5,
+    "created_at": "2026-01-15T10:00:00",
+    "created_by": 1,
+    "change_summary": "Added 1x Sol Ring",
+    "diff": {
+        "added": [{"card_id": 20, "name": "Sol Ring", "quantity": 1}],
+        "removed": [],
+        "quantity_changed": [],
+        "commander_changed": None,
+    },
+}
+
+
+def test_get_deck_history_returns_snapshots(deck_client):
+    """GET /decks/{id}/history returns DeckHistoryResponse with snapshots list."""
+    client, mock_repo = deck_client
+    mock_repo.get_history.return_value = [SAMPLE_SNAPSHOT]
+
+    response = client.get("/api/decks/1/history")
+
+    assert response.status_code == 200
+    data = response.json()
+    assert data["deck_id"] == 1
+    assert len(data["snapshots"]) == 1
+    snap = data["snapshots"][0]
+    assert snap["id"] == 5
+    assert snap["change_summary"] == "Added 1x Sol Ring"
+    assert "diff" in snap
+    mock_repo.get_history.assert_called_once_with(1, user_id=1, limit=50)
+
+
+def test_get_deck_history_empty(deck_client):
+    """GET /decks/{id}/history returns empty snapshots list when deck has no history."""
+    client, mock_repo = deck_client
+    mock_repo.get_history.return_value = []
+
+    response = client.get("/api/decks/1/history")
+
+    assert response.status_code == 200
+    data = response.json()
+    assert data["deck_id"] == 1
+    assert data["snapshots"] == []
+
+
+def test_get_deck_history_not_found_returns_404(deck_client):
+    """GET /decks/{id}/history returns 404 when repo returns None (deck missing or wrong owner)."""
+    client, mock_repo = deck_client
+    mock_repo.get_history.return_value = None
+
+    response = client.get("/api/decks/999/history")
+
+    assert response.status_code == 404
+    assert response.json()["detail"] == "Deck not found"
+
+
+def test_get_deck_history_limit_param_passed(deck_client):
+    """GET /decks/{id}/history?limit=10 passes limit to repo."""
+    client, mock_repo = deck_client
+    mock_repo.get_history.return_value = []
+
+    response = client.get("/api/decks/1/history?limit=10")
+
+    assert response.status_code == 200
+    mock_repo.get_history.assert_called_once_with(1, user_id=1, limit=10)
+
+
+def test_get_deck_history_limit_too_small_returns_400(deck_client):
+    """GET /decks/{id}/history?limit=0 — below minimum (ge=1) returns 400."""
+    client, mock_repo = deck_client
+
+    response = client.get("/api/decks/1/history?limit=0")
+
+    # Query param validation: Pydantic coerces ge=1 constraint → custom handler returns 400
+    assert response.status_code == 400
+
+
+def test_get_deck_history_limit_too_large_returns_400(deck_client):
+    """GET /decks/{id}/history?limit=201 — above maximum (le=200) returns 400."""
+    client, mock_repo = deck_client
+
+    response = client.get("/api/decks/1/history?limit=201")
+
+    assert response.status_code == 400
+
+
+def test_get_deck_history_multiple_snapshots(deck_client):
+    """History with multiple snapshots preserves order and all fields."""
+    client, mock_repo = deck_client
+    snap2 = {
+        "id": 6,
+        "created_at": "2026-01-16T12:00:00",
+        "created_by": 1,
+        "change_summary": "Removed Lightning Bolt",
+        "diff": {
+            "added": [],
+            "removed": [{"card_id": 10, "name": "Lightning Bolt", "quantity": 1}],
+            "quantity_changed": [],
+            "commander_changed": None,
+        },
+    }
+    mock_repo.get_history.return_value = [snap2, SAMPLE_SNAPSHOT]
+
+    response = client.get("/api/decks/1/history")
+
+    assert response.status_code == 200
+    snapshots = response.json()["snapshots"]
+    assert len(snapshots) == 2
+    assert snapshots[0]["id"] == 6
+    assert snapshots[1]["id"] == 5
+
+
+# ---------------------------------------------------------------------------
+# Revert to snapshot
+# ---------------------------------------------------------------------------
+
+
+def test_revert_deck_to_snapshot_success(deck_client):
+    """POST /decks/{id}/revert/{snapshot_id} returns reverted deck on success."""
+    client, mock_repo = deck_client
+    mock_repo.revert_to_snapshot.return_value = SAMPLE_DECK_WITH_CARDS
+
+    response = client.post("/api/decks/1/revert/5")
+
+    assert response.status_code == 200
+    data = response.json()
+    assert data["id"] == 1
+    assert "cards" in data
+    mock_repo.revert_to_snapshot.assert_called_once_with(1, 5, user_id=1)
+
+
+def test_revert_deck_not_found_returns_404(deck_client):
+    """POST /decks/{id}/revert/{snapshot_id} returns 404 when deck does not exist."""
+    client, mock_repo = deck_client
+    mock_repo.revert_to_snapshot.return_value = None
+
+    response = client.post("/api/decks/999/revert/5")
+
+    assert response.status_code == 404
+    assert "not found" in response.json()["detail"].lower()
+
+
+def test_revert_snapshot_not_found_returns_404(deck_client):
+    """POST /decks/{id}/revert/{snapshot_id} returns 404 when snapshot does not belong to deck."""
+    client, mock_repo = deck_client
+    mock_repo.revert_to_snapshot.return_value = None
+
+    response = client.post("/api/decks/1/revert/9999")
+
+    assert response.status_code == 404
+
+
+def test_revert_card_missing_returns_409(deck_client):
+    """POST revert returns 409 when a card in the snapshot no longer exists in the collection."""
+    client, mock_repo = deck_client
+    mock_repo.revert_to_snapshot.side_effect = ValueError("Card 'Sol Ring' (id=20) no longer exists in collection")
+
+    response = client.post("/api/decks/1/revert/5")
+
+    assert response.status_code == 409
+    assert "no longer exists" in response.json()["detail"]
+
+
+# ---------------------------------------------------------------------------
+# Compare endpoint — sample data
+# ---------------------------------------------------------------------------
+
+_SAMPLE_CARD_BOLT = {
+    "id": 10,
+    "name": "Lightning Bolt",
+    "type": "Instant",
+    "mana_cost": "{R}",
+    "cmc": 1.0,
+    "color_identity": "R",
+    "price": "0.35",
+    "quantity": 1,
+    "is_commander": False,
+}
+_SAMPLE_CARD_SOLRING = {
+    "id": 20,
+    "name": "Sol Ring",
+    "type": "Artifact",
+    "mana_cost": "{1}",
+    "cmc": 1.0,
+    "color_identity": "",
+    "price": "1.20",
+    "quantity": 1,
+    "is_commander": False,
+}
+_COMPARE_DECK_1 = {"id": 1, "name": "Deck A", "cards": [_SAMPLE_CARD_BOLT, _SAMPLE_CARD_SOLRING]}
+_COMPARE_DECK_2 = {"id": 2, "name": "Deck B", "cards": [_SAMPLE_CARD_BOLT]}
+_COMPARE_DECK_3 = {"id": 3, "name": "Deck C", "cards": [_SAMPLE_CARD_SOLRING]}
+
+
+# ---------------------------------------------------------------------------
+# Compare endpoint — fixture
+# ---------------------------------------------------------------------------
+
+
+@pytest.fixture(scope="function")
+def compare_client():
+    """TestClient with mocked DeckRepository and auth for compare tests."""
+    mock_repo = MagicMock(spec=DeckRepository)
+    app.dependency_overrides[require_deck_repo] = lambda: mock_repo
+    app.dependency_overrides[get_current_user_id] = lambda: 1
+    client = TestClient(app)
+    yield client, mock_repo
+    app.dependency_overrides.pop(require_deck_repo, None)
+    app.dependency_overrides.pop(get_current_user_id, None)
+
+
+# ---------------------------------------------------------------------------
+# Compare endpoint — tests
+# ---------------------------------------------------------------------------
+
+
+def test_compare_decks_returns_200(compare_client):
+    client, mock_repo = compare_client
+    mock_repo.get_deck_with_cards.side_effect = lambda deck_id, user_id: (
+        _COMPARE_DECK_1 if deck_id == 1 else _COMPARE_DECK_2
+    )
+
+    r = client.get("/api/decks/compare?ids=1,2")
+
+    assert r.status_code == 200
+    data = r.json()
+    assert len(data["decks"]) == 2
+    assert "overlap_cards" in data
+
+
+def test_compare_decks_too_few_ids(compare_client):
+    client, _mock_repo = compare_client
+
+    r = client.get("/api/decks/compare?ids=1")
+
+    assert r.status_code == 400
+
+
+def test_compare_decks_too_many_ids(compare_client):
+    client, _mock_repo = compare_client
+
+    r = client.get("/api/decks/compare?ids=1,2,3,4,5")
+
+    assert r.status_code == 400
+
+
+def test_compare_decks_non_integer_ids(compare_client):
+    client, _mock_repo = compare_client
+
+    r = client.get("/api/decks/compare?ids=1,foo")
+
+    assert r.status_code == 400
+
+
+def test_compare_decks_deck_not_found(compare_client):
+    client, mock_repo = compare_client
+
+    def side_effect(deck_id, user_id):
+        if deck_id == 1:
+            return _COMPARE_DECK_1
+        return None
+
+    mock_repo.get_deck_with_cards.side_effect = side_effect
+
+    r = client.get("/api/decks/compare?ids=1,999")
+
+    assert r.status_code == 404
+
+
+def test_compare_decks_overlap_detection(compare_client):
+    client, mock_repo = compare_client
+    mock_repo.get_deck_with_cards.side_effect = lambda deck_id, user_id: (
+        _COMPARE_DECK_1 if deck_id == 1 else _COMPARE_DECK_2
+    )
+
+    r = client.get("/api/decks/compare?ids=1,2")
+
+    assert r.status_code == 200
+    data = r.json()
+    overlap = data["overlap_cards"]
+    assert len(overlap) == 1
+    assert overlap[0]["name"] == "Lightning Bolt"
+    assert len(overlap[0]["deck_ids"]) == 2
+
+
+def test_compare_decks_no_overlap(compare_client):
+    client, mock_repo = compare_client
+    # Deck 1 has Bolt+SolRing, Deck 3 has only SolRing — wait, they share SolRing
+    # Use a deck with a card not in the other
+    unique_deck = {
+        "id": 4,
+        "name": "Deck D",
+        "cards": [
+            {
+                "id": 99,
+                "name": "Counterspell",
+                "type": "Instant",
+                "mana_cost": "{U}{U}",
+                "cmc": 2.0,
+                "color_identity": "U",
+                "price": "1.00",
+                "quantity": 1,
+                "is_commander": False,
+            }
+        ],
+    }
+    no_overlap_deck = {
+        "id": 5,
+        "name": "Deck E",
+        "cards": [
+            {
+                "id": 98,
+                "name": "Giant Growth",
+                "type": "Instant",
+                "mana_cost": "{G}",
+                "cmc": 1.0,
+                "color_identity": "G",
+                "price": "0.10",
+                "quantity": 1,
+                "is_commander": False,
+            }
+        ],
+    }
+    mock_repo.get_deck_with_cards.side_effect = lambda deck_id, user_id: (
+        unique_deck if deck_id == 4 else no_overlap_deck
+    )
+
+    r = client.get("/api/decks/compare?ids=4,5")
+
+    assert r.status_code == 200
+    data = r.json()
+    assert data["overlap_cards"] == []
+
+
+def test_compare_decks_requires_auth():
+    """Without auth override, the compare route should not return 200."""
+    # Remove any existing overrides for get_current_user_id to simulate no auth
+    original_overrides = dict(app.dependency_overrides)
+    # Keep require_deck_repo mock but remove user id override
+    mock_repo = MagicMock(spec=DeckRepository)
+    app.dependency_overrides[require_deck_repo] = lambda: mock_repo
+
+    # Remove get_current_user_id if it was set
+    app.dependency_overrides.pop(get_current_user_id, None)
+
+    try:
+        client = TestClient(app)
+        # Without get_current_user_id override, FastAPI will use the real dependency
+        # which requires a valid JWT cookie — without it, the request returns non-200
+        r = client.get("/api/decks/compare?ids=1,2")
+        assert r.status_code != 200
+    finally:
+        app.dependency_overrides.clear()
+        app.dependency_overrides.update(original_overrides)
 
 
 def test_501_when_no_postgres():

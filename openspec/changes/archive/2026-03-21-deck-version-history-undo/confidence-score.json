@@ -1,0 +1,25 @@
+{
+  "schema_version": "1",
+  "change": "deck-version-history-undo",
+  "agent": "reviewer",
+  "scored_at": "2026-03-21T16:25:00Z",
+  "overall": 87,
+  "aspects": {
+    "type_correctness": 92,
+    "pattern_adherence": 88,
+    "test_coverage": 82,
+    "security": 90,
+    "architectural_alignment": 88
+  },
+  "notes": {
+    "type_correctness": "All Pydantic models match the spec exactly (DeckHistoryResponse, DeckSnapshot, SnapshotDiff variants). TypeScript interfaces exported from client.ts align with backend response shapes. No type errors in new files; npx tsc --noEmit reports 0 errors on new/modified feature files.",
+    "pattern_adherence": "Snapshot methods follow existing DeckRepository patterns (connection reuse, SQLAlchemy text(), .mappings().fetchall()). Route handlers follow the thin-route pattern. One merge conflict was found: the multi-deck-comparison-tool's /compare route was in a .rej file and needed manual application to decks.py — this is a cross-feature merge issue, not a pattern violation. vi.hoisted() placement in DeckComparisonModal.test.tsx was incorrect (declared after first vi.mock call); moved before both vi.mock calls.",
+    "test_coverage": "53 Python tests pass covering snapshot creation, history retrieval, revert, diff computation, and all four mutation wrappers. 20 frontend tests pass for DeckHistoryModal/Timeline/RevertButton. 5 DeckComparisonModal tests pass. The revert_to_snapshot ValueError path (FK violation) is covered. Happy-path coverage is strong; edge cases like concurrent revert or empty snapshot_data are not tested but are not required by the spec.",
+    "security": "IDOR protection verified: both history and revert endpoints check deck ownership via user_id param before exposing snapshot data. No SQL injection surface (all parameterized). Input limit is clamped server-side to [1, 200]. LOW finding noted in security review: created_by field exposes actor user_id but no current attack surface.",
+    "architectural_alignment": "Core snapshot logic lives in DeckRepository (deckdex layer), API layer is thin route delegation — correctly respects layer boundaries. _compute_diff is a module-level function as specified, not a method. add_cards_from_import replaces the per-card loop in the import route with a single transaction, correctly reducing snapshot count. Frontend components use api/client.ts exclusively, no raw fetch."
+  },
+  "flags": [
+    "pre-existing-build-errors-in-unrelated-frontend-files",
+    "test_admin.py-asyncio.get_event_loop-fixed-in-2026-03-21-review-pass"
+  ]
+}

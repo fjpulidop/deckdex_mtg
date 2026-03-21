@@ -84,3 +84,21 @@ The system SHALL expose `POST /api/decks/{id}/import` (JSON body: `{ "text": str
 #### Scenario: Import to non-existent deck
 - **WHEN** the user calls `POST /api/decks/{id}/import` with a deck id that does not exist or belongs to another user
 - **THEN** the API returns HTTP 404
+
+### Requirement: Deck version history and undo
+
+The system SHALL persist a snapshot of deck card state after each mutating operation (add card, remove card, set commander, import, revert). Snapshots are stored in the `deck_snapshots` table (`016_deck_snapshots.sql`): id, deck_id, created_by, created_at, snapshot_data (JSONB array of `{card_id, name, quantity, is_commander}`), change_summary.
+
+The system SHALL expose `GET /api/decks/{id}/history?limit=N` (default 50, max 200) returning the snapshot list newest-first, each entry with a computed diff (added, removed, quantity_changed, commander_changed). Returns 404 if the deck does not exist or does not belong to the user.
+
+The system SHALL expose `POST /api/decks/{id}/revert/{snapshot_id}` to restore the deck to the state in the given snapshot. The revert itself SHALL be recorded as a new snapshot. Returns the updated deck. Returns 404 if deck or snapshot is not found; returns 409 on conflict (e.g. snapshot does not belong to the deck).
+
+#### Scenario: View deck history
+
+- **WHEN** the user calls `GET /api/decks/{id}/history`
+- **THEN** the API returns a list of snapshots (newest-first), each with id, created_at, change_summary, and a diff showing what changed from the previous snapshot
+
+#### Scenario: Revert to snapshot
+
+- **WHEN** the user calls `POST /api/decks/{id}/revert/{snapshot_id}` with a valid snapshot
+- **THEN** the deck cards are restored to the state in that snapshot, a new snapshot recording the revert is created, and the updated deck is returned

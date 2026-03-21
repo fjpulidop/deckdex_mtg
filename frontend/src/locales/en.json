@@ -141,6 +141,7 @@
     "export": "Export",
     "copied": "Copied!",
     "import": "Import",
+    "history": "History",
     "deleteDeck": "Delete Deck",
     "hoverCard": "Hover a card to preview",
     "loading": "Loading…",
@@ -153,6 +154,24 @@
     "deleteConfirmMessage": "Are you sure you want to delete \"{{name}}\"? This cannot be undone.",
     "deleteConfirm": "Delete",
     "deleteCancel": "Cancel"
+  },
+  "deckHistory": {
+    "title": "Deck History",
+    "history": "History",
+    "loading": "Loading history…",
+    "empty": "No history yet. Start editing your deck to record changes.",
+    "revert": "Revert to this version",
+    "reverting": "Reverting…",
+    "revertSuccess": "Deck reverted successfully",
+    "revertError": "Failed to revert deck",
+    "revertCardMissing": "Cannot revert: a card in this snapshot no longer exists in your collection",
+    "diffAdded_one": "+{{count}} card",
+    "diffAdded_other": "+{{count}} cards",
+    "diffRemoved_one": "-{{count}} card",
+    "diffRemoved_other": "-{{count}} cards",
+    "noChanges": "Initial state",
+    "currentVersion": "Current version",
+    "close": "Close"
   },
   "deckImport": {
     "title": "Import Deck List",
@@ -617,5 +636,26 @@
   "themeToggle": {
     "switchToDark": "Switch to dark mode",
     "switchToLight": "Switch to light mode"
+  },
+  "deckComparison": {
+    "title": "Compare Decks",
+    "selectTitle": "Select Decks to Compare",
+    "selectPrompt": "Choose 2 to 4 decks to compare side by side.",
+    "compareButton": "Compare",
+    "backButton": "Back",
+    "cancelButton": "Cancel",
+    "cards_one": "{{count}} card",
+    "cards_other": "{{count}} cards",
+    "totalValue": "Total Value",
+    "creatureInstantRatio": "Creatures : Instants",
+    "manaCurve": "Mana Curve",
+    "colorDistribution": "Color Distribution",
+    "overlapTitle": "Overlapping Cards",
+    "noOverlap": "No cards are shared between the selected decks.",
+    "loading": "Loading comparison…",
+    "error": "Failed to load comparison",
+    "compareDecksButton": "Compare Decks",
+    "maxDecksReached": "Maximum 4 decks selected",
+    "minDecksRequired": "Select at least 2 decks"
   }
 }

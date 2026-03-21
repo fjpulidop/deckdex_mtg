@@ -10,6 +10,7 @@ import { CardDetailModal } from './CardDetailModal';
 import { ConfirmModal } from './ConfirmModal';
 import { ManaText } from './ManaText';
 import { DeckImportModal } from './DeckImportModal';
+import { DeckHistoryModal } from './DeckHistoryModal';
 import { AccessibleModal } from './AccessibleModal';
 
 function parsePrice(price: string | undefined): number {
@@ -77,6 +78,7 @@ export function DeckDetailModal({ deckId, onClose, onDeleted }: DeckDetailModalP
   const queryClient = useQueryClient();
   const [pickerOpen, setPickerOpen] = useState(false);
   const [importOpen, setImportOpen] = useState(false);
+  const [historyOpen, setHistoryOpen] = useState(false);
   const [copyFeedback, setCopyFeedback] = useState(false);
   const [deleteDeckConfirmOpen, setDeleteDeckConfirmOpen] = useState(false);
   const [hoverCardId, setHoverCardId] = useState<number | null>(null);
@@ -363,6 +365,13 @@ export function DeckDetailModal({ deckId, onClose, onDeleted }: DeckDetailModalP
                 </button>
                 <button
                   type="button"
+                  onClick={() => setHistoryOpen(true)}
+                  className="px-3 py-1.5 rounded bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-200 hover:bg-gray-200 dark:hover:bg-gray-600 text-sm font-medium"
+                >
+                  {t('deckDetail.history')}
+                </button>
+                <button
+                  type="button"
                   onClick={() => setPickerOpen(true)}
                   className="px-3 py-1.5 rounded bg-indigo-600 text-white hover:bg-indigo-700 dark:bg-indigo-500 dark:hover:bg-indigo-600 text-sm font-medium"
                 >
@@ -521,6 +530,17 @@ export function DeckDetailModal({ deckId, onClose, onDeleted }: DeckDetailModalP
           deckId={deckId}
           onClose={() => setImportOpen(false)}
           onImported={handleImported}
+        />
+      )}
+
+      {historyOpen && (
+        <DeckHistoryModal
+          deckId={deckId}
+          onClose={() => setHistoryOpen(false)}
+          onReverted={() => {
+            setHistoryOpen(false);
+            refetch();
+          }}
         />
       )}
 

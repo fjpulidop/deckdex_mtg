@@ -9,7 +9,7 @@ A full-stack Magic: The Gathering collection manager with CLI and web dashboard.
 ## Features
 
 - **Collection Management** — Browse, search, filter, and edit cards with gallery/table views
-- **Deck Builder** — Create Commander decks with card picker, mana curve stats, and animated commander backgrounds
+- **Deck Builder** — Create Commander decks with card picker, mana curve stats, animated commander backgrounds, version history, and one-click revert
 - **Analytics Dashboard** — Interactive charts for color distribution, mana curves, rarity breakdown, and collection value
 - **Collection Insights** — AI-powered analysis catalog with actionable recommendations
 - **Price Tracking** — Automated Scryfall price updates with incremental writes and resume support

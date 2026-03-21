@@ -186,6 +186,75 @@ export interface BatchAddResult {
   deck: DeckWithCards;
 }
 
+export interface SnapshotDiffCard {
+  card_id: number;
+  name: string;
+  quantity: number;
+}
+
+export interface SnapshotDiffQuantityChange {
+  card_id: number;
+  name: string;
+  old_quantity: number;
+  new_quantity: number;
+}
+
+export interface SnapshotDiff {
+  added: SnapshotDiffCard[];
+  removed: SnapshotDiffCard[];
+  quantity_changed: SnapshotDiffQuantityChange[];
+  commander_changed: string | null;
+}
+
+export interface DeckSnapshot {
+  id: number;
+  created_at: string;
+  created_by: number;
+  change_summary: string;
+  diff: SnapshotDiff;
+}
+
+export interface DeckHistoryResponse {
+  deck_id: number;
+  snapshots: DeckSnapshot[];
+}
+
+export interface DeckManaCurveBucket {
+  cmc: string;
+  count: number;
+}
+
+export interface DeckColorCount {
+  color: string;
+  count: number;
+}
+
+export interface DeckComparisonStats {
+  deck_id: number;
+  deck_name: string;
+  total_cards: number;
+  total_value: number;
+  creature_count: number;
+  instant_count: number;
+  mana_curve: DeckManaCurveBucket[];
+  color_distribution: DeckColorCount[];
+}
+
+export interface OverlapCard {
+  name: string;
+  card_id: number | null;
+  mana_cost: string | null;
+  type: string | null;
+  price: string | null;
+  deck_ids: number[];
+}
+
+export interface DeckComparisonResponse {
+  deck_ids: number[];
+  decks: DeckComparisonStats[];
+  overlap_cards: OverlapCard[];
+}
+
 export interface ProfileUpdateBody {
   display_name?: string;
   avatar_url?: string;
@@ -829,6 +898,44 @@ export const api = {
       if (response.status === 501) throw new Error((err as { detail?: string }).detail || 'Decks require Postgres');
       if (response.status === 404) throw new Error('Deck not found');
       throw new Error((err as { detail?: string }).detail || 'Failed to import deck');
+    }
+    return response.json();
+  },
+
+  getDeckHistory: async (deckId: number, limit = 50): Promise<DeckHistoryResponse> => {
+    const response = await apiFetch(`${API_BASE}/decks/${deckId}/history?limit=${limit}`);
+    if (!response.ok) {
+      const err = await response.json().catch(() => ({}));
+      if (response.status === 501) throw new Error((err as { detail?: string }).detail || 'Decks require Postgres');
+      if (response.status === 404) throw new Error('Deck not found');
+      throw new Error((err as { detail?: string }).detail || 'Failed to fetch deck history');
+    }
+    return response.json();
+  },
+
+  revertDeck: async (deckId: number, snapshotId: number): Promise<DeckWithCards> => {
+    const response = await apiFetch(`${API_BASE}/decks/${deckId}/revert/${snapshotId}`, {
+      method: 'POST',
+    });
+    if (!response.ok) {
+      const err = await response.json().catch(() => ({}));
+      if (response.status === 501) throw new Error((err as { detail?: string }).detail || 'Decks require Postgres');
+      if (response.status === 404) throw new Error('Deck or snapshot not found');
+      if (response.status === 409) throw new Error((err as { detail?: string }).detail || 'A card in this snapshot no longer exists in your collection');
+      throw new Error((err as { detail?: string }).detail || 'Failed to revert deck');
+    }
+    return response.json();
+  },
+
+  compareDecks: async (ids: number[]): Promise<DeckComparisonResponse> => {
+    const query = ids.join(',');
+    const response = await apiFetch(`${API_BASE}/decks/compare?ids=${query}`);
+    if (!response.ok) {
+      const err = await response.json().catch(() => ({}));
+      if (response.status === 501) throw new Error((err as {detail?: string}).detail || 'Decks require Postgres');
+      if (response.status === 404) throw new Error((err as {detail?: string}).detail || 'One or more decks not found');
+      if (response.status === 400) throw new Error((err as {detail?: string}).detail || 'Invalid deck selection');
+      throw new Error((err as {detail?: string}).detail || 'Failed to compare decks');
     }
     return response.json();
   },
