@@ -4,6 +4,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { api, DeckListItem } from '../api/client';
 import { useCardImage } from '../hooks/useCardImage';
 import { DeckDetailModal } from '../components/DeckDetailModal';
+import { DeckComparisonModal } from '../components/DeckComparisonModal';
 import { ConfirmModal } from '../components/ConfirmModal';
 
 export function DeckCardButton({ deck, onClick }: { deck: DeckListItem; onClick: () => void }) {
@@ -57,6 +58,7 @@ export function DeckBuilder() {
   const [selectedDeckId, setSelectedDeckId] = useState<number | null>(null);
   const [createError, setCreateError] = useState<string | null>(null);
   const [newDeckModalOpen, setNewDeckModalOpen] = useState(false);
+  const [compareOpen, setCompareOpen] = useState(false);
 
   const {
     data: decks,
@@ -123,6 +125,18 @@ export function DeckBuilder() {
           <p className="text-gray-500 dark:text-gray-400">{t('deckBuilder.loadingDecks')}</p>
         )}
 
+        {!decksUnavailable && !isLoading && list.length >= 2 && (
+          <div className="mb-4">
+            <button
+              type="button"
+              onClick={() => setCompareOpen(true)}
+              className="px-4 py-2 rounded bg-indigo-600 text-white hover:bg-indigo-700 dark:bg-indigo-500 dark:hover:bg-indigo-600 text-sm font-medium"
+            >
+              {t('deckComparison.compareDecksButton')}
+            </button>
+          </div>
+        )}
+
         {!decksUnavailable && !isLoading && (
           <div
             className="grid gap-4 grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5"
@@ -152,6 +166,13 @@ export function DeckBuilder() {
           deckId={selectedDeckId}
           onClose={handleCloseModal}
           onDeleted={handleCloseModal}
+        />
+      )}
+
+      {compareOpen && (
+        <DeckComparisonModal
+          decks={list}
+          onClose={() => setCompareOpen(false)}
         />
       )}
 

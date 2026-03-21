@@ -80,7 +80,7 @@ class TestRequireAdmin(unittest.TestCase):
     """Test the require_admin FastAPI dependency."""
 
     def _run(self, coro):
-        return asyncio.get_event_loop().run_until_complete(coro)
+        return asyncio.run(coro)
 
     @patch.dict(os.environ, {"DECKDEX_ADMIN_EMAIL": "admin@example.com"})
     def test_admin_returns_user(self):

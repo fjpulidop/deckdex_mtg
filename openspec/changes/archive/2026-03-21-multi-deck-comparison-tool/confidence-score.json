@@ -1,0 +1,25 @@
+{
+  "schema_version": "1",
+  "change": "multi-deck-comparison-tool",
+  "agent": "reviewer",
+  "scored_at": "2026-03-21T17:30:00Z",
+  "overall": 86,
+  "aspects": {
+    "type_correctness": 90,
+    "pattern_adherence": 88,
+    "test_coverage": 80,
+    "security": 90,
+    "architectural_alignment": 88
+  },
+  "notes": {
+    "type_correctness": "All TypeScript interfaces (DeckComparisonResponse, DeckComparisonColumn, OverlapCard) in client.ts match backend Pydantic models exactly. Pydantic response_model=DeckComparisonResponse applied on the /compare route. npx tsc --noEmit reports zero errors in new feature files (ComparisonView, ComparisonDeckColumn, ComparisonManaCurve, ComparisonColorBar, OverlapCardList, DeckMultiSelect, DeckComparisonModal).",
+    "pattern_adherence": "/compare route is placed at line 282, before /{deck_id} at line 327, preventing route shadowing — correct FastAPI ordering. Frontend components use api/client.ts exclusively; no raw fetch calls found. vi.mock() factory references use vi.hoisted() as required after the frontend reviewer fix. DeckMultiSelect enforces the 2-4 deck selection constraint on both UI state and API call level.",
+    "test_coverage": "8 backend tests cover: 200 OK, too-few IDs (400), too-many IDs (400), non-integer IDs (400), deck-not-found (404), overlap detection, no-overlap case, and requires-auth (401). 5 frontend component tests cover: render, disabled state, enabled state, comparison view transition, onClose. Missing: mana curve bucketing unit tests and color distribution edge cases (e.g. colorless-only deck). These are not required by spec AC but represent a gap.",
+    "security": "Auth guard present on /compare via get_current_user_id dependency. Deck ownership enforced via user_id filter in all repository queries — no IDOR surface. The deck_ids list is validated for length and integer type server-side before any DB query. No XSS surface: all comparison data is numeric or card-name strings from the database, not user-supplied text rendered as HTML.",
+    "architectural_alignment": "Comparison logic (overlap detection, per-deck stat aggregation) lives in the route handler. This is slightly thicker than ideal for the thin-route pattern but the spec did not require a dedicated service layer for this feature. Frontend modal follows the existing pattern of DeckDetailModal (portal, keyboard trap via Escape, TanStack Query usage). All i18n keys added to both en.json and es.json under the deckComparison namespace."
+  },
+  "flags": [
+    "comparison-logic-in-route-handler-not-service-layer",
+    "mana-curve-unit-tests-not-present"
+  ]
+}
