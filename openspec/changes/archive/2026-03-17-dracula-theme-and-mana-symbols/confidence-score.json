@@ -1,0 +1,22 @@
+{
+  "schema_version": "1",
+  "change": "dracula-theme-and-mana-symbols",
+  "agent": "reviewer",
+  "scored_at": "2026-03-17T21:34:00Z",
+  "overall": 94,
+  "aspects": {
+    "type_correctness": 97,
+    "pattern_adherence": 95,
+    "test_coverage": 92,
+    "security": 97,
+    "architectural_alignment": 90
+  },
+  "notes": {
+    "type_correctness": "getGlowCanvas returns HTMLCanvasElement | null with null guard in draw(); all canvas operations typed correctly; MANA_SVGS typed as Record<string, string>; ManaColor interface exported and used in MANA_COLORS.",
+    "pattern_adherence": "Dracula color tokens added to tailwind.config.js extend.colors — consistent with existing primary/accent token style. SVG preloading at mount via useEffect follows established hook pattern. No raw fetch anywhere.",
+    "test_coverage": "8 new tests cover MANA_SVGS (5 keys, data URI format), MANA_SYMBOLS (5 WUBRG entries, no colorless), and MANA_COLORS (5 keys, dark+light strings). Canvas rendering logic in CardMatrix is not unit-tested, but that is expected for canvas animation code.",
+    "security": "MANA_SVGS values are static base64-encoded SVG data URIs embedded at compile time — no user input involved, no XSS vector. No new API calls or secrets introduced.",
+    "architectural_alignment": "Canvas animation stays inside backgrounds/ component tree. Dracula tokens are theme-layer concern placed correctly in tailwind config. Landing components stay in components/landing/. No cross-layer dependencies introduced."
+  },
+  "flags": []
+}

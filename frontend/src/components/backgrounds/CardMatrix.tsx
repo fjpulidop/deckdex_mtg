@@ -1,6 +1,6 @@
 import { useRef, useEffect, useCallback } from 'react';
 import { useTheme } from '@/contexts/ThemeContext';
-import { MANA_COLORS, MANA_SYMBOLS, symbolToColorKey } from './constants';
+import { MANA_COLORS, MANA_SYMBOLS, MANA_SVGS, symbolToColorKey } from './constants';
 import { useReducedMotion } from './useReducedMotion';
 
 interface SymbolDrop {
@@ -31,35 +31,48 @@ function createDrop(x: number, height: number, randomY?: boolean): SymbolDrop {
 }
 
 /**
- * Returns a cached off-screen canvas with the given symbol pre-rendered with a glow effect.
- * Cache key is "hex:fontSize" — avoids shadowBlur on the main canvas context every frame.
+ * Returns a cached off-screen canvas with the given SVG symbol pre-rendered with a glow effect.
+ * Cache key is "key:hex:fontSize" — invalidated when theme or size changes.
+ * Returns null if the SVG image is not yet loaded.
  */
 function getGlowCanvas(
   cache: Map<string, HTMLCanvasElement>,
+  svgImages: Map<string, HTMLImageElement>,
+  key: string,
   hex: string,
-  fontSize: number,
-  symbol: string
-): HTMLCanvasElement {
-  const key = `${hex}:${fontSize}`;
-  const cached = cache.get(key);
+  fontSize: number
+): HTMLCanvasElement | null {
+  const cacheKey = `${key}:${hex}:${fontSize}`;
+  const cached = cache.get(cacheKey);
   if (cached) return cached;
 
+  const img = svgImages.get(key);
+  if (!img || !img.complete) return null;
+
   const size = fontSize * 4;
+  const padding = size / 4;
   const offscreen = document.createElement('canvas');
   offscreen.width = size;
   offscreen.height = size;
   const offCtx = offscreen.getContext('2d');
   if (offCtx) {
-    offCtx.globalAlpha = 1;
-    offCtx.font = `${fontSize}px monospace`;
-    offCtx.textAlign = 'center';
-    offCtx.textBaseline = 'middle';
+    // Draw SVG image centered
+    offCtx.drawImage(img, padding, padding, fontSize, fontSize);
+
+    // Tint with glow color using source-atop composite
+    offCtx.globalCompositeOperation = 'source-atop';
+    offCtx.globalAlpha = 0.5;
     offCtx.fillStyle = hex;
+    offCtx.fillRect(0, 0, size, size);
+    offCtx.globalCompositeOperation = 'source-over';
+    offCtx.globalAlpha = 1;
+
+    // Apply glow halo
     offCtx.shadowColor = hex;
-    offCtx.shadowBlur = 8;
-    offCtx.fillText(symbol, size / 2, size / 2);
+    offCtx.shadowBlur = 10;
+    offCtx.drawImage(img, padding, padding, fontSize, fontSize);
   }
-  cache.set(key, offscreen);
+  cache.set(cacheKey, offscreen);
   return offscreen;
 }
 
@@ -70,6 +83,7 @@ export function CardMatrix() {
   const lastFrameRef = useRef<number>(0);
   const pausedRef = useRef<boolean>(false);
   const glowCacheRef = useRef<Map<string, HTMLCanvasElement>>(new Map());
+  const svgImagesRef = useRef<Map<string, HTMLImageElement>>(new Map());
   const { theme } = useTheme();
   const reducedMotion = useReducedMotion();
   const isDark = theme === 'dark';
@@ -79,6 +93,15 @@ export function CardMatrix() {
   // Refs to hold current theme values so animation callbacks stay stable across theme changes
   const isDarkRef = useRef<boolean>(isDark);
   const opacityMaxRef = useRef<number>(opacityMax);
+
+  // Preload SVG images once at mount
+  useEffect(() => {
+    Object.entries(MANA_SVGS).forEach(([key, uri]) => {
+      const img = new Image();
+      img.src = uri;
+      svgImagesRef.current.set(key, img);
+    });
+  }, []);
 
   // Sync theme values into refs and clear the glow cache when theme changes
   useEffect(() => {
@@ -106,28 +129,36 @@ export function CardMatrix() {
   const draw = useCallback(
     (ctx: CanvasRenderingContext2D, width: number, height: number) => {
       ctx.clearRect(0, 0, width, height);
-      ctx.textAlign = 'center';
-      ctx.textBaseline = 'middle';
 
       for (const d of dropsRef.current) {
         const color = MANA_COLORS[d.colorKey];
         const hex = isDarkRef.current ? color.dark : color.light;
         const alpha = Math.min(d.opacity, opacityMaxRef.current);
 
-        ctx.globalAlpha = alpha;
-        ctx.font = `${d.fontSize}px monospace`;
-        ctx.fillStyle = hex;
-        ctx.fillText(d.symbol, d.x, d.y);
+        const img = svgImagesRef.current.get(d.colorKey);
+        if (img && img.complete) {
+          const half = d.fontSize / 2;
+          ctx.globalAlpha = alpha;
+          ctx.drawImage(img, d.x - half, d.y - half, d.fontSize, d.fontSize);
+        }
 
         // Glow via pre-rendered off-screen canvas — avoids shadowBlur on every frame
         if (isDarkRef.current) {
-          const glowCanvas = getGlowCanvas(glowCacheRef.current, hex, d.fontSize, d.symbol);
-          ctx.globalAlpha = alpha * 0.4;
-          ctx.drawImage(
-            glowCanvas,
-            d.x - glowCanvas.width / 2,
-            d.y - glowCanvas.height / 2
+          const glowCanvas = getGlowCanvas(
+            glowCacheRef.current,
+            svgImagesRef.current,
+            d.colorKey,
+            hex,
+            d.fontSize
           );
+          if (glowCanvas) {
+            ctx.globalAlpha = alpha * 0.4;
+            ctx.drawImage(
+              glowCanvas,
+              d.x - glowCanvas.width / 2,
+              d.y - glowCanvas.height / 2
+            );
+          }
         }
       }
       ctx.globalAlpha = 1;

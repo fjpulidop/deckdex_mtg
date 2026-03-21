@@ -34,7 +34,7 @@ export const BentoCard = ({
     <motion.div
       whileHover={{ y: -4 }}
       transition={{ duration: 0.3 }}
-      className={`group relative rounded-xl border border-slate-700/50 overflow-hidden bg-slate-900/50 backdrop-blur-sm hover:border-slate-600 transition-all duration-300 ${sizeClasses[size]}`}
+      className={`group relative rounded-xl border border-dracula-current/50 overflow-hidden bg-dracula-bg/50 backdrop-blur-sm hover:border-dracula-current transition-all duration-300 ${sizeClasses[size]}`}
     >
       {/* Gradient Background */}
       <div
@@ -43,7 +43,7 @@ export const BentoCard = ({
 
       {/* Glow on Hover */}
       <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none">
-        <div className="absolute inset-0 bg-gradient-to-br from-purple-500/20 via-transparent to-pink-500/20 blur-2xl" />
+        <div className="absolute inset-0 bg-gradient-to-br from-dracula-purple/20 via-transparent to-dracula-pink/20 blur-2xl" />
       </div>
 
       {/* Content */}
@@ -66,12 +66,12 @@ export const BentoCard = ({
         <h3 className="text-xl md:text-2xl font-bold text-white mb-2">{title}</h3>
 
         {/* Description */}
-        <p className="text-slate-300 text-sm md:text-base mb-6 flex-grow">
+        <p className="text-dracula-fg text-sm md:text-base mb-6 flex-grow">
           {description}
         </p>
 
         {/* Illustration */}
-        <div className={`relative w-full ${size === 'large' ? 'h-48' : size === 'medium' ? 'h-40' : 'h-32'} rounded-lg bg-gradient-to-br ${gradientFrom} ${gradientTo} flex items-center justify-center border border-slate-600/30 overflow-hidden`}>
+        <div className={`relative w-full ${size === 'large' ? 'h-48' : size === 'medium' ? 'h-40' : 'h-32'} rounded-lg bg-gradient-to-br ${gradientFrom} ${gradientTo} flex items-center justify-center border border-dracula-current/30 overflow-hidden`}>
           <div className="absolute inset-0 bg-gradient-to-br from-white/5 to-transparent" />
           {illustrationIcon && (
             <div className={`relative transition-colors duration-300 ${iconColor ?? 'text-white/40 group-hover:text-white/60'}`}>

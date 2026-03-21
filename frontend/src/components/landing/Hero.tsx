@@ -13,7 +13,7 @@ export const Hero = () => {
   const { t } = useTranslation();
   const { isAuthenticated } = useAuth();
   return (
-    <section className="min-h-screen pt-20 pb-16 bg-gradient-to-br from-slate-900/20 via-purple-900/10 to-slate-900/20 flex items-center">
+    <section className="min-h-screen pt-20 pb-16 bg-dracula-bg flex items-center">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 w-full">
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
           {/* Left Column - Text */}
@@ -24,20 +24,20 @@ export const Hero = () => {
             className="space-y-6"
           >
             {/* Badge */}
-            <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-gradient-to-r from-accent-500/10 to-primary-500/10 text-slate-300 text-sm font-medium mb-6">
+            <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-gradient-to-r from-accent-500/10 to-primary-500/10 text-dracula-fg text-sm font-medium mb-6">
               <span className="text-lg">✨</span>
               <span>{t('hero.badge')}</span>
             </div>
 
             {/* Main Headline */}
             <h1 className="text-5xl md:text-6xl font-bold leading-tight">
-              <span className="bg-gradient-to-r from-purple-300 via-purple-400 to-pink-500 bg-clip-text text-transparent">
+              <span className="bg-gradient-to-r from-dracula-purple to-dracula-pink bg-clip-text text-transparent">
                 {t('hero.headline')}
               </span>
             </h1>
 
             {/* Subheadline */}
-            <p className="text-xl text-slate-300 leading-relaxed max-w-xl">
+            <p className="text-xl text-dracula-fg leading-relaxed max-w-xl">
               {t('hero.subtitle')}
             </p>
 
@@ -71,7 +71,7 @@ export const Hero = () => {
               {!isAuthenticated && (
                 <a
                   href="/demo"
-                  className="inline-flex items-center justify-center px-8 py-3 rounded-lg border-2 border-slate-600 text-white font-semibold hover:bg-slate-800/50 hover:border-slate-500 transition-all duration-300"
+                  className="inline-flex items-center justify-center px-8 py-3 rounded-lg border-2 border-dracula-current text-white font-semibold hover:bg-dracula-current/50 hover:border-dracula-current transition-all duration-300"
                 >
                   {t('hero.tryLiveDemo')} <ArrowRight className="ml-2 h-5 w-5" />
                 </a>
@@ -86,39 +86,39 @@ export const Hero = () => {
             transition={{ duration: 0.8, delay: 0.2, ease: 'easeOut' }}
             className="flex justify-center"
           >
-            <div className="relative w-full max-w-xl rounded-2xl overflow-hidden shadow-2xl shadow-purple-500/20 border border-slate-700/50 bg-slate-900/60 backdrop-blur-sm p-6">
+            <div className="relative w-full max-w-xl rounded-2xl overflow-hidden shadow-2xl shadow-purple-500/20 border border-dracula-current/50 bg-dracula-bg/60 backdrop-blur-sm p-6">
               <div className="flex gap-4">
                 {/* English panel */}
-                <div className="flex-1 border-r border-slate-700/30 pr-4">
-                  <p className="text-xs font-bold text-purple-400/70 uppercase tracking-widest mb-3">EN</p>
-                  <p className="text-purple-300 font-semibold text-sm mb-3">
+                <div className="flex-1 border-r border-dracula-current/30 pr-4">
+                  <p className="text-xs font-bold text-dracula-purple/70 uppercase tracking-widest mb-3">EN</p>
+                  <p className="text-dracula-purple font-semibold text-sm mb-3">
                     {i18next.getFixedT('en')('hero.descCard.title')}
                   </p>
                   <ul className="space-y-2 mb-4">
                     {(['feature1', 'feature2', 'feature3', 'feature4'] as const).map((key) => (
-                      <li key={key} className="text-slate-300 text-sm flex gap-2">
-                        <span className="text-purple-400 shrink-0">✦</span>
+                      <li key={key} className="text-dracula-fg text-sm flex gap-2">
+                        <span className="text-dracula-purple shrink-0">✦</span>
                         {i18next.getFixedT('en')(`hero.descCard.${key}`)}
                       </li>
                     ))}
                   </ul>
-                  <p className="text-slate-400 text-xs italic">{i18next.getFixedT('en')('hero.descCard.tagline')}</p>
+                  <p className="text-dracula-comment text-xs italic">{i18next.getFixedT('en')('hero.descCard.tagline')}</p>
                 </div>
                 {/* Spanish panel */}
                 <div className="flex-1 pl-0">
-                  <p className="text-xs font-bold text-purple-400/70 uppercase tracking-widest mb-3">ES</p>
-                  <p className="text-purple-300 font-semibold text-sm mb-3">
+                  <p className="text-xs font-bold text-dracula-purple/70 uppercase tracking-widest mb-3">ES</p>
+                  <p className="text-dracula-purple font-semibold text-sm mb-3">
                     {i18next.getFixedT('es')('hero.descCard.title')}
                   </p>
                   <ul className="space-y-2 mb-4">
                     {(['feature1', 'feature2', 'feature3', 'feature4'] as const).map((key) => (
-                      <li key={key} className="text-slate-300 text-sm flex gap-2">
-                        <span className="text-purple-400 shrink-0">✦</span>
+                      <li key={key} className="text-dracula-fg text-sm flex gap-2">
+                        <span className="text-dracula-purple shrink-0">✦</span>
                         {i18next.getFixedT('es')(`hero.descCard.${key}`)}
                       </li>
                     ))}
                   </ul>
-                  <p className="text-slate-400 text-xs italic">{i18next.getFixedT('es')('hero.descCard.tagline')}</p>
+                  <p className="text-dracula-comment text-xs italic">{i18next.getFixedT('es')('hero.descCard.tagline')}</p>
                 </div>
               </div>
             </div>

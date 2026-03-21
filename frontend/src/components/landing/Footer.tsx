@@ -4,7 +4,7 @@ import { Github, Twitter, MessageCircle } from 'lucide-react';
 export const Footer = () => {
   const { t } = useTranslation();
   return (
-    <footer className="bg-slate-950/80 border-t border-slate-800 px-4 sm:px-6 lg:px-8">
+    <footer className="bg-dracula-bg/80 border-t border-dracula-current px-4 sm:px-6 lg:px-8">
       <div className="max-w-7xl mx-auto py-12 md:py-16">
         {/* Footer Grid */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8 md:gap-12 mb-8">
@@ -15,22 +15,22 @@ export const Footer = () => {
             </h3>
             <ul className="space-y-3">
               <li>
-                <a href="#" className="text-slate-400 hover:text-white transition-colors text-sm">
+                <a href="#" className="text-dracula-comment hover:text-white transition-colors text-sm">
                   {t('footer.features')}
                 </a>
               </li>
               <li>
-                <a href="#" className="text-slate-400 hover:text-white transition-colors text-sm">
+                <a href="#" className="text-dracula-comment hover:text-white transition-colors text-sm">
                   {t('footer.pricing')}
                 </a>
               </li>
               <li>
-                <a href="#" className="text-slate-400 hover:text-white transition-colors text-sm">
+                <a href="#" className="text-dracula-comment hover:text-white transition-colors text-sm">
                   {t('footer.roadmap')}
                 </a>
               </li>
               <li>
-                <a href="#" className="text-slate-400 hover:text-white transition-colors text-sm">
+                <a href="#" className="text-dracula-comment hover:text-white transition-colors text-sm">
                   {t('footer.changelog')}
                 </a>
               </li>
@@ -44,22 +44,22 @@ export const Footer = () => {
             </h3>
             <ul className="space-y-3">
               <li>
-                <a href="#" className="text-slate-400 hover:text-white transition-colors text-sm">
+                <a href="#" className="text-dracula-comment hover:text-white transition-colors text-sm">
                   {t('footer.about')}
                 </a>
               </li>
               <li>
-                <a href="#" className="text-slate-400 hover:text-white transition-colors text-sm">
+                <a href="#" className="text-dracula-comment hover:text-white transition-colors text-sm">
                   {t('footer.blog')}
                 </a>
               </li>
               <li>
-                <a href="#" className="text-slate-400 hover:text-white transition-colors text-sm">
+                <a href="#" className="text-dracula-comment hover:text-white transition-colors text-sm">
                   {t('footer.careers')}
                 </a>
               </li>
               <li>
-                <a href="#" className="text-slate-400 hover:text-white transition-colors text-sm">
+                <a href="#" className="text-dracula-comment hover:text-white transition-colors text-sm">
                   {t('footer.pressKit')}
                 </a>
               </li>
@@ -73,22 +73,22 @@ export const Footer = () => {
             </h3>
             <ul className="space-y-3">
               <li>
-                <a href="#" className="text-slate-400 hover:text-white transition-colors text-sm">
+                <a href="#" className="text-dracula-comment hover:text-white transition-colors text-sm">
                   {t('footer.documentation')}
                 </a>
               </li>
               <li>
-                <a href="#" className="text-slate-400 hover:text-white transition-colors text-sm">
+                <a href="#" className="text-dracula-comment hover:text-white transition-colors text-sm">
                   {t('footer.apiReference')}
                 </a>
               </li>
               <li>
-                <a href="#" className="text-slate-400 hover:text-white transition-colors text-sm">
+                <a href="#" className="text-dracula-comment hover:text-white transition-colors text-sm">
                   {t('footer.community')}
                 </a>
               </li>
               <li>
-                <a href="#" className="text-slate-400 hover:text-white transition-colors text-sm">
+                <a href="#" className="text-dracula-comment hover:text-white transition-colors text-sm">
                   {t('footer.support')}
                 </a>
               </li>
@@ -102,22 +102,22 @@ export const Footer = () => {
             </h3>
             <ul className="space-y-3">
               <li>
-                <a href="#" className="text-slate-400 hover:text-white transition-colors text-sm">
+                <a href="#" className="text-dracula-comment hover:text-white transition-colors text-sm">
                   {t('footer.privacy')}
                 </a>
               </li>
               <li>
-                <a href="#" className="text-slate-400 hover:text-white transition-colors text-sm">
+                <a href="#" className="text-dracula-comment hover:text-white transition-colors text-sm">
                   {t('footer.terms')}
                 </a>
               </li>
               <li>
-                <a href="#" className="text-slate-400 hover:text-white transition-colors text-sm">
+                <a href="#" className="text-dracula-comment hover:text-white transition-colors text-sm">
                   {t('footer.cookies')}
                 </a>
               </li>
               <li>
-                <a href="#" className="text-slate-400 hover:text-white transition-colors text-sm">
+                <a href="#" className="text-dracula-comment hover:text-white transition-colors text-sm">
                   {t('footer.disclaimer')}
                 </a>
               </li>
@@ -126,10 +126,10 @@ export const Footer = () => {
         </div>
 
         {/* Divider */}
-        <div className="border-t border-slate-800 pt-8">
+        <div className="border-t border-dracula-current pt-8">
           <div className="flex flex-col md:flex-row items-center justify-between gap-6">
             {/* Copyright */}
-            <p className="text-slate-500 text-sm">
+            <p className="text-dracula-comment text-sm">
               {t('footer.copyright', { year: new Date().getFullYear() })}
             </p>
 
@@ -140,7 +140,7 @@ export const Footer = () => {
                 target="_blank"
                 rel="noopener noreferrer"
                 aria-label="Twitter"
-                className="text-slate-400 hover:text-white transition-colors p-2 hover:bg-slate-900 rounded-lg"
+                className="text-dracula-comment hover:text-white transition-colors p-2 hover:bg-dracula-bg rounded-lg"
               >
                 <Twitter className="h-5 w-5" aria-hidden="true" />
               </a>
@@ -149,7 +149,7 @@ export const Footer = () => {
                 target="_blank"
                 rel="noopener noreferrer"
                 aria-label="GitHub"
-                className="text-slate-400 hover:text-white transition-colors p-2 hover:bg-slate-900 rounded-lg"
+                className="text-dracula-comment hover:text-white transition-colors p-2 hover:bg-dracula-bg rounded-lg"
               >
                 <Github className="h-5 w-5" aria-hidden="true" />
               </a>
@@ -158,7 +158,7 @@ export const Footer = () => {
                 target="_blank"
                 rel="noopener noreferrer"
                 aria-label="Discord"
-                className="text-slate-400 hover:text-white transition-colors p-2 hover:bg-slate-900 rounded-lg"
+                className="text-dracula-comment hover:text-white transition-colors p-2 hover:bg-dracula-bg rounded-lg"
               >
                 <MessageCircle className="h-5 w-5" aria-hidden="true" />
               </a>

@@ -23,7 +23,7 @@ The landing page SHALL render a CardMatrix animated background showing mana symb
 
 #### Scenario: Mana symbols visible on landing
 - **WHEN** a visitor loads the landing page (/)
-- **THEN** mana symbols ({W}, {U}, {B}, {R}, {G}, {T}, {X}) SHALL fall slowly in columns behind the page content
+- **THEN** mana symbols (W, U, B, R, G) SHALL fall slowly in columns behind the page content as rendered SVG icons
 - **THEN** each symbol SHALL be colored according to its mana type
 
 #### Scenario: CardMatrix does not appear on app pages
