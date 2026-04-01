@@ -11,7 +11,7 @@ import gspread
 from loguru import logger
 from tqdm import tqdm
 
-from .card_fetcher import CardFetcher
+from .card_fetcher import CardFetcher, populate_variant_fields
 from .config import ClientFactory, ProcessorConfig
 from .storage import get_collection_repository
 
@@ -415,6 +415,7 @@ class MagicCardProcessor:
                             "game_strategy": game_strategy,
                             "tier": tier,
                         }
+                        populate_variant_fields(update, data)
                         update = {k: v for k, v in update.items() if v is not None}
                         if update:
                             self.collection_repository.update(card_id, update)
