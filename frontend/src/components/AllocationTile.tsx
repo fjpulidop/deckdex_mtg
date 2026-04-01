@@ -25,6 +25,7 @@ const STATUS_COLORS: Record<AllocationStatus, string> = {
 interface AllocationTileProps {
   allocation: CardAllocation;
   onTileClick: (allocation: CardAllocation) => void;
+  isDragging?: boolean;
 }
 
 /**
@@ -34,7 +35,7 @@ interface AllocationTileProps {
  * Uses IntersectionObserver for lazy loading to avoid fetching images
  * for off-screen tiles in large collections.
  */
-export function AllocationTile({ allocation, onTileClick }: AllocationTileProps) {
+export function AllocationTile({ allocation, onTileClick, isDragging }: AllocationTileProps) {
   const { t } = useTranslation();
   const [isVisible, setIsVisible] = useState(false);
   const ref = useRef<HTMLButtonElement>(null);
@@ -75,7 +76,7 @@ export function AllocationTile({ allocation, onTileClick }: AllocationTileProps)
       type="button"
       onClick={() => onTileClick(allocation)}
       aria-label={t('allocations.tileLabel', { name: allocation.card_name, status: STATUS_LABEL_KEYS[status] })}
-      className="relative aspect-[63/88] rounded-lg overflow-hidden bg-gray-200 dark:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-indigo-400 w-full"
+      className={`relative aspect-[63/88] rounded-lg overflow-hidden bg-gray-200 dark:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-indigo-400 w-full${isDragging ? ' opacity-40 scale-95' : ''}`}
     >
       {src && (
         <img

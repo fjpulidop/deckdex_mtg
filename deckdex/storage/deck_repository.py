@@ -386,6 +386,52 @@ class DeckRepository:
             rows = conn.execute(text(sql), {"user_id": user_id}).mappings().fetchall()
         return [dict(row) for row in rows]
 
+    def ensure_card_in_deck(self, deck_id: int, card_id: int, user_id: Optional[int] = None) -> bool:
+        """Idempotently ensure a card is present in a deck at quantity=1.
+
+        Uses ON CONFLICT DO NOTHING — does not change quantity if already present.
+        Returns True if the card was confirmed in the deck (present or just added).
+        Returns False if the deck or card does not belong to the user.
+        """
+        from sqlalchemy import text
+
+        engine = self._get_engine()
+        with engine.connect() as conn:
+            # 1. Verify deck ownership
+            if user_id is not None:
+                deck_check = conn.execute(
+                    text("SELECT 1 FROM decks WHERE id = :deck_id AND user_id = :user_id"),
+                    {"deck_id": deck_id, "user_id": user_id},
+                ).fetchone()
+                if not deck_check:
+                    return False
+            # 2. Verify card is in user's collection
+            card_where = "id = :card_id"
+            card_params: Dict[str, Any] = {"card_id": card_id}
+            if user_id is not None:
+                card_where += " AND user_id = :user_id"
+                card_params["user_id"] = user_id
+            card_check = conn.execute(text(f"SELECT 1 FROM cards WHERE {card_where}"), card_params).fetchone()
+            if not card_check:
+                return False
+            # 3. Insert with ON CONFLICT DO NOTHING (idempotent — never increments quantity)
+            conn.execute(
+                text("""
+                    INSERT INTO deck_cards (deck_id, card_id, quantity, is_commander)
+                    VALUES (:deck_id, :card_id, 1, false)
+                    ON CONFLICT (deck_id, card_id) DO NOTHING
+                """),
+                {"deck_id": deck_id, "card_id": card_id},
+            )
+            # 4. Update deck updated_at timestamp
+            conn.execute(
+                text("UPDATE decks SET updated_at = NOW() AT TIME ZONE 'utc' WHERE id = :deck_id"),
+                {"deck_id": deck_id},
+            )
+            # 5. Commit
+            conn.commit()
+        return True
+
     def set_commander(self, deck_id: int, card_id: int, user_id: Optional[int] = None) -> bool:
         """Set one card as commander; unset any other commander in this deck. Card must be in deck."""
         from sqlalchemy import text

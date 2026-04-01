@@ -1,3 +1,9 @@
+/**
+ * @deprecated Replaced by CardInspectorSidebar (feat/card-allocation-dashboard, ticket #4).
+ * This file is retained to avoid breaking any residual import paths during
+ * the transition. It has no callers in the updated CardAllocations page.
+ * Remove in a future cleanup chore.
+ */
 import { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { X } from 'lucide-react';

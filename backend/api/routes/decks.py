@@ -90,6 +90,18 @@ class PowerLevelResponse(BaseModel):
     breakdown: PowerLevelBreakdownResponse
 
 
+class DeckRef(BaseModel):
+    deck_id: int
+    deck_name: str
+
+
+class AllocateCardResponse(BaseModel):
+    card_id: int
+    deck_id: int
+    deck_name: str
+    decks: List[DeckRef]
+
+
 # --- Routes ---
 
 
@@ -205,6 +217,42 @@ async def patch_deck_card(
         deck = repo.get_deck_with_cards(deck_id, user_id=user_id)
         return deck
     raise HTTPException(status_code=400, detail="Only is_commander=true is supported")
+
+
+@router.patch("/{deck_id}/cards/{card_id}/allocate", response_model=AllocateCardResponse)
+async def allocate_card_to_deck(
+    deck_id: int,
+    card_id: int,
+    repo: DeckRepository = Depends(require_deck_repo),
+    user_id: int = Depends(get_current_user_id),
+):
+    """Idempotently ensure a card from the collection is in the deck.
+
+    Unlike POST /{deck_id}/cards (which increments quantity), this is
+    an allocation action: it adds at quantity=1 if absent, no-op if present.
+    Returns the updated allocation state for this card.
+    """
+    deck = repo.get_by_id(deck_id, user_id=user_id)
+    if deck is None:
+        raise HTTPException(status_code=404, detail="Deck not found")
+
+    success = repo.ensure_card_in_deck(deck_id, card_id, user_id=user_id)
+    if not success:
+        raise HTTPException(status_code=404, detail="Card not found in collection")
+
+    # Build the updated decks list for this card
+    allocations = repo.get_all_card_allocations(user_id=user_id)
+    card_decks = [
+        DeckRef(deck_id=row["deck_id"], deck_name=row["deck_name"])
+        for row in allocations
+        if row["card_id"] == card_id and row.get("deck_id") is not None
+    ]
+    return AllocateCardResponse(
+        card_id=card_id,
+        deck_id=deck_id,
+        deck_name=deck["name"],
+        decks=card_decks,
+    )
 
 
 @router.delete("/{deck_id}/cards/{card_id}", status_code=204)
