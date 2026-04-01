@@ -85,6 +85,11 @@ export interface Card {
   tier?: string;
   created_at?: string;  // ISO timestamp when card was added
   quantity?: number;
+  finish?: string;
+  promo_types?: string;
+  frame_effects?: string;
+  border_color?: string;
+  variant_label?: string;
   [key: string]: string | number | boolean | null | undefined;
 }
 
@@ -205,6 +210,46 @@ export interface CardAllocationsResponse {
   cards: CardAllocation[];
 }
 
+export interface AllocateCardResponse {
+  card_id: number;
+  deck_id: number;
+  deck_name: string;
+  decks: DeckRef[];
+}
+
+export interface VariantCopy {
+  id: number;
+  finish: string;
+  variant_label: string;
+  condition?: string;
+  quantity: number;
+  price?: string;
+  promo_types?: string;
+  frame_effects?: string;
+  border_color?: string;
+  created_at?: string;
+}
+
+export interface VariantSlot {
+  variant_label: string;
+  finish: string;
+  owned: boolean;
+  copies: VariantCopy[];
+  scryfall_image_uri?: string;
+}
+
+export interface CardVariantGroup {
+  card_name: string;
+  total_known_variants: number;
+  owned_variant_count: number;
+  slots: VariantSlot[];
+}
+
+export interface CollectionVariantsResponse {
+  groups: CardVariantGroup[];
+  total_cards: number;
+}
+
 export interface PowerLevelBreakdown {
   fast_mana: number;
   tutors: number;
@@ -311,6 +356,26 @@ export interface InsightResponse {
   answer_text: string;
   response_type: 'value' | 'distribution' | 'list' | 'comparison' | 'timeline';
   data: InsightValueData | InsightDistributionData | InsightListData | InsightComparisonData | InsightTimelineData;
+}
+
+export interface DeckSuggestion {
+  scryfall_id: string;
+  card_name: string;
+  mana_cost?: string | null;
+  cmc?: number | null;
+  type_line?: string | null;
+  color_identity?: string | null;
+  oracle_text?: string | null;
+  reason: string;
+  score: number;
+  image_uri?: string | null;
+}
+
+export interface DeckSuggestionsResponse {
+  deck_id: number;
+  set_code?: string | null;
+  set_name?: string | null;
+  suggestions: DeckSuggestion[];
 }
 
 export interface CatalogSyncStatus {
@@ -943,6 +1008,61 @@ export const api = {
   getCardAllocations: async (): Promise<CardAllocationsResponse> => {
     const res = await apiFetch(`${API_BASE}/cards/allocations`);
     if (!res.ok) throw new Error(`Failed to fetch allocations: ${res.status}`);
+    return res.json();
+  },
+
+  // Collection variants — requires Postgres (501 if unavailable)
+  async getCollectionVariants(params?: {
+    search?: string;
+    limit?: number;
+    offset?: number;
+  }): Promise<CollectionVariantsResponse> {
+    const qs = new URLSearchParams();
+    if (params?.search) qs.set('search', params.search);
+    if (params?.limit != null) qs.set('limit', String(params.limit));
+    if (params?.offset != null) qs.set('offset', String(params.offset));
+    const res = await apiFetch(`${API_BASE}/collection/variants?${qs}`);
+    if (!res.ok) throw new Error(`getCollectionVariants failed: ${res.status}`);
+    return res.json();
+  },
+
+  async getCardVariants(cardName: string): Promise<CardVariantGroup> {
+    const res = await apiFetch(`${API_BASE}/collection/variants/${encodeURIComponent(cardName)}`);
+    if (!res.ok) throw new Error(`getCardVariants failed: ${res.status}`);
+    return res.json();
+  },
+
+  allocateCardToDeck: async (deckId: number, cardId: number): Promise<AllocateCardResponse> => {
+    const res = await apiFetch(`${API_BASE}/decks/${deckId}/cards/${cardId}/allocate`, {
+      method: 'PATCH',
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      if (res.status === 404) throw new Error((err as { detail?: string }).detail || 'Deck or card not found');
+      if (res.status === 501) throw new Error((err as { detail?: string }).detail || 'Decks require Postgres');
+      throw new Error((err as { detail?: string }).detail || 'Failed to allocate card');
+    }
+    return res.json();
+  },
+
+  // Deck suggestions (new-set card recommendations)
+  getDeckSuggestions: async (deckId: number): Promise<DeckSuggestionsResponse> => {
+    const res = await apiFetch(`${API_BASE}/decks/${deckId}/suggestions`);
+    if (!res.ok) throw new Error(`Failed to fetch suggestions: ${res.status}`);
+    return res.json();
+  },
+
+  dismissSuggestion: async (deckId: number, scryfallId: string): Promise<void> => {
+    const res = await apiFetch(
+      `${API_BASE}/decks/${deckId}/suggestions/${encodeURIComponent(scryfallId)}`,
+      { method: 'DELETE' }
+    );
+    if (!res.ok && res.status !== 404) throw new Error(`Failed to dismiss suggestion: ${res.status}`);
+  },
+
+  refreshSuggestions: async (): Promise<{ message: string }> => {
+    const res = await apiFetch(`${API_BASE}/suggestions/refresh`, { method: 'POST' });
+    if (!res.ok) throw new Error(`Failed to refresh suggestions: ${res.status}`);
     return res.json();
   },
 };

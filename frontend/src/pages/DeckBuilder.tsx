@@ -5,6 +5,8 @@ import { api, DeckListItem } from '../api/client';
 import { useCardImage } from '../hooks/useCardImage';
 import { DeckDetailModal } from '../components/DeckDetailModal';
 import { ConfirmModal } from '../components/ConfirmModal';
+import { SuggestionChip } from '../components/SuggestionChip';
+import { SuggestionModal } from '../components/SuggestionModal';
 
 const BRACKET_COLORS: Record<number, string> = {
   1: 'bg-green-600',
@@ -13,7 +15,15 @@ const BRACKET_COLORS: Record<number, string> = {
   4: 'bg-red-600',
 };
 
-export function DeckCardButton({ deck, onClick }: { deck: DeckListItem; onClick: () => void }) {
+export function DeckCardButton({
+  deck,
+  onClick,
+  onSuggestClick,
+}: {
+  deck: DeckListItem;
+  onClick: () => void;
+  onSuggestClick?: () => void;
+}) {
   const { t } = useTranslation();
   const { src: commanderImageUrl } = useCardImage(deck.commander_card_id ?? null);
   const { data: powerLevel } = useQuery({
@@ -69,6 +79,7 @@ export function DeckCardButton({ deck, onClick }: { deck: DeckListItem; onClick:
           B{powerLevel.bracket} · {powerLevel.score.toFixed(1)}
         </span>
       )}
+      {onSuggestClick && <SuggestionChip deckId={deck.id} onClick={onSuggestClick} />}
     </button>
   );
 }
@@ -77,6 +88,7 @@ export function DeckBuilder() {
   const { t } = useTranslation();
   const queryClient = useQueryClient();
   const [selectedDeckId, setSelectedDeckId] = useState<number | null>(null);
+  const [suggestingDeckId, setSuggestingDeckId] = useState<number | null>(null);
   const [createError, setCreateError] = useState<string | null>(null);
   const [newDeckModalOpen, setNewDeckModalOpen] = useState(false);
 
@@ -164,6 +176,7 @@ export function DeckBuilder() {
                 key={deck.id}
                 deck={deck}
                 onClick={() => setSelectedDeckId(deck.id)}
+                onSuggestClick={() => setSuggestingDeckId(deck.id)}
               />
             ))}
           </div>
@@ -175,6 +188,14 @@ export function DeckBuilder() {
           deckId={selectedDeckId}
           onClose={handleCloseModal}
           onDeleted={handleCloseModal}
+        />
+      )}
+
+      {suggestingDeckId !== null && (
+        <SuggestionModal
+          deckId={suggestingDeckId}
+          isOpen={suggestingDeckId !== null}
+          onClose={() => setSuggestingDeckId(null)}
         />
       )}
 

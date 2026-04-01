@@ -1,6 +1,6 @@
 import React from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { api, Card, CardPage, FilterOptions, InsightCatalogEntry, InsightSuggestion, InsightResponse, PriceHistoryResponse } from '../api/client';
+import { api, Card, CardPage, FilterOptions, InsightCatalogEntry, InsightSuggestion, InsightResponse, PriceHistoryResponse, CollectionVariantsResponse, CardVariantGroup } from '../api/client';
 import { useDemoMode } from '../contexts/DemoContext';
 import { DEMO_CARDS, DEMO_CATALOG, DEMO_SUGGESTIONS } from '../data/demoData';
 
@@ -342,5 +342,28 @@ export function usePriceHistory(cardId: number | null | undefined, days = 90) {
     queryFn: () => api.getPriceHistory(cardId!, days),
     enabled: cardId != null,
     staleTime: 5 * 60 * 1000, // 5 minutes — history does not change frequently
+  });
+}
+
+// Hook for fetching the full collection variant list (grouped by card name)
+export function useCollectionVariants(params?: {
+  search?: string;
+  limit?: number;
+  offset?: number;
+}) {
+  return useQuery<CollectionVariantsResponse>({
+    queryKey: ['collection-variants', params],
+    queryFn: () => api.getCollectionVariants(params),
+    staleTime: 30_000,
+  });
+}
+
+// Hook for fetching all variants for a single card name
+export function useCardVariants(cardName: string) {
+  return useQuery<CardVariantGroup>({
+    queryKey: ['card-variants', cardName],
+    queryFn: () => api.getCardVariants(cardName),
+    staleTime: 30_000,
+    enabled: cardName.length > 0,
   });
 }
