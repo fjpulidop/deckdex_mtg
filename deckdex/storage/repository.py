@@ -588,9 +588,7 @@ class PostgresCollectionRepository(CollectionRepository):
             params["limit"] = limit
             params["offset"] = offset
             rows = conn.execute(
-                text(
-                    f"SELECT DISTINCT name FROM cards {where_clause} ORDER BY name ASC LIMIT :limit OFFSET :offset"
-                ),
+                text(f"SELECT DISTINCT name FROM cards {where_clause} ORDER BY name ASC LIMIT :limit OFFSET :offset"),
                 params,
             ).fetchall()
 

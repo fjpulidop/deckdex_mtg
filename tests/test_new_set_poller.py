@@ -17,10 +17,9 @@ HTTP calls are mocked with unittest.mock.patch("requests.get").
 import asyncio
 import unittest
 from datetime import datetime, timezone
-from unittest.mock import AsyncMock, MagicMock, call, patch
+from unittest.mock import MagicMock, patch
 
 from backend.api.services.new_set_poller import NewSetPoller
-
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -86,9 +85,11 @@ class TestRunOnceSkipsSeen(unittest.TestCase):
         suggestion_repo = MagicMock()
         suggestion_repo.get_seen_set_codes.return_value = {"TST"}
 
-        sets_response = _mock_requests_get_response({
-            "data": [_make_scryfall_set("TST")],
-        })
+        sets_response = _mock_requests_get_response(
+            {
+                "data": [_make_scryfall_set("TST")],
+            }
+        )
 
         poller = _make_poller(suggestion_repo=suggestion_repo)
 
@@ -105,12 +106,14 @@ class TestRunOnceSkipsSeen(unittest.TestCase):
         deck_repo = MagicMock()
         deck_repo.get_deck_with_cards.return_value = None
 
-        sets_response = _mock_requests_get_response({
-            "data": [
-                _make_scryfall_set("OLD"),
-                _make_scryfall_set("NEW"),
-            ],
-        })
+        sets_response = _mock_requests_get_response(
+            {
+                "data": [
+                    _make_scryfall_set("OLD"),
+                    _make_scryfall_set("NEW"),
+                ],
+            }
+        )
         cards_response = _mock_requests_get_response({"data": [], "next_page": None})
 
         poller = _make_poller(suggestion_repo=suggestion_repo, deck_repo=deck_repo)
@@ -160,9 +163,11 @@ class TestRunOnceProcessesNewSets(unittest.TestCase):
         suggestion_repo = MagicMock()
         suggestion_repo.get_seen_set_codes.return_value = set()
 
-        sets_resp = _mock_requests_get_response({
-            "data": [_make_scryfall_set("A"), _make_scryfall_set("B")],
-        })
+        sets_resp = _mock_requests_get_response(
+            {
+                "data": [_make_scryfall_set("A"), _make_scryfall_set("B")],
+            }
+        )
         cards_resp_a = _mock_requests_get_response({"data": []})
         cards_resp_b = _mock_requests_get_response({"data": []})
 
@@ -220,9 +225,11 @@ class TestRunOncePerSetIsolation(unittest.TestCase):
         suggestion_repo = MagicMock()
         suggestion_repo.get_seen_set_codes.return_value = set()
 
-        sets_resp = _mock_requests_get_response({
-            "data": [_make_scryfall_set("FAIL"), _make_scryfall_set("OK")],
-        })
+        sets_resp = _mock_requests_get_response(
+            {
+                "data": [_make_scryfall_set("FAIL"), _make_scryfall_set("OK")],
+            }
+        )
         cards_resp_fail = _mock_requests_get_response({"data": []})
         cards_resp_ok = _mock_requests_get_response({"data": []})
 
@@ -258,10 +265,9 @@ class TestFetchSets(unittest.TestCase):
         irrelevant_types = ["token", "promo", "memorabilia", "funny", "box"]
         poller = _make_poller()
 
-        all_sets = [
-            _make_scryfall_set(code=f"S{i}", set_type=t)
-            for i, t in enumerate(irrelevant_types)
-        ] + [_make_scryfall_set(code="EXP", set_type="expansion")]
+        all_sets = [_make_scryfall_set(code=f"S{i}", set_type=t) for i, t in enumerate(irrelevant_types)] + [
+            _make_scryfall_set(code="EXP", set_type="expansion")
+        ]
 
         resp = _mock_requests_get_response({"data": all_sets})
 
@@ -276,10 +282,7 @@ class TestFetchSets(unittest.TestCase):
         relevant_types = ["expansion", "core", "masters", "draft_innovation", "commander"]
         poller = _make_poller()
 
-        all_sets = [
-            _make_scryfall_set(code=f"S{i}", set_type=t)
-            for i, t in enumerate(relevant_types)
-        ]
+        all_sets = [_make_scryfall_set(code=f"S{i}", set_type=t) for i, t in enumerate(relevant_types)]
         resp = _mock_requests_get_response({"data": all_sets})
 
         with patch("requests.get", return_value=resp):
@@ -338,17 +341,35 @@ class TestFetchCardsForSet(unittest.TestCase):
     def test_pagination_follows_next_page(self):
         poller = _make_poller()
 
-        card_a = {"id": "p1-001", "name": "Card A", "mana_cost": None, "cmc": 1.0,
-                  "type_line": "Instant", "color_identity": [], "oracle_text": "",
-                  "rarity": "common", "image_uris": {}}
-        card_b = {"id": "p2-001", "name": "Card B", "mana_cost": None, "cmc": 2.0,
-                  "type_line": "Sorcery", "color_identity": [], "oracle_text": "",
-                  "rarity": "rare", "image_uris": {}}
+        card_a = {
+            "id": "p1-001",
+            "name": "Card A",
+            "mana_cost": None,
+            "cmc": 1.0,
+            "type_line": "Instant",
+            "color_identity": [],
+            "oracle_text": "",
+            "rarity": "common",
+            "image_uris": {},
+        }
+        card_b = {
+            "id": "p2-001",
+            "name": "Card B",
+            "mana_cost": None,
+            "cmc": 2.0,
+            "type_line": "Sorcery",
+            "color_identity": [],
+            "oracle_text": "",
+            "rarity": "rare",
+            "image_uris": {},
+        }
 
-        page1_resp = _mock_requests_get_response({
-            "data": [card_a],
-            "next_page": "https://api.scryfall.com/cards/search?page=2",
-        })
+        page1_resp = _mock_requests_get_response(
+            {
+                "data": [card_a],
+                "next_page": "https://api.scryfall.com/cards/search?page=2",
+            }
+        )
         page2_resp = _mock_requests_get_response({"data": [card_b]})
 
         with patch("requests.get", side_effect=[page1_resp, page2_resp]):
@@ -440,10 +461,19 @@ class TestUpsertCatalogCards(unittest.TestCase):
 
         poller = _make_poller(engine=mock_engine, catalog_repo=None)
 
-        cards = [{"scryfall_id": "abc-001", "name": "Test Card",
-                  "mana_cost": None, "cmc": 3.0, "type_line": "Creature",
-                  "color_identity": "B", "oracle_text": "", "rarity": "common",
-                  "image_uris": {"normal": "https://example.com/img.jpg"}}]
+        cards = [
+            {
+                "scryfall_id": "abc-001",
+                "name": "Test Card",
+                "mana_cost": None,
+                "cmc": 3.0,
+                "type_line": "Creature",
+                "color_identity": "B",
+                "oracle_text": "",
+                "rarity": "common",
+                "image_uris": {"normal": "https://example.com/img.jpg"},
+            }
+        ]
 
         poller._upsert_catalog_cards(cards)
         mock_engine.begin.assert_called_once()
@@ -467,10 +497,17 @@ class TestUpsertCatalogCards(unittest.TestCase):
         cards = [
             {"scryfall_id": "", "name": "No ID"},
             {"scryfall_id": "abc", "name": ""},
-            {"scryfall_id": "valid-001", "name": "Valid Card",
-             "mana_cost": None, "cmc": 1.0, "type_line": "Instant",
-             "color_identity": "R", "oracle_text": "", "rarity": "common",
-             "image_uris": {}},
+            {
+                "scryfall_id": "valid-001",
+                "name": "Valid Card",
+                "mana_cost": None,
+                "cmc": 1.0,
+                "type_line": "Instant",
+                "color_identity": "R",
+                "oracle_text": "",
+                "rarity": "common",
+                "image_uris": {},
+            },
         ]
 
         poller._upsert_catalog_cards(cards)
@@ -490,10 +527,19 @@ class TestUpsertCatalogCards(unittest.TestCase):
 
         poller = _make_poller(engine=mock_engine, catalog_repo=catalog_repo)
 
-        cards = [{"scryfall_id": "abc", "name": "Fallback Card",
-                  "mana_cost": None, "cmc": 1.0, "type_line": "Instant",
-                  "color_identity": "R", "oracle_text": "", "rarity": "common",
-                  "image_uris": {}}]
+        cards = [
+            {
+                "scryfall_id": "abc",
+                "name": "Fallback Card",
+                "mana_cost": None,
+                "cmc": 1.0,
+                "type_line": "Instant",
+                "color_identity": "R",
+                "oracle_text": "",
+                "rarity": "common",
+                "image_uris": {},
+            }
+        ]
         poller._upsert_catalog_cards(cards)
 
         # Engine fallback should have been used
@@ -512,10 +558,13 @@ class TestMakeGetRequest(unittest.TestCase):
         poller = _make_poller()
         good_resp = _mock_requests_get_response({"data": []})
 
-        with patch("requests.get", side_effect=[
-            req.exceptions.ConnectionError("refused"),
-            good_resp,
-        ]) as mock_get:
+        with patch(
+            "requests.get",
+            side_effect=[
+                req.exceptions.ConnectionError("refused"),
+                good_resp,
+            ],
+        ) as mock_get:
             with patch("time.sleep"):  # suppress retry sleep
                 result = poller._make_get_request("https://example.com")
 

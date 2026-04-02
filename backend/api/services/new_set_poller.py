@@ -87,10 +87,7 @@ class NewSetPoller:
                 self._suggestion_repo.insert_seen_set(set_code, set_name, released_at)
 
                 processed.append(set_code)
-                logger.info(
-                    f"NewSetPoller: processed new set {set_code!r}: "
-                    f"{total_suggestions} suggestions generated"
-                )
+                logger.info(f"NewSetPoller: processed new set {set_code!r}: {total_suggestions} suggestions generated")
 
             except Exception as exc:
                 logger.error(

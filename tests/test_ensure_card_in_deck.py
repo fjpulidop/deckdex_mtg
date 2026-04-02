@@ -17,11 +17,9 @@ Scenarios covered:
   - updated_at is always refreshed on success
 """
 
-from typing import Any, Dict
-from unittest.mock import MagicMock, call
+from unittest.mock import MagicMock
 
 from deckdex.storage.deck_repository import DeckRepository
-
 
 # ---------------------------------------------------------------------------
 # Helpers — identical pattern to test_deck_repository.py
@@ -60,10 +58,10 @@ def _make_engine(deck_check_row=None, card_check_row=None):
         return r
 
     mock_conn.execute.side_effect = [
-        _make_result(deck_check_row),   # deck ownership SELECT
-        _make_result(card_check_row),   # card existence SELECT
-        MagicMock(),                    # INSERT deck_cards
-        MagicMock(),                    # UPDATE decks.updated_at
+        _make_result(deck_check_row),  # deck ownership SELECT
+        _make_result(card_check_row),  # card existence SELECT
+        MagicMock(),  # INSERT deck_cards
+        MagicMock(),  # UPDATE decks.updated_at
     ]
 
     return mock_engine, mock_conn
@@ -83,9 +81,9 @@ def _make_engine_no_deck_check(card_check_row=None):
         return r
 
     mock_conn.execute.side_effect = [
-        _make_result(card_check_row),   # card existence SELECT (1st call, deck check skipped)
-        MagicMock(),                    # INSERT deck_cards
-        MagicMock(),                    # UPDATE decks.updated_at
+        _make_result(card_check_row),  # card existence SELECT (1st call, deck check skipped)
+        MagicMock(),  # INSERT deck_cards
+        MagicMock(),  # UPDATE decks.updated_at
     ]
 
     return mock_engine, mock_conn
@@ -131,9 +129,7 @@ class TestEnsureCardInDeck:
 
         # At least one execute call should reference "updated_at"
         sql_calls = [str(c.args[0]) for c in conn.execute.call_args_list]
-        assert any("updated_at" in sql for sql in sql_calls), (
-            "No UPDATE decks.updated_at found in execute calls"
-        )
+        assert any("updated_at" in sql for sql in sql_calls), "No UPDATE decks.updated_at found in execute calls"
 
     def test_insert_uses_on_conflict_do_nothing(self):
         """The INSERT statement includes ON CONFLICT DO NOTHING."""
@@ -144,9 +140,7 @@ class TestEnsureCardInDeck:
         repo.ensure_card_in_deck(deck_id=7, card_id=42, user_id=1)
 
         sql_calls = [str(c.args[0]) for c in conn.execute.call_args_list]
-        assert any("DO NOTHING" in sql for sql in sql_calls), (
-            "INSERT must use ON CONFLICT DO NOTHING"
-        )
+        assert any("DO NOTHING" in sql for sql in sql_calls), "INSERT must use ON CONFLICT DO NOTHING"
 
     def test_idempotent_second_call_also_returns_true(self):
         """Calling twice when the row already exists still returns True."""
@@ -259,9 +253,7 @@ class TestEnsureCardInDeck:
             # The deck SELECT should not appear at all (only 3 calls: card check, insert, update)
             sql = str(c.args[0])
             if "decks" in sql and "WHERE" in sql and "user_id" in sql:
-                raise AssertionError(
-                    "Deck ownership check with user_id should be skipped when user_id=None"
-                )
+                raise AssertionError("Deck ownership check with user_id should be skipped when user_id=None")
 
     def test_user_id_none_card_params_omit_user_id(self):
         """When user_id is None the card existence check omits user_id from params."""
@@ -378,9 +370,7 @@ class TestEnsureCardInDeck:
 
         insert_call = conn.execute.call_args_list[2]
         insert_sql = str(insert_call.args[0])
-        assert "false" in insert_sql.lower(), (
-            "INSERT SQL must specify is_commander=false as a literal value"
-        )
+        assert "false" in insert_sql.lower(), "INSERT SQL must specify is_commander=false as a literal value"
 
     # -----------------------------------------------------------------------
     # Constructor validation

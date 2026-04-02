@@ -6,10 +6,9 @@ All tests mock the SQLAlchemy engine so no real database is required.
 """
 
 import unittest
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock
 
 from deckdex.storage.repository import PostgresCollectionRepository
-
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -292,9 +291,7 @@ class TestGetCardsByName(unittest.TestCase):
     def test_variant_label_included_when_set(self):
         """variant_label is included in returned card dict when present in DB."""
         repo = _make_repo()
-        self._setup_cards_result(
-            repo, [self._make_db_row(variant_label="Showcase")]
-        )
+        self._setup_cards_result(repo, [self._make_db_row(variant_label="Showcase")])
 
         results = repo.get_cards_by_name(user_id=1, card_name="Lightning Bolt")
 

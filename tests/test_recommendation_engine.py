@@ -14,7 +14,7 @@ All fixtures use scope="function" (no module-scoped mocks).
 
 import unittest
 from collections import Counter
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock
 
 from deckdex.services.recommendation_engine import (
     RecommendationEngine,
@@ -29,7 +29,6 @@ from deckdex.services.recommendation_engine import (
     _score_card,
     compute_suggestions_for_all_decks,
 )
-
 
 # ---------------------------------------------------------------------------
 # Helper factories
@@ -77,7 +76,7 @@ def _make_new_set_card(
 ) -> dict:
     """Card dict as returned by the Scryfall API (fields match _extract_card_fields)."""
     return {
-        "id": scryfall_id,           # Scryfall uses 'id'
+        "id": scryfall_id,  # Scryfall uses 'id'
         "scryfall_id": scryfall_id,
         "name": name,
         "type_line": type_line,
@@ -588,10 +587,7 @@ class TestComputeSuggestionsForDeck(unittest.TestCase):
         deck_cards = [_make_card(color_identity="B", is_commander=True)]
         eng, _ = self._make_engine(deck_cards)
 
-        new_cards = [
-            _make_new_set_card(scryfall_id=f"card-{i:03d}", color_identity="B")
-            for i in range(20)
-        ]
+        new_cards = [_make_new_set_card(scryfall_id=f"card-{i:03d}", color_identity="B") for i in range(20)]
         result = eng.compute_suggestions_for_deck(
             deck_id=1,
             user_id=1,
@@ -679,9 +675,19 @@ class TestComputeSuggestionsForDeck(unittest.TestCase):
         assert len(result) == 1
         s = result[0]
         for field in [
-            "deck_id", "user_id", "set_code", "scryfall_id",
-            "card_name", "mana_cost", "cmc", "type_line", "color_identity",
-            "oracle_text", "reason", "score", "image_uri",
+            "deck_id",
+            "user_id",
+            "set_code",
+            "scryfall_id",
+            "card_name",
+            "mana_cost",
+            "cmc",
+            "type_line",
+            "color_identity",
+            "oracle_text",
+            "reason",
+            "score",
+            "image_uri",
         ]:
             assert field in s, f"Missing field: {field}"
 
@@ -704,9 +710,11 @@ class TestComputeSuggestionsForDeck(unittest.TestCase):
         colorless_card = _make_new_set_card(scryfall_id="colorless", color_identity="")
 
         result = eng.compute_suggestions_for_deck(
-            deck_id=1, user_id=1,
+            deck_id=1,
+            user_id=1,
             new_cards=[colored_card, colorless_card],
-            set_code="TST", set_name="Test Set",
+            set_code="TST",
+            set_name="Test Set",
         )
         ids = {s["scryfall_id"] for s in result}
         assert "colored" not in ids
@@ -868,10 +876,7 @@ class TestComputeSuggestionsForAllDecks(unittest.TestCase):
         }
 
         # 5 black cards → each deck gets up to 5 suggestions
-        new_cards = [
-            _make_new_set_card(scryfall_id=f"c-{i}", color_identity="B")
-            for i in range(5)
-        ]
+        new_cards = [_make_new_set_card(scryfall_id=f"c-{i}", color_identity="B") for i in range(5)]
 
         total = compute_suggestions_for_all_decks(
             engine=sql_engine,

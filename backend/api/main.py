@@ -178,8 +178,8 @@ from .routes import (
     process,
     settings_routes,
     stats,
+    suggestions,
 )
-from .routes import suggestions
 from .routes.variants import router as variants_router
 from .websockets import progress
 

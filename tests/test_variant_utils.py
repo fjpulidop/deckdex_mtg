@@ -4,10 +4,7 @@ Pure-function tests — no mocking required.
 All seven derivation branches are covered.
 """
 
-import pytest
-
 from deckdex.variant_utils import derive_variant_label
-
 
 # ---------------------------------------------------------------------------
 # Branch 1: Serialized (promo_types contains 'serialized')

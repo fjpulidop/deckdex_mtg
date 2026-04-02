@@ -38,10 +38,7 @@ class RecommendationEngine:
         deck_card_types = _compute_deck_card_types(cards)
         deck_median_cmc = _compute_deck_median_cmc(cards)
         deck_card_count = sum(
-            1
-            for c in cards
-            if not _is_land(c.get("type_line", "") or "")
-            and not c.get("is_commander", False)
+            1 for c in cards if not _is_land(c.get("type_line", "") or "") and not c.get("is_commander", False)
         )
         existing_scryfall_ids = _collect_existing_scryfall_ids(cards)
 

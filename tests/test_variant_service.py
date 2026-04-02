@@ -13,7 +13,6 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
@@ -138,8 +137,9 @@ class TestFetchPrintsForCard:
 
     @patch("backend.api.services.variant_service.requests.get")
     def test_returns_empty_list_on_http_error(self, mock_get):
-        from backend.api.services.variant_service import _fetch_prints_for_card
         import requests
+
+        from backend.api.services.variant_service import _fetch_prints_for_card
 
         mock_get.side_effect = requests.HTTPError("500 server error")
         result = _fetch_prints_for_card("Lightning Bolt")
@@ -147,8 +147,9 @@ class TestFetchPrintsForCard:
 
     @patch("backend.api.services.variant_service.requests.get")
     def test_returns_empty_list_on_network_timeout(self, mock_get):
-        from backend.api.services.variant_service import _fetch_prints_for_card
         import requests
+
+        from backend.api.services.variant_service import _fetch_prints_for_card
 
         mock_get.side_effect = requests.Timeout("timed out")
         result = _fetch_prints_for_card("Lightning Bolt")
@@ -250,9 +251,7 @@ class TestGetCollectionVariants:
 
         get_collection_variants(user_id=7, search="bolt", limit=10, offset=5)
 
-        mock_repo.get_distinct_card_names.assert_called_once_with(
-            7, search="bolt", limit=10, offset=5
-        )
+        mock_repo.get_distinct_card_names.assert_called_once_with(7, search="bolt", limit=10, offset=5)
 
     @patch("backend.api.services.variant_service.get_card_variants")
     @patch("backend.api.services.variant_service.get_collection_repo")

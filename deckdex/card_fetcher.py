@@ -46,6 +46,7 @@ def populate_variant_fields(card_data: Dict[str, Any], scryfall_data: Dict[str, 
     card_data["border_color"] = border_color
     card_data["variant_label"] = derive_variant_label(finish, promo_types, frame_effects, border_color)
 
+
 from .config import OpenAIConfig, ScryfallConfig
 
 

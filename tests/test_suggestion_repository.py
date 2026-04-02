@@ -20,7 +20,6 @@ from unittest.mock import MagicMock, patch
 
 from deckdex.storage.suggestion_repository import SuggestionRepository
 
-
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------

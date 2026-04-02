@@ -1,6 +1,6 @@
 """Suggestion repository: Postgres implementation for deck_suggestions and seen_set_codes."""
 
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List
 
 
 class SuggestionRepository:
@@ -54,7 +54,7 @@ class SuggestionRepository:
                     text("""
                         SELECT id, deck_id, user_id, set_code, scryfall_id, card_name,
                                mana_cost, cmc, type_line, color_identity, oracle_text,
-                               reason, score, created_at
+                               reason, score, image_uri, created_at
                         FROM deck_suggestions
                         WHERE deck_id = :deck_id AND user_id = :user_id
                         ORDER BY score DESC
@@ -94,11 +94,11 @@ class SuggestionRepository:
                         INSERT INTO deck_suggestions (
                             deck_id, user_id, set_code, scryfall_id, card_name,
                             mana_cost, cmc, type_line, color_identity, oracle_text,
-                            reason, score
+                            reason, score, image_uri
                         ) VALUES (
                             :deck_id, :user_id, :set_code, :scryfall_id, :card_name,
                             :mana_cost, :cmc, :type_line, :color_identity, :oracle_text,
-                            :reason, :score
+                            :reason, :score, :image_uri
                         )
                         ON CONFLICT (deck_id, scryfall_id) DO UPDATE SET
                             user_id = EXCLUDED.user_id,
@@ -110,7 +110,8 @@ class SuggestionRepository:
                             color_identity = EXCLUDED.color_identity,
                             oracle_text = EXCLUDED.oracle_text,
                             reason = EXCLUDED.reason,
-                            score = EXCLUDED.score
+                            score = EXCLUDED.score,
+                            image_uri = EXCLUDED.image_uri
                     """),
                     {
                         "deck_id": s["deck_id"],
@@ -125,6 +126,7 @@ class SuggestionRepository:
                         "oracle_text": s.get("oracle_text"),
                         "reason": s["reason"],
                         "score": s["score"],
+                        "image_uri": s.get("image_uri"),
                     },
                 )
 

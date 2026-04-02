@@ -2,6 +2,7 @@
 Variants API routes
 Endpoints for browsing card collection by variant/treatment groupings.
 """
+
 from typing import List, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query
@@ -35,6 +36,7 @@ class VariantCopy(BaseModel):
 
 class VariantSlot(BaseModel):
     """One slot in the set's known variants; owned=True when user owns at least one copy."""
+
     model_config = ConfigDict(from_attributes=True)
 
     variant_label: str

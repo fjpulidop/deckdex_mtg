@@ -2,6 +2,7 @@
 Variant grouping service: groups user collection by card name and treatment variant.
 Fetches known variant count from Scryfall prints_search_uri.
 """
+
 from typing import Any, Dict, List, Optional
 
 import requests
@@ -67,25 +68,29 @@ def get_card_variants(user_id: int, card_name: str) -> Dict[str, Any]:
         seen_labels.add(label)
         copies = _rows_to_copies(owned_by_label.get(label, []))
         image_uri = (print_obj.get("image_uris") or {}).get("normal")
-        slots.append({
-            "variant_label": label,
-            "finish": finish,
-            "owned": bool(copies),
-            "copies": copies,
-            "scryfall_image_uri": image_uri,
-        })
+        slots.append(
+            {
+                "variant_label": label,
+                "finish": finish,
+                "owned": bool(copies),
+                "copies": copies,
+                "scryfall_image_uri": image_uri,
+            }
+        )
 
     # Append any owned labels not returned by Scryfall (edge case)
     for label, rows in owned_by_label.items():
         if label not in seen_labels:
             finish = rows[0].get("finish", "nonfoil")
-            slots.append({
-                "variant_label": label,
-                "finish": finish,
-                "owned": True,
-                "copies": _rows_to_copies(rows),
-                "scryfall_image_uri": None,
-            })
+            slots.append(
+                {
+                    "variant_label": label,
+                    "finish": finish,
+                    "owned": True,
+                    "copies": _rows_to_copies(rows),
+                    "scryfall_image_uri": None,
+                }
+            )
 
     owned_count = sum(1 for s in slots if s["owned"])
     return {
