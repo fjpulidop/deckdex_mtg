@@ -1,0 +1,8 @@
+{
+  "date": "2026-04-02",
+  "error_type_slug": "ruff-import-order-and-unused",
+  "severity": "error",
+  "file_pattern": "tests/test_*.py",
+  "root_cause": "Developer agents generated Python files with 20 ruff violations: I001 (import blocks unsorted — stdlib and local imports not separated, or alphabetical order wrong) and F401 (unused imports: `typing.Optional`, `typing.Any`, `typing.Dict`, `unittest.mock.patch`, `pytest`). Affected files: backend/api/main.py, backend/api/routes/variants.py, backend/api/services/new_set_poller.py, backend/api/services/variant_service.py, deckdex/card_fetcher.py, deckdex/services/recommendation_engine.py, deckdex/storage/repository.py, deckdex/storage/suggestion_repository.py, and test files for ensure_card_in_deck, makefile, new_set_poller, recommendation_engine, repository_variant_methods, suggestion_repository, variant_service, variant_utils.",
+  "prevention_rule": "Always run `ruff check . --fix && ruff format .` immediately after generating any Python file. Never import `typing.Optional/Any/Dict` speculatively — only import what the function signatures in that file actually use. Remove `unittest.mock.patch` if the test class uses `@patch` decorators but no per-test `patch` call."
+}
