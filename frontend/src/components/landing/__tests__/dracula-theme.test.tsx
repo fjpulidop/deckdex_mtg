@@ -47,10 +47,10 @@ beforeEach(() => {
 });
 
 // ---------------------------------------------------------------------------
-// Hero — bg-dracula-bg
+// Hero — transparent gradient (reveals CardMatrix canvas behind)
 // ---------------------------------------------------------------------------
 describe('Hero Dracula theme', () => {
-  it('renders the section with bg-dracula-bg class', () => {
+  it('renders the section with bg-gradient-to-b class', () => {
     const { container } = render(
       <MemoryRouter>
         <Hero />
@@ -58,18 +58,33 @@ describe('Hero Dracula theme', () => {
     );
     const section = container.querySelector('section');
     expect(section).not.toBeNull();
-    expect(section!.className).toContain('bg-dracula-bg');
+    expect(section!.className).toContain('bg-gradient-to-b');
   });
 
-  it('does not use the old gradient pattern from-dracula-bg/20 via-dracula-purple/10', () => {
+  it('uses from-dracula-bg/20 via-transparent to-transparent gradient stops', () => {
     const { container } = render(
       <MemoryRouter>
         <Hero />
       </MemoryRouter>,
     );
     const section = container.querySelector('section');
-    expect(section!.className).not.toContain('from-dracula-bg/20');
-    expect(section!.className).not.toContain('via-dracula-purple/10');
+    expect(section!.className).toContain('from-dracula-bg/20');
+    expect(section!.className).toContain('via-transparent');
+    expect(section!.className).toContain('to-transparent');
+  });
+
+  it('does not use solid bg-dracula-bg (no transparency) on the section', () => {
+    const { container } = render(
+      <MemoryRouter>
+        <Hero />
+      </MemoryRouter>,
+    );
+    const section = container.querySelector('section');
+    // The section must not carry the opaque solid background — it should be
+    // transparent so the CardMatrix canvas behind it remains visible.
+    // "bg-dracula-bg " (trailing space) avoids a false match on "bg-dracula-bg/20".
+    expect(section!.className).not.toContain('bg-dracula-bg ');
+    expect(section!.className).not.toMatch(/\bbg-dracula-bg\b(?!\/)/);
   });
 });
 
@@ -143,6 +158,21 @@ describe('FinalCTA Dracula theme', () => {
     );
     const section = container.querySelector('section');
     expect(section!.className).toContain('to-dracula-bg');
+  });
+
+  it('uses from-dracula-bg/80 and to-dracula-bg/80 (80% opacity) for partial transparency', () => {
+    const { container } = render(
+      <MemoryRouter>
+        <FinalCTA />
+      </MemoryRouter>,
+    );
+    const section = container.querySelector('section');
+    // Pinning the /80 opacity suffix ensures the gradient retains the
+    // semi-transparent look introduced in this fix — a fully opaque
+    // "from-dracula-bg" would also satisfy the substring check above but
+    // would break the visual design.
+    expect(section!.className).toContain('from-dracula-bg/80');
+    expect(section!.className).toContain('to-dracula-bg/80');
   });
 });
 
