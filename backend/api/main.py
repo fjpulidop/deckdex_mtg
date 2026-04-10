@@ -6,6 +6,7 @@ Main application entry point
 import os
 import sys
 import uuid
+from datetime import datetime, timezone
 
 from fastapi import FastAPI, Request, status
 from fastapi.exceptions import RequestValidationError
@@ -177,7 +178,9 @@ from .routes import (
     process,
     settings_routes,
     stats,
+    suggestions,
 )
+from .routes.variants import router as variants_router
 from .websockets import progress
 
 app.include_router(auth.router)
@@ -191,13 +194,15 @@ app.include_router(decks.router)
 app.include_router(insights.router)
 app.include_router(catalog_routes.router)
 app.include_router(admin_routes.router)
+app.include_router(suggestions.router)
 app.include_router(progress.router)
+app.include_router(variants_router)
 
 
 @app.on_event("startup")
 async def startup_event():
     """Application startup tasks"""
-    from .dependencies import get_catalog_repo, get_job_repo
+    from .dependencies import get_catalog_repo, get_deck_repo, get_job_repo, get_suggestion_repo
 
     job_repo = get_job_repo()
     if job_repo is not None:
@@ -217,6 +222,36 @@ async def startup_event():
         except Exception as e:
             logger.warning(f"Orphan catalog sync cleanup failed on startup: {e}")
 
+    # New-set polling scheduler
+    try:
+        from apscheduler.schedulers.asyncio import AsyncIOScheduler
+
+        from .db import get_engine
+        from .services.new_set_poller import NewSetPoller
+
+        suggestion_repo = get_suggestion_repo()
+        deck_repo = get_deck_repo()
+        engine = get_engine()
+
+        if engine is not None and suggestion_repo is not None and deck_repo is not None:
+            poller = NewSetPoller(engine, suggestion_repo, deck_repo, catalog_repo)
+            scheduler = AsyncIOScheduler()
+            scheduler.add_job(
+                poller.run_once,
+                "interval",
+                hours=1,
+                id="new_set_poll",
+                next_run_time=datetime.now(timezone.utc),
+            )
+            scheduler.start()
+            app.state.scheduler = scheduler
+            app.state.new_set_poller = poller
+            logger.info("New-set polling scheduler started (interval: 1 hour)")
+        else:
+            logger.info("Skipping new-set scheduler: Postgres not configured")
+    except Exception as e:
+        logger.warning(f"New-set scheduler startup failed: {e}")
+
     logger.info("API startup complete")
 
 
@@ -224,6 +259,10 @@ async def startup_event():
 async def shutdown_event():
     """Application shutdown tasks"""
     from .db import dispose_engine
+
+    if hasattr(app.state, "scheduler"):
+        app.state.scheduler.shutdown(wait=False)
+        logger.info("New-set polling scheduler stopped")
 
     dispose_engine()
     logger.info("API shutting down")

@@ -136,6 +136,25 @@ def get_image_store() -> ImageStore:
     return _image_store
 
 
+def get_suggestion_repo():
+    """Get SuggestionRepository using shared DB engine; else None."""
+    from deckdex.storage.suggestion_repository import SuggestionRepository
+
+    engine = get_engine()
+    if engine is not None:
+        return SuggestionRepository("", engine=engine)
+    # Fallback: build from config URL
+    config = load_config(profile=os.getenv("DECKDEX_PROFILE", "default"))
+    url = None
+    if config.database is not None and getattr(config.database, "url", None):
+        url = config.database.url
+    if not url:
+        url = os.getenv("DATABASE_URL")
+    if not url or not str(url).strip().startswith("postgresql"):
+        return None
+    return SuggestionRepository(url)
+
+
 def get_catalog_repo() -> Optional[CatalogRepository]:
     """Get CatalogRepository using shared DB engine; else None."""
     engine = get_engine()

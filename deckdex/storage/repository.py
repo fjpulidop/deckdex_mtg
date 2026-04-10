@@ -48,8 +48,13 @@ def _row_to_card(row: Dict[str, Any]) -> Dict[str, Any]:
         "tier": row.get("tier"),
         "created_at": _serialize_created_at(row.get("created_at")),
         "quantity": row.get("quantity", 1),
+        "finish": row.get("finish", "nonfoil"),
+        "promo_types": row.get("promo_types"),
+        "frame_effects": row.get("frame_effects"),
+        "border_color": row.get("border_color"),
+        "variant_label": row.get("variant_label"),
     }
-    return {k: v for k, v in card.items() if v is not None or k in ("id", "quantity")}
+    return {k: v for k, v in card.items() if v is not None or k in ("id", "quantity", "finish")}
 
 
 def _safe_cmc(value: Any) -> Optional[float]:
@@ -94,6 +99,11 @@ def _card_to_row(card: Dict[str, Any]) -> Dict[str, Any]:
         "game_strategy": card.get("game_strategy"),
         "tier": card.get("tier"),
         "quantity": int(card.get("quantity") or 1),
+        "finish": card.get("finish", "nonfoil"),
+        "promo_types": card.get("promo_types"),
+        "frame_effects": card.get("frame_effects"),
+        "border_color": card.get("border_color"),
+        "variant_label": card.get("variant_label"),
     }
 
 
@@ -544,6 +554,65 @@ class PostgresCollectionRepository(CollectionRepository):
             conn.commit()
         logger.info(f"Replaced collection with {count} cards")
         return count
+
+    def get_distinct_card_names(
+        self,
+        user_id: int,
+        search: Optional[str] = None,
+        limit: int = 50,
+        offset: int = 0,
+    ) -> Tuple[List[str], int]:
+        """Returns (names, total_count) for pagination.
+
+        Uses SELECT DISTINCT name with optional ILIKE filter.
+        """
+        from sqlalchemy import text
+
+        engine = self._get_engine()
+        conditions = ["user_id = :user_id", "name IS NOT NULL", "name != ''"]
+        params: Dict[str, Any] = {"user_id": user_id}
+
+        if search and str(search).strip():
+            conditions.append("name ILIKE :search")
+            params["search"] = f"%{search.strip()}%"
+
+        where_clause = "WHERE " + " AND ".join(conditions)
+
+        with engine.connect() as conn:
+            count_row = conn.execute(
+                text(f"SELECT COUNT(DISTINCT name) FROM cards {where_clause}"),
+                params,
+            ).scalar()
+            total = int(count_row or 0)
+
+            params["limit"] = limit
+            params["offset"] = offset
+            rows = conn.execute(
+                text(f"SELECT DISTINCT name FROM cards {where_clause} ORDER BY name ASC LIMIT :limit OFFSET :offset"),
+                params,
+            ).fetchall()
+
+        names = [r[0] for r in rows]
+        return names, total
+
+    def get_cards_by_name(self, user_id: int, card_name: str) -> List[Dict[str, Any]]:
+        """Returns all cards for user with the given name, ordered by finish, variant_label."""
+        from sqlalchemy import text
+
+        engine = self._get_engine()
+        with engine.connect() as conn:
+            rows = (
+                conn.execute(
+                    text(
+                        "SELECT * FROM cards WHERE user_id = :user_id AND name = :name"
+                        " ORDER BY finish ASC, variant_label ASC NULLS LAST"
+                    ),
+                    {"user_id": user_id, "name": card_name},
+                )
+                .mappings()
+                .fetchall()
+            )
+        return [_row_to_card(dict(r)) for r in rows]
 
     def _build_filter_clauses(
         self,

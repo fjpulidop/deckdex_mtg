@@ -22,6 +22,7 @@ import { Admin } from './pages/Admin'
 import { Demo } from './pages/Demo'
 
 const Landing = lazy(() => import('./pages/Landing').then(m => ({ default: m.Landing })))
+const CollectionVariants = lazy(() => import('./pages/CollectionVariants').then(m => ({ default: m.CollectionVariants })))
 
 function AppContent() {
   const location = useLocation();
@@ -103,6 +104,16 @@ function AppContent() {
             <AdminRoute>
               <Admin />
             </AdminRoute>
+          }
+        />
+        <Route
+          path="/collection/variants"
+          element={
+            <ProtectedRoute>
+              <Suspense fallback={<div className="flex items-center justify-center min-h-screen">Loading...</div>}>
+                <CollectionVariants />
+              </Suspense>
+            </ProtectedRoute>
           }
         />
       </Routes>

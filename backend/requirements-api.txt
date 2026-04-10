@@ -8,6 +8,7 @@ python-dotenv==1.0.0
 pydantic==2.5.0
 python-multipart==0.0.6
 slowapi==0.1.9
+apscheduler>=3.10,<4.0
 
 # Reuse core dependencies from main requirements.txt
 # Install parent requirements first: pip install -r ../requirements.txt

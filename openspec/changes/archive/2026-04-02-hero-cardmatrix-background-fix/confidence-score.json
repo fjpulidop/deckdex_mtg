@@ -1,0 +1,16 @@
+{
+  "schema_version": "1",
+  "change": "hero-cardmatrix-background-fix",
+  "agent": "reviewer",
+  "scored_at": "2026-04-02T13:47:00Z",
+  "overall": 94,
+  "aspects": {
+    "type_correctness": 100,
+    "pattern_adherence": 95,
+    "test_coverage": 90,
+    "security": 100,
+    "architectural_alignment": 95
+  },
+  "notes": "Hero.tsx and FinalCTA.tsx changes are class-only modifications — no logic, no type risk. dracula-theme.test.tsx assertions verified the new opacity classes. All 188 vitest tests pass. Landing-page spec updated with precise, enforceable constraints replacing vague wording. FinalCTA gradient uses /80 opacity stops as specified. Body background fallback in index.css provides solid dark baseline.",
+  "flags": []
+}

@@ -13,7 +13,7 @@ export const Hero = () => {
   const { t } = useTranslation();
   const { isAuthenticated } = useAuth();
   return (
-    <section className="min-h-screen pt-20 pb-16 bg-dracula-bg flex items-center">
+    <section className="min-h-screen pt-20 pb-16 flex items-center bg-gradient-to-b from-dracula-bg/20 via-transparent to-transparent">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 w-full">
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
           {/* Left Column - Text */}

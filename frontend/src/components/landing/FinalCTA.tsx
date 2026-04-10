@@ -11,7 +11,7 @@ export const FinalCTA = () => {
   const { t } = useTranslation();
   const { isAuthenticated } = useAuth();
   return (
-    <section className="py-20 md:py-32 bg-gradient-to-r from-dracula-bg via-dracula-purple/20 to-dracula-bg px-4 sm:px-6 lg:px-8">
+    <section className="py-20 md:py-32 bg-gradient-to-r from-dracula-bg/80 via-dracula-purple/20 to-dracula-bg/80 px-4 sm:px-6 lg:px-8">
       <div className="max-w-4xl mx-auto text-center">
         <motion.div
           initial={{ opacity: 0, y: 20 }}

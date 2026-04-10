@@ -18,6 +18,35 @@ from openai import (
 )
 from tenacity import retry, retry_if_exception_type, stop_after_attempt, wait_exponential
 
+from .variant_utils import derive_variant_label
+
+
+def populate_variant_fields(card_data: Dict[str, Any], scryfall_data: Dict[str, Any]) -> None:
+    """Populate variant treatment fields on card_data from Scryfall response.
+
+    Mutates card_data in-place, adding finish, promo_types, frame_effects,
+    border_color, and variant_label fields.
+
+    Args:
+        card_data: The internal card dict to populate.
+        scryfall_data: The raw Scryfall API response object.
+    """
+    finishes = scryfall_data.get("finishes") or ["nonfoil"]
+    finish = finishes[0] if finishes else "nonfoil"
+    promo_types_raw = scryfall_data.get("promo_types") or []
+    frame_effects_raw = scryfall_data.get("frame_effects") or []
+    border_color = scryfall_data.get("border_color")
+
+    promo_types = ",".join(promo_types_raw) if promo_types_raw else None
+    frame_effects = ",".join(frame_effects_raw) if frame_effects_raw else None
+
+    card_data["finish"] = finish
+    card_data["promo_types"] = promo_types
+    card_data["frame_effects"] = frame_effects
+    card_data["border_color"] = border_color
+    card_data["variant_label"] = derive_variant_label(finish, promo_types, frame_effects, border_color)
+
+
 from .config import OpenAIConfig, ScryfallConfig
 
 
