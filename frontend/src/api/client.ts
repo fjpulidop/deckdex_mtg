@@ -186,25 +186,6 @@ export interface BatchAddResult {
   deck: DeckWithCards;
 }
 
-export interface DeckRef {
-  deck_id: number;
-  deck_name: string;
-}
-
-export interface CardAllocation {
-  card_id: number;
-  card_name: string;
-  image_url: string | null;
-  type_line: string | null;
-  mana_cost: string | null;
-  quantity: number;
-  decks: DeckRef[];
-}
-
-export interface CardAllocationsResponse {
-  cards: CardAllocation[];
-}
-
 export interface PowerLevelBreakdown {
   fast_mana: number;
   tutors: number;
@@ -937,12 +918,5 @@ export const api = {
       throw new Error((err as { detail?: string }).detail || 'Failed to update profile');
     }
     return response.json();
-  },
-
-  // Card allocations — requires Postgres (501 if unavailable)
-  getCardAllocations: async (): Promise<CardAllocationsResponse> => {
-    const res = await apiFetch(`${API_BASE}/cards/allocations`);
-    if (!res.ok) throw new Error(`Failed to fetch allocations: ${res.status}`);
-    return res.json();
   },
 };

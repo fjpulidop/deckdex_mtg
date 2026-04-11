@@ -357,35 +357,6 @@ class DeckRepository:
                 result[key] = row["id"]
         return result
 
-    def get_all_card_allocations(self, user_id: int) -> List[Dict[str, Any]]:
-        """Return all cards for user with their deck assignments.
-
-        Returns a flat list of rows: one row per (card, deck) pair.
-        Cards in no deck appear once with deck_id=None, deck_name=None.
-        """
-        from sqlalchemy import text
-
-        sql = """
-            SELECT
-                c.id        AS card_id,
-                c.name      AS card_name,
-                c.image_url,
-                c.type_line,
-                c.mana_cost,
-                c.quantity,
-                d.id        AS deck_id,
-                d.name      AS deck_name
-            FROM cards c
-            LEFT JOIN deck_cards dc ON dc.card_id = c.id
-            LEFT JOIN decks d       ON d.id = dc.deck_id AND d.user_id = :user_id
-            WHERE c.user_id = :user_id
-            ORDER BY c.name ASC
-        """
-        engine = self._get_engine()
-        with engine.connect() as conn:
-            rows = conn.execute(text(sql), {"user_id": user_id}).mappings().fetchall()
-        return [dict(row) for row in rows]
-
     def set_commander(self, deck_id: int, card_id: int, user_id: Optional[int] = None) -> bool:
         """Set one card as commander; unset any other commander in this deck. Card must be in deck."""
         from sqlalchemy import text

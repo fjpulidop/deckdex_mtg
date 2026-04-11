@@ -9,7 +9,6 @@ import { Dashboard } from './pages/Dashboard'
 import { Settings } from './pages/Settings'
 import { Analytics } from './pages/Analytics'
 import { DeckBuilder } from './pages/DeckBuilder'
-import { CardAllocations } from './pages/CardAllocations'
 import Login from './pages/Login'
 import AuthCallback from './pages/AuthCallback'
 import ProtectedRoute from './components/ProtectedRoute'
@@ -78,14 +77,6 @@ function AppContent() {
           element={
             <ProtectedRoute>
               <DeckBuilder />
-            </ProtectedRoute>
-          }
-        />
-        <Route
-          path="/allocations"
-          element={
-            <ProtectedRoute>
-              <CardAllocations />
             </ProtectedRoute>
           }
         />

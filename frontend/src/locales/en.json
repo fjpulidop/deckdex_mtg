@@ -598,7 +598,6 @@
     "collection": "Collection",
     "analytics": "Analytics",
     "deckBuilder": "Deck Builder",
-    "allocations": "Allocations",
     "import": "Import",
     "admin": "Admin",
     "settings": "Settings",
@@ -633,21 +632,5 @@
     "optimised": "Optimised",
     "bracket": "Bracket {{bracket}}",
     "loading": "Calculating..."
-  },
-  "allocations": {
-    "title": "Card Allocations",
-    "subtitle": "See where each card is used across your decks.",
-    "errorNoPostgres": "Deck features require a Postgres database. Set DATABASE_URL to enable card allocations.",
-    "errorGeneric": "Failed to load allocations. Please try again.",
-    "statusAvailable": "Available",
-    "statusAssigned": "In 1 deck",
-    "statusShared": "In multiple decks",
-    "tileLabel": "{{name}} — {{status}}",
-    "available": "Available — not in any deck",
-    "assignedTo": "Assigned to:",
-    "close": "Close",
-    "removeFrom": "Remove from {{deckName}}",
-    "removing": "Removing…",
-    "remove": "Remove"
   }
 }

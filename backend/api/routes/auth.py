@@ -53,15 +53,16 @@ def _backend_origin(request: Request) -> str:
 
 
 def _frontend_origin(request: Request) -> str:
-    """Derive the public frontend origin."""
-    origin = request.headers.get("origin")
-    if origin:
-        return origin.rstrip("/")
+    """Derive the public frontend origin.
 
-    referer = request.headers.get("referer")
-    if referer:
-        parsed = urlparse(referer)
-        return f"{parsed.scheme}://{parsed.netloc}"
+    Used by the OAuth callback, which is entered via an external redirect from
+    Google — so Origin/Referer headers cannot be trusted (Referer would point
+    to accounts.google.com). Prefer an explicit env var, otherwise derive from
+    the backend origin by swapping the port.
+    """
+    configured = os.getenv("DECKDEX_FRONTEND_ORIGIN", "").strip().rstrip("/")
+    if configured:
+        return configured
 
     backend = _backend_origin(request)
     if "-8000." in backend:
