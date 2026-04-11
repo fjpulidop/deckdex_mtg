@@ -175,6 +175,9 @@ frontend/.vite/
 # Node modules
 node_modules/
 
+# specrails installer (one-time setup tool, not part of the project)
+.specrails/setup-templates/
+
 # OS files
 .DS_Store
 
