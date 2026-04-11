@@ -598,7 +598,6 @@
     "collection": "Colección",
     "analytics": "Estadísticas",
     "deckBuilder": "Constructor de mazos",
-    "allocations": "Asignaciones",
     "import": "Importar",
     "admin": "Administración",
     "settings": "Ajustes",
@@ -633,21 +632,5 @@
     "optimised": "Optimizado",
     "bracket": "Nivel {{bracket}}",
     "loading": "Calculando..."
-  },
-  "allocations": {
-    "title": "Asignaciones de cartas",
-    "subtitle": "Consulta en qué mazos se usa cada carta de tu colección.",
-    "errorNoPostgres": "Los mazos requieren Postgres. Configura DATABASE_URL para activar las asignaciones.",
-    "errorGeneric": "Error al cargar las asignaciones. Inténtalo de nuevo.",
-    "statusAvailable": "Disponible",
-    "statusAssigned": "En 1 mazo",
-    "statusShared": "En varios mazos",
-    "tileLabel": "{{name}} — {{status}}",
-    "available": "Disponible — sin asignar a ningún mazo",
-    "assignedTo": "Asignada a:",
-    "close": "Cerrar",
-    "removeFrom": "Quitar de {{deckName}}",
-    "removing": "Quitando…",
-    "remove": "Quitar"
   }
 }
