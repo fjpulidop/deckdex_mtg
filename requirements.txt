@@ -12,6 +12,7 @@ tenacity==8.2.2
 rapidfuzz
 pyyaml==6.0.1
 psycopg2-binary>=2.9.9
-sqlalchemy>=2.0.0
+# SQLAlchemy 2.1 defaults postgresql:// to psycopg v3; retain psycopg2 compatibility.
+sqlalchemy>=2.0,<2.1
 python-jose[cryptography]>=3.3.0
 ruff>=0.3.0
