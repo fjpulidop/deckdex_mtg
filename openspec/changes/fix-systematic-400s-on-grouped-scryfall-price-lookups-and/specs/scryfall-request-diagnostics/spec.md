@@ -2,7 +2,7 @@
 
 ## Purpose
 
-Defines Scryfall client identification, diagnosable HTTP failures and bounded retries with shared request scheduling for card lookups.
+Defines Scryfall client identification, diagnosable HTTP failures and bounded retries for card lookups.
 
 ## ADDED Requirements
 
@@ -26,10 +26,10 @@ A propagated HTTP response failure SHALL retain the original HTTP error text and
 
 #### Scenario: Non-JSON error
 - **WHEN** a failed response body cannot be decoded as JSON
-- **THEN** the error includes at most the first 300 characters of response text
+- **THEN** the error equals the original error text followed by " - Scryfall response: " and the first 300 characters of response text
 
 ### Requirement: Non-429 client errors are not retried
-Scryfall 4xx responses other than 429 SHALL propagate after one attempt. Other request failures SHALL retain the configured attempt budget and exponential retry delay, except that 429 SHALL use the shared cooldown policy.
+Scryfall 4xx responses other than 429 SHALL propagate after one attempt. Other request failures, including 429, SHALL retain the configured attempt budget and exponential retry delay.
 
 #### Scenario: 400 is final
 - **WHEN** a request returns 400
@@ -38,29 +38,6 @@ Scryfall 4xx responses other than 429 SHALL propagate after one attempt. Other r
 #### Scenario: Transient request failure
 - **WHEN** a request fails without an HTTP response and the next configured attempt succeeds
 - **THEN** the request is retried and its successful result is returned
-
-### Requirement: Requests use shared pacing
-Requests SHALL reserve times using one process-shared schedule, with intervals of 0.1 seconds for GET and 0.5 seconds for POST. A reservation SHALL wait until its scheduled time before sending.
-
-#### Scenario: Consecutive grouped requests
-- **WHEN** two grouped POST requests reserve times immediately in succession
-- **THEN** the second waits for the remaining POST interval
-
-### Requirement: Rate limiting pauses all requests
-A non-final 429 SHALL log the status and wait duration, postpone future reservations on the shared schedule, and retry within the configured attempt budget. Numeric Retry-After seconds SHALL be clamped to 0–120; an absent or unparseable value SHALL use 60 seconds. A final 429 SHALL propagate as an exhausted rate-limit failure.
-
-#### Scenario: Retry-After honoured
-- **WHEN** a non-final 429 supplies Retry-After of 7 seconds
-- **THEN** future shared request reservations are deferred by at least 7 seconds from the cooldown calculation
-- **AND** another attempt is made
-
-#### Scenario: Missing Retry-After
-- **WHEN** a non-final 429 has no parseable Retry-After value
-- **THEN** the shared schedule receives a 60-second cooldown
-
-#### Scenario: Persistent 429
-- **WHEN** every configured attempt returns 429
-- **THEN** an exhausted rate-limit failure propagates after the final attempt
 
 ### Requirement: Collection lookup omits blank identifiers
 A collection lookup SHALL reject input lists longer than 75 before filtering, omit empty and whitespace-only names, and send remaining names unchanged. If none remain it SHALL return empty found and unresolved lists without an HTTP request.

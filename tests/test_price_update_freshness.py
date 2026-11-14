@@ -132,14 +132,6 @@ class TestRepositoryBulkMethods(unittest.TestCase):
 
 
 class TestCollectionLookup(unittest.TestCase):
-    def setUp(self):
-        # Never really sleep (pacing / 429 waits) and start each test with a fresh limiter.
-        from deckdex.card_fetcher import CardFetcher, _RateLimiter
-
-        self.sleep = patch("deckdex.card_fetcher.time.sleep").start()
-        self.addCleanup(patch.stopall)
-        patch.object(CardFetcher, "_rate_limiter", _RateLimiter()).start()
-
     def _fetcher(self):
         from deckdex.card_fetcher import CardFetcher
         from deckdex.config import OpenAIConfig, ScryfallConfig
@@ -198,55 +190,6 @@ class TestCollectionLookup(unittest.TestCase):
         self.assertIn("400 Client Error", str(ctx.exception))
         self.assertIn("Use a custom UA", str(ctx.exception))
 
-    # [spec:scryfall-request-diagnostics/rate-limiting-pauses-all-requests]
-    def test_429_is_retried(self):
-        import requests
-
-        fetcher = self._fetcher()
-        limited = MagicMock(status_code=429)
-        limited.raise_for_status.side_effect = requests.exceptions.HTTPError("429", response=limited)
-        ok = self._response({"data": [], "not_found": []})
-        with patch("requests.post", side_effect=[limited, ok]) as post:
-            fetcher.get_cards_collection(["A"])
-        self.assertEqual(post.call_count, 2)
-
-    # [spec:scryfall-request-diagnostics/rate-limiting-pauses-all-requests]
-    def test_429_honors_retry_after_and_pauses_all_requests(self):
-        import requests
-
-        fetcher = self._fetcher()
-        limited = MagicMock(status_code=429, headers={"Retry-After": "7"})
-        limited.raise_for_status.side_effect = requests.exceptions.HTTPError("429", response=limited)
-        ok = self._response({"data": [], "not_found": []})
-        with (
-            patch("requests.post", side_effect=[limited, ok]),
-            patch.object(type(fetcher)._rate_limiter, "pause") as pause,
-        ):
-            fetcher.get_cards_collection(["A"])
-        pause.assert_called_once_with(7.0)
-
-    # [spec:scryfall-request-diagnostics/rate-limiting-pauses-all-requests]
-    def test_persistent_429_raises_rate_limit_error(self):
-        import requests
-
-        from deckdex.card_fetcher import ScryfallRateLimitError
-
-        fetcher = self._fetcher()
-        limited = MagicMock(status_code=429, headers={})
-        limited.raise_for_status.side_effect = requests.exceptions.HTTPError("429", response=limited)
-        with patch("requests.post", return_value=limited) as post:
-            with self.assertRaises(ScryfallRateLimitError):
-                fetcher.get_cards_collection(["A"])
-        self.assertEqual(post.call_count, 2)  # max_retries=2
-
-    # [spec:scryfall-request-diagnostics/requests-use-shared-pacing]
-    def test_requests_are_paced(self):
-        fetcher = self._fetcher()
-        with patch("requests.post", return_value=self._response({"data": [], "not_found": []})):
-            fetcher.get_cards_collection(["A"])
-            fetcher.get_cards_collection(["B"])
-        self.assertTrue(self.sleep.called)
-
     # [spec:scryfall-request-diagnostics/collection-lookup-omits-blank-identifiers]
     def test_empty_names_are_dropped(self):
         fetcher = self._fetcher()
@@ -285,39 +228,12 @@ class TestCollectionLookup(unittest.TestCase):
                 fetcher.get_cards_collection(["A"])
         self.assertEqual(str(ctx.exception), "400 Client Error - Scryfall response: " + "x" * 300)
 
-    # [spec:scryfall-request-diagnostics/rate-limiting-pauses-all-requests]
-    def test_retry_after_defaults_and_bounds(self):
-        from deckdex.card_fetcher import CardFetcher
-
-        for headers, expected in (
-            ({}, 60.0),
-            ({"Retry-After": "bad"}, 60.0),
-            ({"Retry-After": "-2"}, 0.0),
-            ({"Retry-After": "999"}, 120.0),
-        ):
-            with self.subTest(headers=headers):
-                self.assertEqual(CardFetcher._retry_after_seconds(MagicMock(headers=headers)), expected)
-
     # [spec:scryfall-request-diagnostics/collection-lookup-omits-blank-identifiers]
     def test_all_blank_names_send_no_request(self):
         fetcher = self._fetcher()
         with patch("requests.post") as post:
             self.assertEqual(fetcher.get_cards_collection(["", "  "]), ([], []))
         post.assert_not_called()
-
-    # [spec:scryfall-request-diagnostics/requests-use-shared-pacing]
-    # [spec:scryfall-request-diagnostics/rate-limiting-pauses-all-requests]
-    def test_shared_schedule_paces_get_after_post_and_cooldown(self):
-        from deckdex.card_fetcher import _RateLimiter
-
-        limiter = _RateLimiter()
-        with patch("deckdex.card_fetcher.time.monotonic", return_value=100.0):
-            limiter.wait(0.5)
-            limiter.wait(0.1)
-            self.sleep.assert_called_once_with(0.5)
-            limiter.pause(7.0)
-            limiter.wait(0.1)
-            self.assertEqual(self.sleep.call_args.args, (7.0,))
 
 
 class TestGroupedLookup(unittest.TestCase):
@@ -378,18 +294,35 @@ class TestGroupedLookup(unittest.TestCase):
         self.assertEqual(fetch.call_count, 2)
         self.assertTrue(all(results.values()))
 
+    # [spec:price-refresh-efficiency/grouped-price-lookup]
+    # [spec:scryfall-request-diagnostics/non-429-client-errors-are-not-retried]
+    # [spec:scryfall-request-diagnostics/scryfall-error-detail-is-surfaced]
+    def test_exhausted_429_falls_back_for_every_name_and_logs_detail(self):
+        import requests
 
-class TestRateLimitedGroupedLookup(unittest.TestCase):
-    # [spec:scryfall-request-diagnostics/rate-limiting-pauses-all-requests]
-    def test_rate_limit_does_not_fall_back_to_per_card_lookups(self):
-        from deckdex.card_fetcher import ScryfallRateLimitError
+        from deckdex.card_fetcher import CardFetcher
+        from deckdex.config import OpenAIConfig, ScryfallConfig
 
         proc = _make_processor()
-        proc.card_fetcher.get_cards_collection = MagicMock(side_effect=ScryfallRateLimitError("429"))
-        proc._fetch_card_data = MagicMock()
-        with self.assertRaises(ScryfallRateLimitError):
-            proc._fetch_card_prices_grouped(["A", "B"])
-        proc._fetch_card_data.assert_not_called()
+        proc.card_fetcher = CardFetcher(ScryfallConfig(max_retries=3, retry_delay=1), OpenAIConfig())
+        bad = MagicMock(status_code=429)
+        bad.json.return_value = {"details": "Too many requests", "rule": "rate_limit"}
+        bad.raise_for_status.side_effect = requests.exceptions.HTTPError("429 Client Error", response=bad)
+        with (
+            patch("requests.post", return_value=bad) as post,
+            patch("deckdex.card_fetcher.time.sleep") as sleep,
+            patch("deckdex.magic_card_processor.logger.warning") as warning,
+            patch.object(proc, "_fetch_card_data", side_effect=lambda name: _scryfall_card(name)) as fetch,
+        ):
+            results = proc._fetch_card_prices_grouped(["A", "B"])
+        self.assertEqual(post.call_count, 3)
+        self.assertEqual([c.args[0] for c in sleep.call_args_list[:2]], [1, 2])
+        self.assertEqual([c.args[0] for c in fetch.call_args_list], ["A", "B"])
+        self.assertEqual(results, {name: _scryfall_card(name) for name in ["A", "B"]})
+        message = warning.call_args.args[0]
+        self.assertIn("429", message)
+        self.assertIn("rate_limit", message)
+        self.assertIn("Too many requests", message)
 
 
 class TestSelectStaleCards(unittest.TestCase):

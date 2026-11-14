@@ -1,7 +1,6 @@
 import json
 import os
 import re
-import threading
 import time
 from typing import Any, Dict, List, Optional, Tuple
 from urllib.parse import quote_plus
@@ -22,43 +21,11 @@ from tenacity import retry, retry_if_exception_type, stop_after_attempt, wait_ex
 from .config import OpenAIConfig, ScryfallConfig
 
 
-class ScryfallRateLimitError(requests.exceptions.HTTPError):
-    """Scryfall kept answering 429 after waiting; callers must stop instead of adding requests."""
-
-
-class _RateLimiter:
-    """Process-wide pacing shared by every thread that talks to Scryfall."""
-
-    def __init__(self) -> None:
-        self._lock = threading.Lock()
-        self._next_allowed = 0.0
-
-    def wait(self, interval: float) -> None:
-        with self._lock:
-            now = time.monotonic()
-            delay = self._next_allowed - now
-            self._next_allowed = max(now, self._next_allowed) + interval
-        if delay > 0:
-            time.sleep(delay)
-
-    def pause(self, seconds: float) -> None:
-        """Push every thread's next request back (used after a 429)."""
-        with self._lock:
-            self._next_allowed = max(self._next_allowed, time.monotonic() + seconds)
-
-
 class CardFetcher:
     """Fetches card data from Scryfall API."""
 
     BASE_URL = "https://api.scryfall.com"
     COLLECTION_MAX_IDENTIFIERS = 75
-    # Minimum seconds between requests, shared across threads. Collection POSTs are heavier
-    # (up to 75 names each), so they are paced more conservatively than single GETs.
-    GET_MIN_INTERVAL = 0.1
-    POST_MIN_INTERVAL = 0.5
-    RATE_LIMIT_DEFAULT_WAIT = 60.0
-    RATE_LIMIT_MAX_WAIT = 120.0
-    _rate_limiter = _RateLimiter()
 
     def __init__(self, scryfall_config: ScryfallConfig, openai_config: OpenAIConfig):
         """Initialize the CardFetcher.
@@ -116,33 +83,14 @@ class CardFetcher:
         status = getattr(getattr(error, "response", None), "status_code", None)
         return not (isinstance(status, int) and 400 <= status < 500 and status != 429)
 
-    @classmethod
-    def _retry_after_seconds(cls, response: Any) -> float:
-        """Seconds Scryfall asks us to wait on a 429 (Retry-After header, else the 60 s it documents)."""
-        try:
-            value = float(response.headers.get("Retry-After"))
-        except (AttributeError, TypeError, ValueError):
-            return cls.RATE_LIMIT_DEFAULT_WAIT
-        return min(max(value, 0.0), cls.RATE_LIMIT_MAX_WAIT)
-
-    def _send_with_retry(self, send, min_interval: float) -> Dict[str, Any]:
+    def _send_with_retry(self, send) -> Dict[str, Any]:
         for attempt in range(self.max_retries):
             try:
-                self._rate_limiter.wait(min_interval)
                 response = send()
                 response.raise_for_status()
                 return response.json()
             except requests.exceptions.RequestException as e:
-                last_attempt = attempt == self.max_retries - 1
-                status = getattr(getattr(e, "response", None), "status_code", None)
-                if status == 429:
-                    wait_s = self._retry_after_seconds(e.response)
-                    if last_attempt:
-                        raise ScryfallRateLimitError(self._describe_http_error(e), response=e.response) from e
-                    logger.warning(f"Scryfall rate limit hit (429); pausing all requests for {wait_s:.0f}s")
-                    self._rate_limiter.pause(wait_s)
-                    continue
-                if last_attempt or not self._is_retryable(e):
+                if attempt == self.max_retries - 1 or not self._is_retryable(e):
                     if getattr(e, "response", None) is not None:
                         raise requests.exceptions.HTTPError(self._describe_http_error(e), response=e.response) from e
                     raise
@@ -150,15 +98,12 @@ class CardFetcher:
 
     def _make_request(self, url: str) -> Dict[str, Any]:
         """GET from the Scryfall API with retry logic (no retry on non-429 4xx)."""
-        return self._send_with_retry(
-            lambda: requests.get(url, headers=self.REQUEST_HEADERS, timeout=self.timeout), self.GET_MIN_INTERVAL
-        )
+        return self._send_with_retry(lambda: requests.get(url, headers=self.REQUEST_HEADERS, timeout=self.timeout))
 
     def _post_request(self, url: str, json_body: Dict[str, Any]) -> Dict[str, Any]:
         """POST JSON to the Scryfall API with the same retry/backoff as _make_request."""
         return self._send_with_retry(
-            lambda: requests.post(url, json=json_body, headers=self.REQUEST_HEADERS, timeout=self.timeout),
-            self.POST_MIN_INTERVAL,
+            lambda: requests.post(url, json=json_body, headers=self.REQUEST_HEADERS, timeout=self.timeout)
         )
 
     def get_cards_collection(self, names: List[str]) -> Tuple[List[Dict[str, Any]], List[str]]:

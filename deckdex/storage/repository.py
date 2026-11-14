@@ -99,15 +99,6 @@ def _card_to_row(card: Dict[str, Any]) -> Dict[str, Any]:
     }
 
 
-# price_eur is stored as text and written with a decimal comma ("0,08") by the price refresh,
-# while older rows may use a dot. Normalize the comma, then cast only well-formed numbers
-# ('N/A' and other junk become NULL).
-PRICE_NUMERIC_SQL = (
-    "CASE WHEN REPLACE(price_eur, ',', '.') ~ '^[0-9]+(\\.[0-9]+)?$' "
-    "THEN CAST(REPLACE(price_eur, ',', '.') AS numeric) ELSE NULL END"
-)
-
-
 @dataclass(frozen=True)
 class PriceUpdate:
     """One looked-up card: its (possibly new) price and when it was checked."""
@@ -632,7 +623,9 @@ class PostgresCollectionRepository(CollectionRepository):
             if price_min and str(price_min).strip():
                 try:
                     params["price_min"] = float(str(price_min).replace(",", "."))
-                    conditions.append(f"{PRICE_NUMERIC_SQL} >= :price_min")
+                    conditions.append(
+                        r"CASE WHEN price_eur ~ '^[0-9]+\.?[0-9]*$' THEN CAST(price_eur AS numeric) ELSE NULL END >= :price_min"
+                    )
                 except (ValueError, TypeError):
                     pass
 
@@ -640,7 +633,9 @@ class PostgresCollectionRepository(CollectionRepository):
             if price_max and str(price_max).strip():
                 try:
                     params["price_max"] = float(str(price_max).replace(",", "."))
-                    conditions.append(f"{PRICE_NUMERIC_SQL} <= :price_max")
+                    conditions.append(
+                        r"CASE WHEN price_eur ~ '^[0-9]+\.?[0-9]*$' THEN CAST(price_eur AS numeric) ELSE NULL END <= :price_max"
+                    )
                 except (ValueError, TypeError):
                     pass
 
@@ -694,9 +689,7 @@ class PostgresCollectionRepository(CollectionRepository):
         direction = "ASC" if sort_dir == "asc" else "DESC"
         # Push NULLs to the end regardless of direction for consistent UX
         nulls = "NULLS LAST"
-        # price_eur is text: sort numerically so "10,00" comes after "2,00"
-        sort_expr = PRICE_NUMERIC_SQL if col == "price_eur" else col
-        order_clause = f"ORDER BY {sort_expr} {direction} {nulls}, id {direction}"
+        order_clause = f"ORDER BY {col} {direction} {nulls}, id {direction}"
 
         sql = f"""
             SELECT COUNT(*) OVER() AS total_count, *
@@ -724,7 +717,7 @@ class PostgresCollectionRepository(CollectionRepository):
         engine = self._get_engine()
         where, params = self._build_filter_clauses(filters, user_id)
         # Use NULLIF to skip non-numeric price values like 'N/A' before casting
-        safe_price = PRICE_NUMERIC_SQL
+        safe_price = r"CASE WHEN price_eur ~ '^[0-9]+\.?[0-9]*$' THEN CAST(price_eur AS numeric) ELSE NULL END"
         sql = f"""
             SELECT
                 COALESCE(SUM(quantity), 0)::bigint AS total_cards,
