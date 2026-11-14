@@ -110,6 +110,12 @@ class ProgressCapture:
         return getattr(self.original, name)
 
 
+def _price_stats(processor) -> dict:
+    """Price refresh counters published by the processor (empty if it has none)."""
+    stats = getattr(processor, "price_stats", {})
+    return stats if isinstance(stats, dict) else {}
+
+
 class ProcessorService:
     """
     Wrapper service around MagicCardProcessor for API usage.
@@ -285,8 +291,11 @@ class ProcessorService:
             await self._emit_progress("complete", {"status": "error", "summary": {"status": "error", "error": str(e)}})
             raise
 
-    async def update_prices_async(self):
-        """Update prices asynchronously with real-time progress tracking."""
+    async def update_prices_async(self, force: bool = False):
+        """Update prices asynchronously with real-time progress tracking.
+
+        force: look up every card even if its price was checked within the freshness window.
+        """
         logger.info(f"Starting async price update (job_id={self.job_id})")
         self._persist_job_start("update_prices")
 
@@ -310,11 +319,12 @@ class ProcessorService:
                 try:
                     sys.stderr = capture_err
                     sys.stdout = capture_out
-                    processor.process_card_data()
+                    processor.process_card_data(force=force)
                     return {
                         "status": "success",
                         "error_count": processor.error_count,
                         "not_found_cards": processor.not_found_cards[:20],
+                        **_price_stats(processor),
                     }
                 except JobCancelledException:
                     logger.info(f"Price update job cancelled (job_id={self.job_id})")
@@ -323,6 +333,7 @@ class ProcessorService:
                         "message": "Job cancelled by user",
                         "error_count": getattr(processor, "error_count", 0),
                         "not_found_cards": getattr(processor, "not_found_cards", [])[:20],
+                        **_price_stats(processor),
                     }
                 except Exception as e:
                     logger.error(f"Price update error: {e}")

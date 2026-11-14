@@ -25,6 +25,7 @@ class CardFetcher:
     """Fetches card data from Scryfall API."""
 
     BASE_URL = "https://api.scryfall.com"
+    COLLECTION_MAX_IDENTIFIERS = 75
 
     def __init__(self, scryfall_config: ScryfallConfig, openai_config: OpenAIConfig):
         """Initialize the CardFetcher.
@@ -77,6 +78,39 @@ class CardFetcher:
                     # No registramos el error en el log, solo lo propagamos
                     raise
                 time.sleep(self.retry_delay * (2**attempt))
+
+    def _post_request(self, url: str, json_body: Dict[str, Any]) -> Dict[str, Any]:
+        """POST JSON to the Scryfall API with the same retry/backoff as _make_request."""
+        for attempt in range(self.max_retries):
+            try:
+                response = requests.post(url, json=json_body, timeout=self.timeout)
+                response.raise_for_status()
+                return response.json()
+            except requests.exceptions.RequestException:
+                if attempt == self.max_retries - 1:
+                    raise
+                time.sleep(self.retry_delay * (2**attempt))
+
+    def get_cards_collection(self, names: List[str]) -> Tuple[List[Dict[str, Any]], List[str]]:
+        """
+        Look up several cards by exact name in one request (Scryfall /cards/collection).
+
+        Args:
+            names: Card names, at most COLLECTION_MAX_IDENTIFIERS.
+
+        Returns:
+            (found card dicts, names Scryfall reported as not found).
+
+        Raises:
+            ValueError: If more than COLLECTION_MAX_IDENTIFIERS names are given.
+        """
+        if len(names) > self.COLLECTION_MAX_IDENTIFIERS:
+            raise ValueError(f"get_cards_collection accepts at most {self.COLLECTION_MAX_IDENTIFIERS} names")
+        body = {"identifiers": [{"name": n} for n in names]}
+        response = self._post_request(f"{self.BASE_URL}/cards/collection", body)
+        found = response.get("data") or []
+        not_found = [ident.get("name") for ident in (response.get("not_found") or []) if ident.get("name")]
+        return found, not_found
 
     def autocomplete(self, q: str) -> List[str]:
         """
