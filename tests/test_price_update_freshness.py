@@ -171,6 +171,7 @@ class TestCollectionLookup(unittest.TestCase):
             fetcher.get_cards_collection(["A"])
         self.assertEqual(post.call_count, 2)
 
+    # [spec:scryfall-request-diagnostics/scryfall-requests-identify-the-client]
     def test_sends_custom_user_agent_and_accept(self):
         fetcher = self._fetcher()
         with patch("requests.post", return_value=self._response({"data": [], "not_found": []})) as post:
@@ -179,6 +180,8 @@ class TestCollectionLookup(unittest.TestCase):
         self.assertNotIn("python-requests", headers["User-Agent"])
         self.assertEqual(headers["Accept"], "application/json")
 
+    # [spec:scryfall-request-diagnostics/scryfall-error-detail-is-surfaced]
+    # [spec:scryfall-request-diagnostics/non-429-client-errors-are-not-retried]
     def test_4xx_is_not_retried_and_reports_scryfall_detail(self):
         import requests
 
@@ -192,6 +195,7 @@ class TestCollectionLookup(unittest.TestCase):
         self.assertEqual(post.call_count, 1)
         self.assertIn("generic_user_agent", str(ctx.exception))
 
+    # [spec:scryfall-request-diagnostics/rate-limiting-pauses-all-requests]
     def test_429_is_retried(self):
         import requests
 
@@ -203,6 +207,7 @@ class TestCollectionLookup(unittest.TestCase):
             fetcher.get_cards_collection(["A"])
         self.assertEqual(post.call_count, 2)
 
+    # [spec:scryfall-request-diagnostics/rate-limiting-pauses-all-requests]
     def test_429_honors_retry_after_and_pauses_all_requests(self):
         import requests
 
@@ -217,6 +222,7 @@ class TestCollectionLookup(unittest.TestCase):
             fetcher.get_cards_collection(["A"])
         pause.assert_called_once_with(7.0)
 
+    # [spec:scryfall-request-diagnostics/rate-limiting-pauses-all-requests]
     def test_persistent_429_raises_rate_limit_error(self):
         import requests
 
@@ -277,6 +283,7 @@ class TestGroupedLookup(unittest.TestCase):
         self.assertIsNotNone(results["delver of secrets"])
         self.assertEqual(proc.requests_made, 1)
 
+    # [spec:scryfall-request-diagnostics/grouped-lookup-fallback]
     def test_unresolved_name_falls_back_once(self):
         proc = _make_processor()
         proc.card_fetcher.get_cards_collection = _collection_fetcher(missing={"Ghost"})
@@ -286,6 +293,7 @@ class TestGroupedLookup(unittest.TestCase):
         self.assertIsNone(results["Ghost"])
         self.assertEqual(proc.requests_made, 2)
 
+    # [spec:scryfall-request-diagnostics/grouped-lookup-fallback]
     def test_not_found_card_lands_in_error_accounting(self):
         proc = _make_processor()
         proc.card_fetcher.get_cards_collection = _collection_fetcher(missing={"Ghost"})
@@ -295,6 +303,7 @@ class TestGroupedLookup(unittest.TestCase):
         self.assertEqual(proc.error_count, 1)
         self.assertEqual(proc.not_found_cards, ["Ghost"])
 
+    # [spec:scryfall-request-diagnostics/grouped-lookup-fallback]
     def test_failing_post_falls_back_to_per_name_lookups(self):
         proc = _make_processor()
         proc.card_fetcher.get_cards_collection = MagicMock(side_effect=RuntimeError("boom"))
@@ -305,6 +314,7 @@ class TestGroupedLookup(unittest.TestCase):
 
 
 class TestRateLimitedGroupedLookup(unittest.TestCase):
+    # [spec:scryfall-request-diagnostics/rate-limiting-pauses-all-requests]
     def test_rate_limit_does_not_fall_back_to_per_card_lookups(self):
         from deckdex.card_fetcher import ScryfallRateLimitError
 

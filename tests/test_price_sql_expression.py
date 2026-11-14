@@ -15,27 +15,32 @@ class TestPriceNumericExpression(unittest.TestCase):
     def _regex(self):
         return re.search(r"~ '([^']+)'", PRICE_NUMERIC_SQL).group(1)
 
+    # [spec:price-numeric-sql/decimal-comma-prices-are-numeric]
     def test_regex_accepts_comma_and_dot_decimals(self):
         pattern = self._regex()
         for value in ("0,08", "104,45", "1.00", "3", "12,5"):
             self.assertIsNotNone(re.match(pattern, value.replace(",", ".")), value)
 
+    # [spec:price-numeric-sql/decimal-comma-prices-are-numeric]
     def test_regex_rejects_junk(self):
         pattern = self._regex()
         for value in ("N/A", "", "1.2.3", "abc", "-1"):
             self.assertIsNone(re.match(pattern, value), value)
 
+    # [spec:price-numeric-sql/decimal-comma-prices-are-numeric]
     def test_comma_is_normalized_before_casting(self):
         self.assertIn("REPLACE(price_eur, ',', '.')", PRICE_NUMERIC_SQL)
 
 
 class TestPriceFilters(unittest.TestCase):
+    # [spec:price-numeric-sql/price-filters-and-sort-are-numeric]
     def test_price_filters_use_numeric_expression(self):
         where, params = _repo()._build_filter_clauses({"price_min": "1,5", "price_max": "10"}, None)
         self.assertEqual(where.count(PRICE_NUMERIC_SQL), 2)
         self.assertEqual(params["price_min"], 1.5)
         self.assertEqual(params["price_max"], 10.0)
 
+    # [spec:price-numeric-sql/price-filters-and-sort-are-numeric]
     def test_sort_by_price_is_numeric(self):
         engine = MagicMock()
         conn = engine.connect.return_value.__enter__.return_value
