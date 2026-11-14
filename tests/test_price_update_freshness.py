@@ -154,6 +154,7 @@ class TestCollectionLookup(unittest.TestCase):
         self.assertTrue(post.call_args[0][0].endswith("/cards/collection"))
         self.assertEqual(post.call_args[1]["json"], {"identifiers": [{"name": "A"}, {"name": "B"}]})
 
+    # [spec:scryfall-request-diagnostics/non-429-client-errors-are-not-retried]
     def test_retries_on_request_exception(self):
         import requests
 
@@ -163,9 +164,76 @@ class TestCollectionLookup(unittest.TestCase):
             fetcher.get_cards_collection(["A"])
         self.assertEqual(post.call_count, 2)
 
+    # [spec:scryfall-request-diagnostics/scryfall-requests-identify-the-client]
+    def test_sends_custom_user_agent_and_accept(self):
+        fetcher = self._fetcher()
+        with patch("requests.post", return_value=self._response({"data": [], "not_found": []})) as post:
+            fetcher.get_cards_collection(["A"])
+        headers = post.call_args[1]["headers"]
+        self.assertEqual(headers["User-Agent"], "DeckDex/1.0 (MTG collection manager)")
+        self.assertEqual(headers["Accept"], "application/json")
+
+    # [spec:scryfall-request-diagnostics/scryfall-error-detail-is-surfaced]
+    # [spec:scryfall-request-diagnostics/non-429-client-errors-are-not-retried]
+    def test_4xx_is_not_retried_and_reports_scryfall_detail(self):
+        import requests
+
+        fetcher = self._fetcher()
+        bad = MagicMock(status_code=400)
+        bad.json.return_value = {"rule": "generic_user_agent", "details": "Use a custom UA"}
+        bad.raise_for_status.side_effect = requests.exceptions.HTTPError("400 Client Error", response=bad)
+        with patch("requests.post", return_value=bad) as post:
+            with self.assertRaises(requests.exceptions.HTTPError) as ctx:
+                fetcher.get_cards_collection(["A"])
+        self.assertEqual(post.call_count, 1)
+        self.assertIn("generic_user_agent", str(ctx.exception))
+        self.assertIn("400 Client Error", str(ctx.exception))
+        self.assertIn("Use a custom UA", str(ctx.exception))
+
+    # [spec:scryfall-request-diagnostics/collection-lookup-omits-blank-identifiers]
+    def test_empty_names_are_dropped(self):
+        fetcher = self._fetcher()
+        with patch("requests.post", return_value=self._response({"data": [], "not_found": []})) as post:
+            fetcher.get_cards_collection(["A", "", "  "])
+        self.assertEqual(post.call_args[1]["json"], {"identifiers": [{"name": "A"}]})
+
+    # [spec:scryfall-request-diagnostics/collection-lookup-omits-blank-identifiers]
     def test_more_than_75_names_raises(self):
         with self.assertRaises(ValueError):
             self._fetcher().get_cards_collection([f"C{i}" for i in range(76)])
+
+    # [spec:scryfall-request-diagnostics/scryfall-requests-identify-the-client]
+    def test_get_sends_client_headers(self):
+        fetcher = self._fetcher()
+        with patch("requests.get", return_value=self._response({"data": []})) as get:
+            fetcher._make_request("https://api.scryfall.com/cards/search")
+        self.assertEqual(
+            get.call_args.kwargs["headers"],
+            {
+                "User-Agent": "DeckDex/1.0 (MTG collection manager)",
+                "Accept": "application/json",
+            },
+        )
+
+    # [spec:scryfall-request-diagnostics/scryfall-error-detail-is-surfaced]
+    def test_non_json_error_includes_only_first_300_body_characters(self):
+        import requests
+
+        fetcher = self._fetcher()
+        bad = MagicMock(status_code=400, text="x" * 300 + "TRUNCATED")
+        bad.json.side_effect = ValueError("not JSON")
+        bad.raise_for_status.side_effect = requests.exceptions.HTTPError("400 Client Error", response=bad)
+        with patch("requests.post", return_value=bad):
+            with self.assertRaises(requests.exceptions.HTTPError) as ctx:
+                fetcher.get_cards_collection(["A"])
+        self.assertEqual(str(ctx.exception), "400 Client Error - Scryfall response: " + "x" * 300)
+
+    # [spec:scryfall-request-diagnostics/collection-lookup-omits-blank-identifiers]
+    def test_all_blank_names_send_no_request(self):
+        fetcher = self._fetcher()
+        with patch("requests.post") as post:
+            self.assertEqual(fetcher.get_cards_collection(["", "  "]), ([], []))
+        post.assert_not_called()
 
 
 class TestGroupedLookup(unittest.TestCase):
@@ -197,6 +265,7 @@ class TestGroupedLookup(unittest.TestCase):
         self.assertIsNotNone(results["delver of secrets"])
         self.assertEqual(proc.requests_made, 1)
 
+    # [spec:price-refresh-efficiency/grouped-price-lookup]
     def test_unresolved_name_falls_back_once(self):
         proc = _make_processor()
         proc.card_fetcher.get_cards_collection = _collection_fetcher(missing={"Ghost"})
@@ -206,6 +275,7 @@ class TestGroupedLookup(unittest.TestCase):
         self.assertIsNone(results["Ghost"])
         self.assertEqual(proc.requests_made, 2)
 
+    # [spec:price-refresh-efficiency/grouped-price-lookup]
     def test_not_found_card_lands_in_error_accounting(self):
         proc = _make_processor()
         proc.card_fetcher.get_cards_collection = _collection_fetcher(missing={"Ghost"})
@@ -215,6 +285,7 @@ class TestGroupedLookup(unittest.TestCase):
         self.assertEqual(proc.error_count, 1)
         self.assertEqual(proc.not_found_cards, ["Ghost"])
 
+    # [spec:price-refresh-efficiency/grouped-price-lookup]
     def test_failing_post_falls_back_to_per_name_lookups(self):
         proc = _make_processor()
         proc.card_fetcher.get_cards_collection = MagicMock(side_effect=RuntimeError("boom"))
@@ -222,6 +293,36 @@ class TestGroupedLookup(unittest.TestCase):
             results = proc._fetch_card_prices_grouped(["A", "B"])
         self.assertEqual(fetch.call_count, 2)
         self.assertTrue(all(results.values()))
+
+    # [spec:price-refresh-efficiency/grouped-price-lookup]
+    # [spec:scryfall-request-diagnostics/non-429-client-errors-are-not-retried]
+    # [spec:scryfall-request-diagnostics/scryfall-error-detail-is-surfaced]
+    def test_exhausted_429_falls_back_for_every_name_and_logs_detail(self):
+        import requests
+
+        from deckdex.card_fetcher import CardFetcher
+        from deckdex.config import OpenAIConfig, ScryfallConfig
+
+        proc = _make_processor()
+        proc.card_fetcher = CardFetcher(ScryfallConfig(max_retries=3, retry_delay=1), OpenAIConfig())
+        bad = MagicMock(status_code=429)
+        bad.json.return_value = {"details": "Too many requests", "rule": "rate_limit"}
+        bad.raise_for_status.side_effect = requests.exceptions.HTTPError("429 Client Error", response=bad)
+        with (
+            patch("requests.post", return_value=bad) as post,
+            patch("deckdex.card_fetcher.time.sleep") as sleep,
+            patch("deckdex.magic_card_processor.logger.warning") as warning,
+            patch.object(proc, "_fetch_card_data", side_effect=lambda name: _scryfall_card(name)) as fetch,
+        ):
+            results = proc._fetch_card_prices_grouped(["A", "B"])
+        self.assertEqual(post.call_count, 3)
+        self.assertEqual([c.args[0] for c in sleep.call_args_list[:2]], [1, 2])
+        self.assertEqual([c.args[0] for c in fetch.call_args_list], ["A", "B"])
+        self.assertEqual(results, {name: _scryfall_card(name) for name in ["A", "B"]})
+        message = warning.call_args.args[0]
+        self.assertIn("429", message)
+        self.assertIn("rate_limit", message)
+        self.assertIn("Too many requests", message)
 
 
 class TestSelectStaleCards(unittest.TestCase):

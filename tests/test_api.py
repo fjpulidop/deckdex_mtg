@@ -5,7 +5,7 @@ Requires httpx<0.28 for TestClient compatibility (see requirements.txt).
 """
 
 import unittest
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 
 from fastapi.testclient import TestClient
 
@@ -23,23 +23,23 @@ SAMPLE_CARDS = [
 
 
 # ---------------------------------------------------------------------------
-# Health (no mocks)
+# Health (mocked DB probe; independent of local database configuration)
 # ---------------------------------------------------------------------------
 class TestHealth(unittest.TestCase):
-    @classmethod
-    def setUpClass(cls):
-        app.dependency_overrides[get_current_user_id] = lambda: 1
-        cls.client = TestClient(app)
-
-    @classmethod
-    def tearDownClass(cls):
-        app.dependency_overrides.pop(get_current_user_id, None)
+    def setUp(self):
+        self.client = TestClient(app)
+        engine_patch = patch("backend.api.db.get_engine", return_value=None)
+        self.mock_get_engine = engine_patch.start()
+        self.addCleanup(engine_patch.stop)
 
     def test_health_returns_200(self):
+        """[spec:web-api-backend/deep-health-check-with-db-probe] No DB is healthy."""
         response = self.client.get("/api/health")
         self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json()["database"], "not_configured")
 
     def test_health_body_has_service_version_status(self):
+        """[spec:api-tests/health] Health response includes service, version and status."""
         response = self.client.get("/api/health")
         self.assertEqual(response.status_code, 200)
         data = response.json()
@@ -49,6 +49,31 @@ class TestHealth(unittest.TestCase):
         self.assertEqual(data["service"], "DeckDex MTG API")
         self.assertEqual(data["version"], "0.1.0")
         self.assertEqual(data["status"], "healthy")
+
+    def test_health_probes_configured_database(self):
+        """[spec:web-api-backend/deep-health-check-with-db-probe] Probe uses SELECT 1."""
+        engine = MagicMock()
+        self.mock_get_engine.return_value = engine
+
+        response = self.client.get("/api/health")
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json()["database"], "connected")
+        connection = engine.connect.return_value.__enter__.return_value
+        connection.execute.assert_called_once()
+        self.assertEqual(str(connection.execute.call_args.args[0]), "SELECT 1")
+
+    def test_health_reports_database_failure(self):
+        """[spec:web-api-backend/deep-health-check-with-db-probe] Failed probe returns 503."""
+        engine = MagicMock()
+        engine.connect.side_effect = RuntimeError("Database unavailable")
+        self.mock_get_engine.return_value = engine
+
+        response = self.client.get("/api/health")
+
+        self.assertEqual(response.status_code, 503)
+        self.assertEqual(response.json()["status"], "degraded")
+        self.assertEqual(response.json()["database"], "error")
 
 
 # ---------------------------------------------------------------------------

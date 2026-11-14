@@ -55,41 +55,56 @@ class CardFetcher:
             else:
                 logger.info("OpenAI disabled in config, card analysis will be disabled")
 
-    def _make_request(self, url: str) -> Dict[str, Any]:
-        """
-        Make a request to the Scryfall API with retry logic.
+    REQUEST_HEADERS = {
+        # Scryfall rejects default library User-Agents with a 400 (rule: generic_user_agent).
+        "User-Agent": "DeckDex/1.0 (MTG collection manager)",
+        "Accept": "application/json",
+    }
 
-        Args:
-            url: The URL to request.
+    @staticmethod
+    def _describe_http_error(error: requests.exceptions.RequestException) -> str:
+        """Message including Scryfall's status and error detail when a response is available."""
+        response = getattr(error, "response", None)
+        if response is None:
+            return str(error)
+        detail = ""
+        try:
+            body = response.json()
+            detail = body.get("details") or ""
+            if body.get("rule"):
+                detail = f"[{body['rule']}] {detail}"
+        except Exception:
+            detail = (getattr(response, "text", "") or "")[:300]
+        return f"{error} - Scryfall response: {detail}".rstrip(" -:") if detail else str(error)
 
-        Returns:
-            The JSON response from the API.
+    @staticmethod
+    def _is_retryable(error: requests.exceptions.RequestException) -> bool:
+        """4xx responses other than 429 cannot succeed on retry."""
+        status = getattr(getattr(error, "response", None), "status_code", None)
+        return not (isinstance(status, int) and 400 <= status < 500 and status != 429)
 
-        Raises:
-            Exception: If the request fails after retries.
-        """
+    def _send_with_retry(self, send) -> Dict[str, Any]:
         for attempt in range(self.max_retries):
             try:
-                response = requests.get(url, timeout=self.timeout)
+                response = send()
                 response.raise_for_status()
                 return response.json()
             except requests.exceptions.RequestException as e:
-                if attempt == self.max_retries - 1:
-                    # No registramos el error en el log, solo lo propagamos
+                if attempt == self.max_retries - 1 or not self._is_retryable(e):
+                    if getattr(e, "response", None) is not None:
+                        raise requests.exceptions.HTTPError(self._describe_http_error(e), response=e.response) from e
                     raise
                 time.sleep(self.retry_delay * (2**attempt))
 
+    def _make_request(self, url: str) -> Dict[str, Any]:
+        """GET from the Scryfall API with retry logic (no retry on non-429 4xx)."""
+        return self._send_with_retry(lambda: requests.get(url, headers=self.REQUEST_HEADERS, timeout=self.timeout))
+
     def _post_request(self, url: str, json_body: Dict[str, Any]) -> Dict[str, Any]:
         """POST JSON to the Scryfall API with the same retry/backoff as _make_request."""
-        for attempt in range(self.max_retries):
-            try:
-                response = requests.post(url, json=json_body, timeout=self.timeout)
-                response.raise_for_status()
-                return response.json()
-            except requests.exceptions.RequestException:
-                if attempt == self.max_retries - 1:
-                    raise
-                time.sleep(self.retry_delay * (2**attempt))
+        return self._send_with_retry(
+            lambda: requests.post(url, json=json_body, headers=self.REQUEST_HEADERS, timeout=self.timeout)
+        )
 
     def get_cards_collection(self, names: List[str]) -> Tuple[List[Dict[str, Any]], List[str]]:
         """
@@ -106,6 +121,9 @@ class CardFetcher:
         """
         if len(names) > self.COLLECTION_MAX_IDENTIFIERS:
             raise ValueError(f"get_cards_collection accepts at most {self.COLLECTION_MAX_IDENTIFIERS} names")
+        names = [n for n in names if n and n.strip()]
+        if not names:
+            return [], []
         body = {"identifiers": [{"name": n} for n in names]}
         response = self._post_request(f"{self.BASE_URL}/cards/collection", body)
         found = response.get("data") or []
