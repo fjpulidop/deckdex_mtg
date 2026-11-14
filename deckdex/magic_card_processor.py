@@ -12,7 +12,7 @@ import gspread
 from loguru import logger
 from tqdm import tqdm
 
-from .card_fetcher import CardFetcher
+from .card_fetcher import CardFetcher, ScryfallRateLimitError
 from .config import ClientFactory, ProcessorConfig
 from .storage import get_collection_repository
 from .storage.repository import PriceUpdate
@@ -140,6 +140,9 @@ class MagicCardProcessor:
                 for card in found_cards:
                     for key in self._card_name_keys(card):
                         found_by_key.setdefault(key, card)
+            except ScryfallRateLimitError:
+                # Falling back to per-card lookups would add requests while Scryfall asks us to stop.
+                raise
             except Exception as e:
                 logger.warning(f"Grouped price lookup failed, falling back to per-card lookups: {e}")
             time.sleep(self.config.processing.api_delay)

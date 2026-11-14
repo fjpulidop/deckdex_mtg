@@ -132,6 +132,14 @@ class TestRepositoryBulkMethods(unittest.TestCase):
 
 
 class TestCollectionLookup(unittest.TestCase):
+    def setUp(self):
+        # Never really sleep (pacing / 429 waits) and start each test with a fresh limiter.
+        from deckdex.card_fetcher import CardFetcher, _RateLimiter
+
+        self.sleep = patch("deckdex.card_fetcher.time.sleep").start()
+        self.addCleanup(patch.stopall)
+        patch.object(CardFetcher, "_rate_limiter", _RateLimiter()).start()
+
     def _fetcher(self):
         from deckdex.card_fetcher import CardFetcher
         from deckdex.config import OpenAIConfig, ScryfallConfig
@@ -162,6 +170,78 @@ class TestCollectionLookup(unittest.TestCase):
         with patch("requests.post", side_effect=[requests.exceptions.RequestException("x"), ok]) as post:
             fetcher.get_cards_collection(["A"])
         self.assertEqual(post.call_count, 2)
+
+    def test_sends_custom_user_agent_and_accept(self):
+        fetcher = self._fetcher()
+        with patch("requests.post", return_value=self._response({"data": [], "not_found": []})) as post:
+            fetcher.get_cards_collection(["A"])
+        headers = post.call_args[1]["headers"]
+        self.assertNotIn("python-requests", headers["User-Agent"])
+        self.assertEqual(headers["Accept"], "application/json")
+
+    def test_4xx_is_not_retried_and_reports_scryfall_detail(self):
+        import requests
+
+        fetcher = self._fetcher()
+        bad = MagicMock(status_code=400)
+        bad.json.return_value = {"rule": "generic_user_agent", "details": "Use a custom UA"}
+        bad.raise_for_status.side_effect = requests.exceptions.HTTPError("400 Client Error", response=bad)
+        with patch("requests.post", return_value=bad) as post:
+            with self.assertRaises(requests.exceptions.HTTPError) as ctx:
+                fetcher.get_cards_collection(["A"])
+        self.assertEqual(post.call_count, 1)
+        self.assertIn("generic_user_agent", str(ctx.exception))
+
+    def test_429_is_retried(self):
+        import requests
+
+        fetcher = self._fetcher()
+        limited = MagicMock(status_code=429)
+        limited.raise_for_status.side_effect = requests.exceptions.HTTPError("429", response=limited)
+        ok = self._response({"data": [], "not_found": []})
+        with patch("requests.post", side_effect=[limited, ok]) as post:
+            fetcher.get_cards_collection(["A"])
+        self.assertEqual(post.call_count, 2)
+
+    def test_429_honors_retry_after_and_pauses_all_requests(self):
+        import requests
+
+        fetcher = self._fetcher()
+        limited = MagicMock(status_code=429, headers={"Retry-After": "7"})
+        limited.raise_for_status.side_effect = requests.exceptions.HTTPError("429", response=limited)
+        ok = self._response({"data": [], "not_found": []})
+        with (
+            patch("requests.post", side_effect=[limited, ok]),
+            patch.object(type(fetcher)._rate_limiter, "pause") as pause,
+        ):
+            fetcher.get_cards_collection(["A"])
+        pause.assert_called_once_with(7.0)
+
+    def test_persistent_429_raises_rate_limit_error(self):
+        import requests
+
+        from deckdex.card_fetcher import ScryfallRateLimitError
+
+        fetcher = self._fetcher()
+        limited = MagicMock(status_code=429, headers={})
+        limited.raise_for_status.side_effect = requests.exceptions.HTTPError("429", response=limited)
+        with patch("requests.post", return_value=limited) as post:
+            with self.assertRaises(ScryfallRateLimitError):
+                fetcher.get_cards_collection(["A"])
+        self.assertEqual(post.call_count, 2)  # max_retries=2
+
+    def test_requests_are_paced(self):
+        fetcher = self._fetcher()
+        with patch("requests.post", return_value=self._response({"data": [], "not_found": []})):
+            fetcher.get_cards_collection(["A"])
+            fetcher.get_cards_collection(["B"])
+        self.assertTrue(self.sleep.called)
+
+    def test_empty_names_are_dropped(self):
+        fetcher = self._fetcher()
+        with patch("requests.post", return_value=self._response({"data": [], "not_found": []})) as post:
+            fetcher.get_cards_collection(["A", "", "  "])
+        self.assertEqual(post.call_args[1]["json"], {"identifiers": [{"name": "A"}]})
 
     def test_more_than_75_names_raises(self):
         with self.assertRaises(ValueError):
@@ -222,6 +302,18 @@ class TestGroupedLookup(unittest.TestCase):
             results = proc._fetch_card_prices_grouped(["A", "B"])
         self.assertEqual(fetch.call_count, 2)
         self.assertTrue(all(results.values()))
+
+
+class TestRateLimitedGroupedLookup(unittest.TestCase):
+    def test_rate_limit_does_not_fall_back_to_per_card_lookups(self):
+        from deckdex.card_fetcher import ScryfallRateLimitError
+
+        proc = _make_processor()
+        proc.card_fetcher.get_cards_collection = MagicMock(side_effect=ScryfallRateLimitError("429"))
+        proc._fetch_card_data = MagicMock()
+        with self.assertRaises(ScryfallRateLimitError):
+            proc._fetch_card_prices_grouped(["A", "B"])
+        proc._fetch_card_data.assert_not_called()
 
 
 class TestSelectStaleCards(unittest.TestCase):
