@@ -20,6 +20,7 @@ default:
     max_workers: 4                    # Parallel workers (1-10)
     api_delay: 0.1                    # Seconds between API calls
     write_buffer_batches: 3           # Batches before writing to sheets
+    price_freshness_window_seconds: 21600  # Skip price refresh for cards checked within this window (0 = always refresh)
   
   api:
     scryfall:

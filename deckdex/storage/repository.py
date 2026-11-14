@@ -1,6 +1,8 @@
 """Collection repository: abstract interface and Postgres implementation."""
 
 from abc import ABC, abstractmethod
+from dataclasses import dataclass
+from datetime import datetime
 from typing import Any, Dict, List, Optional, Tuple
 
 from loguru import logger
@@ -95,6 +97,16 @@ def _card_to_row(card: Dict[str, Any]) -> Dict[str, Any]:
         "tier": card.get("tier"),
         "quantity": int(card.get("quantity") or 1),
     }
+
+
+@dataclass(frozen=True)
+class PriceUpdate:
+    """One looked-up card: its (possibly new) price and when it was checked."""
+
+    card_id: int
+    price: Optional[str]
+    checked_at: datetime
+    price_changed: bool
 
 
 class CollectionRepository(ABC):
@@ -268,6 +280,14 @@ class CollectionRepository(ABC):
     ) -> None:
         """Insert a price observation into price_history. No-op for non-Postgres repos."""
         pass
+
+    def bulk_update_prices(self, updates: List[PriceUpdate]) -> int:
+        """Write prices (only where price_changed) and last-checked stamps. Returns rows updated. No-op for non-Postgres repos."""
+        return 0
+
+    def get_price_last_checked(self, card_ids: List[int]) -> Dict[int, Optional[datetime]]:
+        """Return {card_id: price_last_checked_at or None}. Empty for non-Postgres repos."""
+        return {}
 
     def get_price_history(
         self,
@@ -887,6 +907,50 @@ class PostgresCollectionRepository(CollectionRepository):
                 {"card_id": card_id, "price": price, "source": source, "currency": currency},
             )
             conn.commit()
+
+    def bulk_update_prices(self, updates: List[PriceUpdate]) -> int:
+        if not updates:
+            return 0
+        from sqlalchemy import text
+
+        placeholders = []
+        params: Dict[str, Any] = {}
+        for i, update in enumerate(updates):
+            placeholders.append(
+                f"(CAST(:id{i} AS integer), CAST(:price{i} AS text), CAST(:checked{i} AS timestamptz), CAST(:changed{i} AS boolean))"
+            )
+            params[f"id{i}"] = update.card_id
+            params[f"price{i}"] = update.price
+            params[f"checked{i}"] = update.checked_at
+            params[f"changed{i}"] = update.price_changed
+        values = ", ".join(placeholders)
+        engine = self._get_engine()
+        with engine.connect() as conn:
+            result = conn.execute(
+                text(f"""
+                    UPDATE cards
+                    SET price_eur = CASE WHEN v.changed THEN v.price ELSE cards.price_eur END,
+                        price_last_checked_at = v.checked_at
+                    FROM (VALUES {values}) AS v(id, price, checked_at, changed)
+                    WHERE cards.id = v.id
+                """),
+                params,
+            )
+            conn.commit()
+            return result.rowcount
+
+    def get_price_last_checked(self, card_ids: List[int]) -> Dict[int, Optional[datetime]]:
+        if not card_ids:
+            return {}
+        from sqlalchemy import text
+
+        engine = self._get_engine()
+        with engine.connect() as conn:
+            rows = conn.execute(
+                text("SELECT id, price_last_checked_at FROM cards WHERE id = ANY(:ids)"),
+                {"ids": list(card_ids)},
+            ).fetchall()
+        return {r[0]: r[1] for r in rows}
 
     def get_price_history(
         self,

@@ -33,6 +33,12 @@ class JobResponse(BaseModel):
     message: str
 
 
+class UpdatePricesRequest(BaseModel):
+    """Optional body for the price update trigger"""
+
+    force: bool = False
+
+
 class JobStatus(BaseModel):
     """Job status model"""
 
@@ -229,10 +235,13 @@ async def trigger_process(
 @router.post("/prices/update", response_model=JobResponse)
 @limiter.limit("5/minute")
 async def trigger_price_update(
-    request: Request, background_tasks: BackgroundTasks, user_id: int = Depends(get_current_user_id)
+    request: Request,
+    background_tasks: BackgroundTasks,
+    body: Optional[UpdatePricesRequest] = None,
+    user_id: int = Depends(get_current_user_id),
 ):
     """
-    Trigger price update job.
+    Trigger price update job. Body `force` bypasses the freshness window.
     Only one update_prices job at a time; full process can run in parallel.
     """
     logger.info("POST /api/prices/update")
@@ -274,10 +283,11 @@ async def trigger_price_update(
 
     service.progress_callback = progress_callback
     _active_jobs[job_id] = service
+    force = body.force if body else False
 
     async def run_update():
         try:
-            result = await service.update_prices_async()
+            result = await service.update_prices_async(force=force)
             _job_results[job_id] = (result, time.monotonic())
             if result.get("status") == "success":
                 clear_collection_cache()

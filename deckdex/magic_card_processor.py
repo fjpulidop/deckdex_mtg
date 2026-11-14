@@ -1,9 +1,10 @@
 import csv
 import os
 import random
+import threading
 import time
 from concurrent.futures import ThreadPoolExecutor
-from datetime import datetime
+from datetime import datetime, timezone
 from functools import lru_cache
 from typing import Any, Dict, List, Optional, Tuple
 
@@ -14,6 +15,10 @@ from tqdm import tqdm
 from .card_fetcher import CardFetcher
 from .config import ClientFactory, ProcessorConfig
 from .storage import get_collection_repository
+from .storage.repository import PriceUpdate
+
+# Names per grouped Scryfall lookup (the /cards/collection maximum).
+GROUPED_LOOKUP_SIZE = CardFetcher.COLLECTION_MAX_IDENTIFIERS
 
 
 # ANSI colors for terminal
@@ -30,6 +35,11 @@ class Colors:
 
 
 class MagicCardProcessor:
+    # Class-level defaults; update_prices_data_repo rebinds them per run (never mutated in place).
+    requests_made: int = 0
+    price_stats: Dict[str, Any] = {}
+    _requests_lock = threading.Lock()
+
     def __init__(self, config: ProcessorConfig):
         """Initialize MagicCardProcessor with configuration.
 
@@ -103,25 +113,87 @@ class MagicCardProcessor:
             time.sleep(self.config.processing.api_delay)
         return updated_data
 
+    def _count_requests(self, amount: int) -> None:
+        with self._requests_lock:
+            self.requests_made += amount
+
+    @staticmethod
+    def _card_name_keys(card: Dict[str, Any]) -> List[str]:
+        """Lower-cased full name and front face (for 'A // B') used to match a result to a requested name."""
+        full_name = (card.get("name") or "").lower()
+        return [full_name, full_name.split(" // ")[0]]
+
+    def _fetch_card_prices_grouped(self, card_names: List[str]) -> Dict[str, Optional[Dict[str, Any]]]:
+        """
+        Resolve card data for many names with one request per GROUPED_LOOKUP_SIZE names.
+        Names Scryfall cannot resolve in bulk (and every name of a chunk whose request failed)
+        fall back to the per-name lookup. Returns {name: card_data or None}.
+        """
+        results: Dict[str, Optional[Dict[str, Any]]] = {}
+        unique_names = list(dict.fromkeys(card_names))
+        for start in range(0, len(unique_names), GROUPED_LOOKUP_SIZE):
+            chunk = unique_names[start : start + GROUPED_LOOKUP_SIZE]
+            found_by_key: Dict[str, Dict[str, Any]] = {}
+            self._count_requests(1)
+            try:
+                found_cards, _not_found = self.card_fetcher.get_cards_collection(chunk)
+                for card in found_cards:
+                    for key in self._card_name_keys(card):
+                        found_by_key.setdefault(key, card)
+            except Exception as e:
+                logger.warning(f"Grouped price lookup failed, falling back to per-card lookups: {e}")
+            time.sleep(self.config.processing.api_delay)
+            for name in chunk:
+                card = found_by_key.get(name.lower())
+                if card is None:
+                    self._count_requests(1)
+                    card = self._fetch_card_data(name)
+                results[name] = card
+        return results
+
     def _update_prices_batch_repo(
         self, cards: List[Tuple[int, str, str]], start_idx: int, batch_size: int
-    ) -> List[Tuple[int, str, str]]:
+    ) -> Tuple[List[PriceUpdate], List[Tuple[int, str]]]:
         """
-        Process a batch of cards for price updates (Repo path: card_id, name, new_price).
+        Look up one slice of cards with grouped requests (Repo path).
         cards: list of (card_id, card_name, current_price_str).
-        Returns: list of (card_id, card_name, new_price) for changed prices.
+        Returns: (PriceUpdate for every card whose lookup succeeded, (card_id, "N/A") writes for failed lookups
+        whose stored price differs).
         """
-        updated_data = []
-        for i, (card_id, card_name, current_price) in enumerate(
-            cards[start_idx : start_idx + batch_size], start=start_idx
-        ):
-            data = self._fetch_card_data(card_name)
-            new_price_raw = data.get("prices", {}).get("eur") if data else None
-            new_price = self._process_price(new_price_raw)
-            if new_price != current_price:
-                updated_data.append((card_id, card_name, new_price))
-            time.sleep(self.config.processing.api_delay)
-        return updated_data
+        batch = cards[start_idx : start_idx + batch_size]
+        card_data_by_name = self._fetch_card_prices_grouped([name for _id, name, _price in batch])
+        checked_at = datetime.now(timezone.utc)
+        updates: List[PriceUpdate] = []
+        failed_writes: List[Tuple[int, str]] = []
+        for card_id, card_name, current_price in batch:
+            data = card_data_by_name.get(card_name)
+            new_price = self._process_price(data.get("prices", {}).get("eur") if data else None)
+            if data is None:
+                if new_price != current_price:
+                    failed_writes.append((card_id, new_price))
+                continue
+            updates.append(PriceUpdate(card_id, new_price, checked_at, new_price != current_price))
+        return updates, failed_writes
+
+    def _select_stale_cards(
+        self,
+        cards: List[Tuple[int, str, str]],
+        last_checked: Dict[int, Optional[datetime]],
+        freshness_window_seconds: int,
+        force: bool,
+        now: datetime,
+    ) -> Tuple[List[Tuple[int, str, str]], int]:
+        """Split cards into those needing a lookup and a count of fresh ones skipped."""
+        if force or freshness_window_seconds == 0:
+            return list(cards), 0
+        stale = []
+        for card in cards:
+            checked_at = last_checked.get(card[0])
+            if checked_at is not None and checked_at.tzinfo is None:
+                checked_at = checked_at.replace(tzinfo=timezone.utc)
+            if checked_at is None or (now - checked_at).total_seconds() > freshness_window_seconds:
+                stale.append(card)
+        return stale, len(cards) - len(stale)
 
     def _print_error_counter(self, phase: str = "search") -> None:
         """
@@ -297,9 +369,10 @@ class MagicCardProcessor:
             return
         self.update_prices_data_repo(cards)
 
-    def update_prices_data_repo(self, cards: List[Tuple[int, str, str]]) -> None:
+    def update_prices_data_repo(self, cards: List[Tuple[int, str, str]], skipped_fresh: int = 0) -> None:
         """
         Update prices using the collection repository (Postgres). cards: list of (card_id, name, current_price_str).
+        skipped_fresh: cards already excluded as fresh by the caller, reported in price_stats.
         """
         if not self.collection_repository:
             raise RuntimeError("collection_repository not set")
@@ -308,35 +381,52 @@ class MagicCardProcessor:
         self.error_count = 0
         self.last_error_count = 0
         self.not_found_cards = []
+        self.requests_made = 0
         total_cards = len(cards)
+        cards_checked = 0
         total_prices_updated = 0
+
+        def publish_stats() -> None:
+            self.price_stats = {
+                "cards_checked": cards_checked,
+                "skipped_fresh": skipped_fresh,
+                "prices_changed": total_prices_updated,
+                "requests_made": self.requests_made,
+                "elapsed_seconds": (datetime.now() - start_time).total_seconds(),
+            }
+
+        publish_stats()
         print(f"{Colors.BOLD}Cards not found: 0{Colors.END}", end="", flush=True)
         with tqdm(total=total_cards, desc="Verifying prices", unit="cards") as pbar:
             with ThreadPoolExecutor(max_workers=self.config.processing.max_workers) as executor:
                 futures = []
-                for i in range(0, len(cards), self.config.processing.batch_size):
-                    futures.append(
-                        executor.submit(
-                            self._update_prices_batch_repo,
-                            cards,
-                            i,
-                            self.config.processing.batch_size,
-                        )
-                    )
+                for i in range(0, total_cards, GROUPED_LOOKUP_SIZE):
+                    futures.append(executor.submit(self._update_prices_batch_repo, cards, i, GROUPED_LOOKUP_SIZE))
                 for future in futures:
-                    batch_results = future.result()
-                    for card_id, _name, new_price in batch_results:
-                        self.collection_repository.update(card_id, {"price_eur": new_price})
+                    updates, failed_writes = future.result()
+                    self.collection_repository.bulk_update_prices(updates)
+                    for update in updates:
+                        if not update.price_changed:
+                            continue
+                        total_prices_updated += 1
                         try:
-                            price_val = float(str(new_price).replace(",", "."))
-                            self.collection_repository.record_price_history(card_id, price_val)
+                            price_val = float(str(update.price).replace(",", "."))
+                            self.collection_repository.record_price_history(update.card_id, price_val)
                         except (ValueError, TypeError):
                             pass  # Non-numeric price — skip history entry
+                    for card_id, new_price in failed_writes:
+                        self.collection_repository.update(card_id, {"price_eur": new_price})
                         total_prices_updated += 1
-                    pbar.update(min(self.config.processing.batch_size, total_cards - pbar.n))
+                    chunk_size = min(GROUPED_LOOKUP_SIZE, total_cards - cards_checked)
+                    cards_checked += chunk_size
+                    publish_stats()
+                    pbar.update(chunk_size)
+        publish_stats()
         if self.error_count > 0:
             print(f"\n{Colors.BOLD}{Colors.RED}Total cards not found: {self.error_count}{Colors.END}")
-        if total_prices_updated > 0:
+        if cards_checked == 0:
+            print(f"\n{Colors.BOLD}{Colors.GREEN}✅ Nothing to update: {skipped_fresh} cards are fresh{Colors.END}")
+        elif total_prices_updated > 0:
             print(
                 f"\n{Colors.BOLD}{Colors.GREEN}✅ Completed: {total_cards} cards verified, {total_prices_updated} prices updated{Colors.END}"
             )
@@ -642,13 +732,24 @@ class MagicCardProcessor:
 
         logger.info("Card processing completed successfully")
 
-    def process_card_data(self) -> None:
-        """Main processing method. Uses collection repository (Postgres) when configured; else Spreadsheet."""
+    def process_card_data(self, force: bool = False) -> None:
+        """Main processing method. Uses collection repository (Postgres) when configured; else Spreadsheet.
+
+        force: on the Postgres price update, look up every card even if recently checked.
+        """
         try:
             if self.update_prices:
                 if self.collection_repository:
                     cards = self.collection_repository.get_cards_for_price_update()
-                    self.update_prices_data_repo(cards)
+                    last_checked = self.collection_repository.get_price_last_checked([c[0] for c in cards])
+                    stale_cards, skipped_fresh = self._select_stale_cards(
+                        cards,
+                        last_checked,
+                        self.config.processing.price_freshness_window_seconds,
+                        force,
+                        datetime.now(timezone.utc),
+                    )
+                    self.update_prices_data_repo(stale_cards, skipped_fresh=skipped_fresh)
                 else:
                     cards = self.spreadsheet_client.get_all_cards_prices()
                     self.update_prices_data(cards)

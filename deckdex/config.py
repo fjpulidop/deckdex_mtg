@@ -13,12 +13,15 @@ class ProcessingConfig:
         max_workers: Number of parallel ThreadPoolExecutor workers (1-10)
         api_delay: Delay in seconds between API requests
         write_buffer_batches: Number of batches to buffer before writing to sheets
+        price_freshness_window_seconds: Cards whose price was checked within this many
+            seconds are skipped by the price refresh (0 = always refresh; default 6 h)
     """
 
     batch_size: int = 20
     max_workers: int = 4
     api_delay: float = 0.1
     write_buffer_batches: int = 3
+    price_freshness_window_seconds: int = 21600
 
     def __post_init__(self):
         """Validate processing configuration parameters."""
@@ -30,6 +33,8 @@ class ProcessingConfig:
             raise ValueError("api_delay must be >= 0")
         if self.write_buffer_batches < 1:
             raise ValueError("write_buffer_batches must be >= 1")
+        if self.price_freshness_window_seconds < 0:
+            raise ValueError("price_freshness_window_seconds must be >= 0")
 
 
 @dataclass
