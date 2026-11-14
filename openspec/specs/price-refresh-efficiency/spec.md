@@ -48,6 +48,12 @@ The bulk refresh SHALL resolve prices for stale cards through grouped lookups, n
 #### Scenario: Grouped request fails
 - **WHEN** a grouped request fails
 - **THEN** the cards in that group are looked up individually and the job continues
+- **AND** a warning records the grouped error, including available Scryfall response status and detail
+
+#### Scenario: Grouped rate limit exhausts retries
+- **WHEN** a grouped lookup still returns 429 after its configured retry budget
+- **THEN** every card in that group falls back to an individual lookup
+- **AND** the grouped warning includes the available 429 response detail
 
 ### Requirement: Price and history writes
 The refresh SHALL persist a changed price together with the checked timestamp, and SHALL add exactly one price history row per card whose price changed to a numeric value.
