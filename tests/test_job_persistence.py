@@ -8,7 +8,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 from fastapi.testclient import TestClient
 
-from backend.api.dependencies import get_current_user_id, get_job_repo
+from backend.api.dependencies import get_current_user_id
 from backend.api.main import app
 
 # ---------------------------------------------------------------------------
@@ -224,22 +224,23 @@ class TestJobHistoryRouteOrdering(unittest.TestCase):
 
     def tearDown(self):
         app.dependency_overrides.pop(get_current_user_id, None)
-        app.dependency_overrides.pop(get_job_repo, None)
 
-    def test_history_route_is_reachable(self):
+    @patch("backend.api.routes.process.get_job_repo")
+    def test_history_route_is_reachable(self, mock_get_job_repo):
         """/api/jobs/history returns 200 (not intercepted by /{job_id})."""
         mock_repo = MagicMock()
         mock_repo.get_job_history.return_value = []
-        app.dependency_overrides[get_job_repo] = lambda: mock_repo
+        mock_get_job_repo.return_value = mock_repo
 
         response = self.client.get("/api/jobs/history")
 
         self.assertEqual(response.status_code, 200)
         self.assertIsInstance(response.json(), list)
+        mock_repo.get_job_history.assert_called_once_with(1, limit=50)
 
-    def test_history_route_returns_list_without_db(self):
+    @patch("backend.api.routes.process.get_job_repo", return_value=None)
+    def test_history_route_returns_list_without_db(self, mock_get_job_repo):
         """/api/jobs/history returns empty list when no DB configured."""
-        app.dependency_overrides[get_job_repo] = lambda: None
 
         response = self.client.get("/api/jobs/history")
 
